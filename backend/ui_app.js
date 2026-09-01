@@ -4057,7 +4057,14 @@ async function triggerSimulatedScan(){
   const now = new Date();
   const time = now.toTimeString().slice(0, 8);
   const date = todayISO();
-  window.handleRealScan(fid, { status: "Present", time, date, student: s });
+  try{
+    const res = await api("/api/scan", { method:"POST", body: JSON.stringify({ studentId: s.id, time, date }) });
+    const status = (res && res.status) ? statusUI(res.status) : computeStatus(time, s);
+    window.handleRealScan(fid, { status, time, date, student: s, seq: res && res.seq });
+  }catch(e){
+    const status = computeStatus(time, s);
+    window.handleRealScan(fid, { status, time, date, student: s });
+  }
 }
 
 if(scannerStageEl){

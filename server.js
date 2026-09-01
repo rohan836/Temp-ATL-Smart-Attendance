@@ -288,18 +288,18 @@ function getWorkingDaysForStudent(student, s) {
       if (batchSchedules[key]) {
         const v = batchSchedules[key];
         if (v && typeof v === "object" && v.workingDays) return v.workingDays;
-        if (v && typeof v === "object") return v;
+        if (v && typeof v === "object" && !v.startTime) return v;
       }
     }
     if (batch && batchSchedules[batch]) {
       const v = batchSchedules[batch];
       if (v && typeof v === "object" && v.workingDays) return v.workingDays;
-      if (v && typeof v === "object") return v;
+      if (v && typeof v === "object" && !v.startTime) return v;
     }
     if (grade && classSchedules[grade]) {
       const v = classSchedules[grade];
       if (v && typeof v === "object" && v.workingDays) return v.workingDays;
-      if (v && typeof v === "object") return v;
+      if (v && typeof v === "object" && !v.startTime) return v;
     }
   }
   return s.workingDays || defaultSettings.workingDays;
@@ -372,8 +372,9 @@ function isStudentScheduled(dateIso, student, s) {
   }
 }
 
-function classifyTime(timeStr, s) {
-  let p = s.presentCutoff || "08:00";
+function classifyTime(timeStr, student, s) {
+  const timing = getScheduleTimingForStudent(student, s);
+  let p = timing.startTime || s.presentCutoff || "08:00";
   if (p.length === 5) p += ":00";
   return timeStr <= p ? "PRESENT" : "LATE";
 }
@@ -669,40 +670,43 @@ app.get("/api/students/:id", (req, res) => {
   });
 });
 
-app.patch("/api/students/:id", (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const stu = students.find(s => s.id === id);
-  if (!stu) return res.status(404).json({ error: "not found" });
+app.all(["/api/students/:id"], (req, res, next) => {
+  if (req.method === "PUT" || req.method === "PATCH") {
+    const id = parseInt(req.params.id, 10);
+    const stu = students.find(s => s.id === id);
+    if (!stu) return res.status(404).json({ error: "not found" });
 
-  const body = req.body || {};
-  const allowed = ["photo", "phone", "address", "name", "roll", "grade", "batch", "section", "parent", "active"];
+    const body = req.body || {};
+    const allowed = ["photo", "phone", "address", "name", "roll", "grade", "batch", "section", "parent", "active"];
 
-  if (body.roll && body.roll.trim().toLowerCase() !== stu.roll.toLowerCase()) {
-    const dup = students.find(s => s.id !== id && s.active && s.roll.toLowerCase() === body.roll.trim().toLowerCase());
-    if (dup) return res.status(400).json({ error: "roll number already in use" });
-  }
-
-  for (const k of allowed) {
-    if (body[k] !== undefined) {
-      stu[k] = body[k];
+    if (body.roll && body.roll.trim().toLowerCase() !== stu.roll.toLowerCase()) {
+      const dup = students.find(s => s.id !== id && s.active && s.roll.toLowerCase() === body.roll.trim().toLowerCase());
+      if (dup) return res.status(400).json({ error: "roll number already in use" });
     }
-  }
 
-  if (stu.grade && !settings.classes.includes(stu.grade)) {
-    settings.classes.push(stu.grade);
-  }
-  if (stu.batch && !settings.batches.includes(stu.batch)) {
-    settings.batches.push(stu.batch);
-  }
+    for (const k of allowed) {
+      if (body[k] !== undefined) {
+        stu[k] = body[k];
+      }
+    }
 
-  auditLogs.push({
-    id: crypto.randomUUID(),
-    at: nowIST(),
-    action: "STUDENT_UPDATED",
-    details: `Updated info for ${stu.name}`
-  });
+    if (stu.grade && !settings.classes.includes(stu.grade)) {
+      settings.classes.push(stu.grade);
+    }
+    if (stu.batch && !settings.batches.includes(stu.batch)) {
+      settings.batches.push(stu.batch);
+    }
 
-  res.json(stu);
+    auditLogs.push({
+      id: crypto.randomUUID(),
+      at: nowIST(),
+      action: "STUDENT_UPDATED",
+      details: `Updated info for ${stu.name}`
+    });
+
+    return res.json(stu);
+  }
+  next();
 });
 
 app.delete("/api/students/:id", (req, res) => {
@@ -850,8 +854,8 @@ app.post("/api/scan", (req, res) => {
   const body = req.body || {};
   let studentId = body.studentId;
   const isUnknown = Boolean(body.isUnknown);
-  const date = todayIST();
-  const time = nowTimeIST();
+  const date = (body.date && typeof body.date === "string") ? body.date : todayIST();
+  const time = (body.time && typeof body.time === "string") ? body.time : nowTimeIST();
 
   if (isUnknown) {
     const eventId = crypto.randomUUID();
@@ -978,7 +982,7 @@ app.post("/api/scan", (req, res) => {
     });
   }
 
-  const st = classifyTime(time, settings);
+  const st = classifyTime(time, stu, settings);
   daily.status = st;
   daily.firstScan = daily.firstScan || time;
   daily.lastScan = time;
@@ -1046,25 +1050,14 @@ app.get("/api/scan/last", (req, res) => {
 // 6. Absence Reconciliation
 app.post("/api/reconcile", (req, res) => {
   const date = (req.body && req.body.date) || todayIST();
-
-  if (date === todayIST()) {
-    const nowT = nowTimeIST();
-    let late = settings.lateCutoff || "08:30";
-    if (late.length === 5) late += ":00";
-    if (nowT < late) {
-      return res.json({
-        working: true,
-        marked: 0,
-        notScheduled: 0,
-        reason: "BEFORE_CUTOFF",
-        cutoff: late,
-        now: nowT
-      });
-    }
-  }
+  const isToday = (date === todayIST());
+  const nowT = nowTimeIST();
+  let defaultLate = settings.lateCutoff || "08:30";
+  if (defaultLate.length === 5) defaultLate += ":00";
 
   let marked = 0;
   let notScheduled = 0;
+  let skippedBeforeCutoff = 0;
 
   const activeStudents = students.filter(s => s.active);
   for (const stu of activeStudents) {
@@ -1095,6 +1088,17 @@ app.post("/api/reconcile", (req, res) => {
       }
     } else {
       if (!cur || !cur.status) {
+        // For today, check if student's specific cutoff has passed
+        if (isToday) {
+          const timing = getScheduleTimingForStudent(stu, settings);
+          let studentCutoff = timing.endTime || settings.lateCutoff || "08:30";
+          if (studentCutoff.length === 5) studentCutoff += ":00";
+          if (nowT < studentCutoff) {
+            skippedBeforeCutoff++;
+            continue; // Student's window is not yet over
+          }
+        }
+
         const d = ensureDaily(date, stu.id);
         d.status = "ABSENT";
         d.firstScan = null;
@@ -1127,12 +1131,24 @@ app.post("/api/reconcile", (req, res) => {
     }
   }
 
+  if (marked === 0 && skippedBeforeCutoff > 0 && notScheduled === 0) {
+    return res.json({
+      working: true,
+      marked: 0,
+      notScheduled: 0,
+      skippedBeforeCutoff,
+      reason: "BEFORE_CUTOFF",
+      cutoff: defaultLate,
+      now: nowT
+    });
+  }
+
   if (marked || notScheduled) {
     auditLogs.push({
       id: crypto.randomUUID(),
       at: nowIST(),
-      action: "ABSENCE_RECONCILIATION",
-      details: `${marked} absent, ${notScheduled} not_scheduled for ${date}`
+      action: "RECONCILIATION_RUN",
+      details: `${date} -> ${marked} absent, ${notScheduled} not scheduled, ${skippedBeforeCutoff} skipped before cutoff`
     });
   }
 
@@ -1141,6 +1157,8 @@ app.post("/api/reconcile", (req, res) => {
     working: Boolean(anyScheduled || isWorkingDay(date, settings)),
     marked,
     notScheduled,
+    skippedBeforeCutoff,
+    now: nowT,
     date
   });
 });
