@@ -191,7 +191,9 @@ async function loadClassesHolidaysSettings(){
     const set=(id,v)=>{ const el=$(id); if(el&&v!=null) el.value=v; };
     set("setSchoolName", Settings.schoolName);
     set("setSchoolAddress", Settings.address);
-    set("setLateThreshold", Settings.lateAfter);
+    set("setPresentCutoff", Settings.presentCutoff || "08:00");
+    set("setLateCutoff", Settings.lateCutoff || Settings.lateAfter || "08:30");
+    set("setLateThreshold", Settings.lateCutoff || Settings.lateAfter || "08:30");
     set("setAcademicYear", Settings.academicYear);
     set("setAttendanceStart", Settings.startDate);
     // ensure calendars reflect persisted per-class/batch schedules
@@ -1818,14 +1820,22 @@ function renderCalendarMonth(){
   const selectedClass = sel ? sel.value : "";
   const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
   let html=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="calendar-cell head">${d}</div>`).join("");
-  for(let i=0;i<first;i++) html+=`<div class="calendar-cell"></div>`;
+  for(let i=0;i<first;i++) html+=`<div class="calendar-cell empty"></div>`;
   for(let d=1;d<=last;d++){
     const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const hol=isHoliday(iso), ov=getOverride(iso), todayCls=iso===todayISO()?" today":"";
     const working = selectedClass ? isWorkingDayForClass(iso, selectedClass) : isWorkingDayUI(iso);
-    const typeCls=ov?"override":(hol?(hol.type==="vacation"?"vacation":"holiday"):(working?"working":"holiday"));
-    const tag=ov?esc(ov.note):hol?esc(hol.name):(working?"Working":"Non-working");
-    html+=`<div class="calendar-cell ${typeCls}${todayCls}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
+    const stateCls = working ? "working" : "non-working";
+    let extraCls = "";
+    if(ov) extraCls = " override";
+    else if(hol) extraCls = hol.type === "vacation" ? " vacation" : " holiday";
+
+    let tag = "";
+    if(ov) tag = esc(ov.note || (working ? "Working Override" : "Holiday Override"));
+    else if(hol) tag = esc(hol.name);
+    else tag = working ? "Working" : "Non-working";
+
+    html+=`<div class="calendar-cell ${stateCls}${extraCls}${todayCls}"><span class="day">${d}</span><span class="tag" title="${tag}">${tag}</span></div>`;
   }
   calendarGrid.innerHTML=html;
 }
@@ -3044,24 +3054,41 @@ function printHTML(htmlContent){
 
 // ---- events ----
 function openAdmin(){
-  const titles={students:"Students", today:"Today — Attendance", reports:"Reports", calendar:"Calendar — Schedule", settings:"Settings", backup:"Backup — Audit"};
+  const titles={students:"Students", today:"Today — Attendance", reports:"Reports", setup:"Setup — School Configuration & Schedule", calendar:"Setup", settings:"Setup", backup:"Backup — Audit"};
   if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
   // show loading briefly while data refreshes
-  const pane=document.getElementById("pane-"+currentTab);
+  let activeTab = currentTab;
+  if(activeTab === "calendar" || activeTab === "settings") activeTab = "setup";
+  const pane=document.getElementById("pane-"+activeTab);
   if(pane) pane.style.opacity="0.6";
   pauseSensorScan(); adminLayer.classList.add("open"); renderAll();
   setTimeout(()=>{ if(pane) pane.style.opacity=""; updateTabs(); }, 80);
 }
 function updateTabs(){
   document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
-  const pane=document.getElementById("pane-"+currentTab); if(pane){ pane.classList.remove("hidden"); pane.style.opacity=""; }
-  const titles={students:"Students", today:"Today — Attendance", reports:"Reports", calendar:"Calendar — Schedule", settings:"Settings", backup:"Backup — Audit"};
-  if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
-  if(currentTab==="today") renderToday();
-  if(currentTab==="reports") renderReports();
-  if(currentTab==="calendar"){ renderHolidays(); renderOverrides(); renderCalendarMonth(); }
-  if(currentTab==="settings") renderClasses();
-  if(currentTab==="backup") renderAudit();
+  let activeTab = currentTab;
+  if(activeTab === "calendar" || activeTab === "settings") activeTab = "setup";
+  const pane=document.getElementById("pane-"+activeTab); if(pane){ pane.classList.remove("hidden"); pane.style.opacity=""; }
+  const titles={students:"Students", today:"Today — Attendance", reports:"Reports", setup:"Setup — School Configuration & Schedule", calendar:"Setup", settings:"Setup", backup:"Backup — Audit"};
+  if(adminTitle) adminTitle.textContent=titles[activeTab]||"Admin";
+  if(activeTab==="today") renderToday();
+  if(activeTab==="reports") renderReports();
+  if(activeTab==="setup" || activeTab==="calendar" || activeTab==="settings"){
+    renderClasses();
+    renderWeekly();
+    renderHolidays();
+    renderOverrides();
+    renderCalendarMonth();
+    const set=(id,v)=>{ const el=$(id); if(el&&v!=null) el.value=v; };
+    set("setSchoolName", Settings.schoolName);
+    set("setSchoolAddress", Settings.address);
+    set("setPresentCutoff", Settings.presentCutoff || "08:00");
+    set("setLateCutoff", Settings.lateCutoff || Settings.lateAfter || "08:30");
+    set("setLateThreshold", Settings.lateCutoff || Settings.lateAfter || "08:30");
+    set("setAcademicYear", Settings.academicYear);
+    set("setAttendanceStart", Settings.startDate);
+  }
+  if(activeTab==="backup") renderAudit();
 }
 document.getElementById("openAdminBtn").onclick=openAdmin;
 const _frontEnrollBtn=document.getElementById("openEnrollBtn"); if(_frontEnrollBtn) _frontEnrollBtn.onclick=openNewStudent;
@@ -3534,10 +3561,13 @@ $("addClassBtn").onclick=async()=>{
 $("settingsSaveBtn").onclick=async()=>{
   try{
     const start=$("setAttendanceStart")?$("setAttendanceStart").value:"";
+    const presentVal = $("setPresentCutoff") ? $("setPresentCutoff").value : (Settings.presentCutoff || "08:00");
+    const lateVal = $("setLateCutoff") ? $("setLateCutoff").value : ($("setLateThreshold") ? $("setLateThreshold").value : (Settings.lateCutoff || "08:30"));
     await api("/api/settings",{method:"POST",body:JSON.stringify({
       schoolName:$("setSchoolName").value.trim(),
       address:$("setSchoolAddress").value.trim(),
-      lateCutoff:$("setLateThreshold").value||"08:30",
+      presentCutoff: presentVal || "08:00",
+      lateCutoff: lateVal || "08:30",
       academicYear:$("setAcademicYear").value,
       attendanceStartDate: start || undefined,
       schoolOpeningDate: start || undefined
@@ -3546,7 +3576,19 @@ $("settingsSaveBtn").onclick=async()=>{
     await loadClassesHolidaysSettings(); renderAll();
   }catch(e){ alert("Failed: "+e.message); }
 };
-$("settingsExportBtn").onclick=()=>exportCSV([["Field","Value"],["School name",$("setSchoolName").value],["Address",$("setSchoolAddress").value],["Late threshold",$("setLateThreshold").value],["Academic year",$("setAcademicYear").value]],"school-settings.csv");
+$("settingsExportBtn").onclick=()=>{
+  const presentVal = $("setPresentCutoff") ? $("setPresentCutoff").value : (Settings.presentCutoff || "08:00");
+  const lateVal = $("setLateCutoff") ? $("setLateCutoff").value : ($("setLateThreshold") ? $("setLateThreshold").value : (Settings.lateCutoff || "08:30"));
+  exportCSV([
+    ["Field","Value"],
+    ["School name",$("setSchoolName").value],
+    ["Address",$("setSchoolAddress").value],
+    ["Present cutoff",presentVal],
+    ["Late cutoff",lateVal],
+    ["Academic year",$("setAcademicYear").value],
+    ["Attendance start date",$("setAttendanceStart")?$("setAttendanceStart").value:""]
+  ],"school-settings.csv");
+};
 $("backupDownloadBtn").onclick=()=>{
   fetch("/api/backup",{cache:"no-store"}).then(r=>{ if(!r.ok) throw 0; return r.blob(); }).then(b=>{
     const url=URL.createObjectURL(b), a=document.createElement('a'); a.href=url; a.download="atl-backup-"+todayISO()+".db"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);

@@ -22,7 +22,7 @@ Schedule only — not events. Weekly toggles control global working days (Sunday
 
 ## Settings
 
-Single source for school identity: name, address, late threshold, academic year, and attendance start date. Classes are listed with student counts; adding a class here also makes it available during enrollment. Validation enforces `presentCutoff ≤ lateCutoff` and ISO dates.
+Single source for school identity and attendance rules: name, address, Present cutoff (scans on or before this time are marked Present), Late cutoff (cutoff used for late classification and absence reconciliation), academic year, and attendance start date. Classes are listed with student counts; adding a class here also makes it available during enrollment. Validation enforces `presentCutoff ≤ lateCutoff` and ISO dates.
 
 ## Backup
 

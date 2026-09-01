@@ -139,13 +139,24 @@ tr:hover td{background:var(--paper)}
 .stat label{display:block;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
 /* Calendar */
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);background:#fff;overflow:hidden}
-.calendar-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:68px;padding:8px;position:relative;overflow:hidden}
+.calendar-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:50px;padding:6px 8px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;box-sizing:border-box;background:#FFFFFF;color:var(--ink);transition:background 120ms ease}
 .calendar-cell:nth-child(7n){border-right:0}
-.calendar-cell.head{min-height:auto;background:var(--paper);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--ink-3);padding:10px 8px}
-.calendar-cell .day{font-family:var(--mono);font-size:11px}
-.calendar-cell.working{background:#fff} .calendar-cell.holiday{background:#FFF8F6} .calendar-cell.vacation{background:#F5F2EB} .calendar-cell.override{outline:1px solid var(--ink);outline-offset:-1px}
-.calendar-cell.today{box-shadow:inset 0 0 0 1px var(--ink)}
-.calendar-cell .tag{position:absolute;bottom:6px;left:6px;right:6px;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.calendar-cell.empty{background:#FAF9F6;min-height:50px}
+.calendar-cell.head{min-height:auto;background:var(--paper);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--ink-3);padding:6px 8px;display:block;border-bottom:1px solid var(--line)}
+.calendar-cell .day{font-family:var(--mono);font-size:11px;font-weight:500;line-height:1.2}
+.calendar-cell .tag{font-size:8px;letter-spacing:0.07em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;margin-top:auto}
+.calendar-cell.working{background:#FFFFFF;color:var(--ink)}
+.calendar-cell.working .day{color:var(--ink)}
+.calendar-cell.working .tag{color:var(--ink-2)}
+.calendar-cell.non-working{background:#0A0A0A;color:#FFFFFF;border-right-color:#1F1F1F;border-bottom-color:#1F1F1F}
+.calendar-cell.non-working .day{color:#FFFFFF}
+.calendar-cell.non-working .tag{color:rgba(255,255,255,0.72)}
+.calendar-cell.override.working{outline:1px solid #0A0A0A;outline-offset:-1px}
+.calendar-cell.override.non-working{outline:1px solid rgba(255,255,255,0.45);outline-offset:-1px}
+.calendar-cell.today.working{box-shadow:inset 0 0 0 2px #0A0A0A}
+.calendar-cell.today.working .day{font-weight:700}
+.calendar-cell.today.non-working{box-shadow:inset 0 0 0 2px #FFFFFF}
+.calendar-cell.today.non-working .day{font-weight:700}
 .weekly-schedule-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:12px 0}
 @media(max-width:860px){.weekly-schedule-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:540px){.weekly-schedule-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -216,6 +227,7 @@ tr:hover td{background:var(--paper)}
 .form-field textarea{height:68px;padding:10px 12px;resize:vertical}
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:#0A0A0A!important;background:#FFFFFF;box-shadow:0 0 0 2px rgba(10,10,10,0.08)!important;outline:0!important}
 .form-field input::placeholder,.form-field textarea::placeholder{color:#B5B1A8}
+.form-hint{font-size:9.5px;color:var(--ink-2);line-height:1.35;margin-top:2px}
 /* Custom Modern Photo Uploader */
 .photo-uploader{display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px dashed #D6D2C8;border-radius:6px;background:#FAF9F6;transition:all 180ms var(--ease);cursor:pointer;position:relative}
 .photo-uploader:hover,.photo-uploader.dragover{border-color:#0A0A0A;background:#F4F2EB}
@@ -245,32 +257,33 @@ tr:hover td{background:var(--paper)}
 .lift-hint{margin-top:12px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3)}
 .inline-error{margin-top:2px;padding:9px 12px;border:1px solid #F3D2D2;background:#FFF6F6;color:#8A3A3A;font-size:11.5px;line-height:1.45;border-radius:5px;box-shadow:0 1px 3px rgba(138,58,58,0.05)}
 /* Schedule Sub-Sections (Holidays & Overrides) */
-.schedule-sub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.schedule-sub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px;align-items:stretch}
 @media(max-width:860px){.schedule-sub-grid{grid-template-columns:1fr}}
-.schedule-sub-card{background:#FFFFFF;border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;min-width:0;box-sizing:border-box}
-.schedule-sub-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
-.schedule-sub-title-group{display:flex;flex-direction:column;gap:2px;min-width:0}
-.schedule-sub-title{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px}
-.schedule-count-pill{font-family:var(--mono);font-size:9px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--paper);color:var(--ink-2);border:1px solid var(--line);line-height:1.3}
-.schedule-sub-caption{font-size:10px;color:var(--ink-3);line-height:1.35;margin-top:1px}
-.schedule-item-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
-.schedule-item-card{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#FAF9F6;border:1px solid #EAE7E0;border-radius:5px;gap:10px;transition:all 140ms var(--ease);min-width:0}
+.schedule-sub-card{background:#FFFFFF;border:1px solid var(--line);border-radius:6px;padding:12px 16px;display:flex;flex-direction:column;justify-content:flex-start;min-width:0;box-sizing:border-box;height:100%}
+.schedule-sub-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;min-height:30px}
+.schedule-sub-title-group{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 0%}
+.schedule-sub-title{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px;line-height:1.2}
+.schedule-count-pill{font-family:var(--mono);font-size:9px;font-weight:600;padding:1px 6px;border-radius:99px;background:var(--paper);color:var(--ink-2);border:1px solid var(--line);line-height:1.2}
+.schedule-sub-caption{font-size:9.5px;color:var(--ink-3);line-height:1.3;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.schedule-sub-btn{height:28px!important;padding:0 11px!important;font-size:9.5px!important;letter-spacing:0.08em;font-weight:600;flex-shrink:0;text-transform:uppercase}
+.schedule-item-list{display:flex;flex-direction:column;gap:5px;max-height:170px;overflow-y:auto;scrollbar-width:thin;padding-right:2px;flex:1 1 0%}
+.schedule-item-card{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#FAF9F6;border:1px solid #EAE7E0;border-radius:5px;gap:8px;transition:all 140ms var(--ease);min-width:0}
 .schedule-item-card:hover{background:#FFFFFF;border-color:#D4D0C7;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
-.schedule-item-info{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 0%}
-.schedule-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.schedule-item-name{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.schedule-item-badge{font-size:8.5px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;padding:2px 6px;border-radius:3px;line-height:1.2;white-space:nowrap}
+.schedule-item-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 0%}
+.schedule-item-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.schedule-item-name{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.schedule-item-badge{font-size:8px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.2;white-space:nowrap}
 .schedule-item-badge.holiday{background:#FDF2F0;color:#8A3A3A;border:1px solid #E8C8C4}
 .schedule-item-badge.vacation{background:#F8F5EC;color:#8A6A2A;border:1px solid #E2D9C2}
 .schedule-item-badge.exam{background:#0A0A0A;color:#FFFFFF}
 .schedule-item-badge.working{background:#EAF4EC;color:#2F5D34;border:1px solid #BCDBC0}
 .schedule-item-badge.off{background:#FDF2F0;color:#8A3A3A;border:1px solid #E8C8C4}
-.schedule-item-meta{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--ink-2)}
-.schedule-item-date{font-family:var(--mono);font-size:10px;letter-spacing:0.02em;color:#555555;font-weight:500}
+.schedule-item-meta{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--ink-2)}
+.schedule-item-date{font-family:var(--mono);font-size:9.5px;letter-spacing:0.02em;color:#555555;font-weight:500}
 .schedule-item-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.schedule-item-actions .btn{height:26px;padding:0 9px;font-size:9.5px}
-.schedule-empty-state{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;background:#FAF9F6;border:1px dashed #DDD9D0;border-radius:5px;font-size:11px;color:var(--ink-3);text-align:center}
-.schedule-empty-icon{font-size:13px;opacity:0.75}
+.schedule-item-actions .btn{height:24px;padding:0 8px;font-size:9px}
+.schedule-empty-state{display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 10px;background:#FAF9F6;border:1px dashed #DDD9D0;border-radius:5px;font-size:10.5px;color:var(--ink-3);text-align:center;min-height:36px;box-sizing:border-box}
+.schedule-empty-icon{font-size:12px;opacity:0.8;line-height:1}
 @media print {
   @page {
     size: A4 portrait;
@@ -688,8 +701,7 @@ tr:hover td{background:var(--paper)}
       <button data-tab="students" class="active">Students</button>
       <button data-tab="today">Today</button>
       <button data-tab="reports">Reports</button>
-      <button data-tab="calendar">Calendar</button>
-      <button data-tab="settings">Settings</button>
+      <button data-tab="setup">Setup</button>
       <button data-tab="backup">Backup</button>
     </div>
     <div class="admin-body">
@@ -743,11 +755,55 @@ tr:hover td{background:var(--paper)}
           <div class="table-wrap"><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Working day?</th></tr></thead><tbody id="reportBody"></tbody></table></div></div>
         </div>
       </div>
-      <!-- Calendar -->
-      <div class="admin-pane hidden" id="pane-calendar">
-        <div class="detail-scroll">
-          <div class="detail-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+      <!-- Setup (Unified School Configuration, Rules & Calendar) -->
+      <div class="admin-pane hidden" id="pane-setup">
+        <div class="detail-scroll" style="padding:20px 24px">
+          <!-- 1. School Information, 2. Classes, 3. Attendance Rules -->
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+            <!-- 1. School Information -->
+            <div class="detail-card" style="flex:1 1 320px">
+              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">School Information</div>
+              <div class="form-grid">
+                <div class="form-field full"><label for="setSchoolName">School name</label><input id="setSchoolName" value="ATL Public School"></div>
+                <div class="form-field full"><label for="setSchoolAddress">Address</label><input id="setSchoolAddress" value="Shikrapur, Pune, Maharashtra"></div>
+                <div class="form-field"><label for="setAcademicYear">Academic year</label><select id="setAcademicYear"><option>2026-27</option><option>2027-28</option></select></div>
+                <div class="form-field"><label for="setAttendanceStart">Attendance start date</label><input type="date" id="setAttendanceStart"></div>
+              </div>
+              <div style="margin-top:14px;display:flex;gap:8px">
+                <button class="btn primary" id="settingsSaveBtn">Save settings</button>
+                <button class="btn" id="settingsExportBtn">Export school info CSV</button>
+              </div>
+            </div>
+
+            <!-- 2. Classes -->
+            <div class="detail-card" style="flex:1 1 320px">
+              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">Classes</div>
+              <div class="table-wrap"><div class="table-scroll no-scroll-x" style="max-height:148px"><table class="table-fixed"><colgroup><col style="width:50%"><col style="width:25%"><col style="width:25%"></colgroup><thead><tr><th>Class</th><th>Students</th><th style="text-align:right">Action</th></tr></thead><tbody id="classBody"></tbody></table></div></div>
+              <div style="margin-top:12px;display:flex;gap:8px"><input id="newClassName" placeholder="New class e.g. Grade 11-A" style="height:32px;border:1px solid var(--line);padding:0 10px;font-size:11.5px;flex:1 1 0%"><button class="btn primary" id="addClassBtn">Add</button></div>
+              <div style="margin-top:8px;font-size:10px;color:var(--ink-2)">Classes are editable; adding a class here also creates it when enrolling a student.</div>
+            </div>
+
+            <!-- 3. Attendance Rules -->
+            <div class="detail-card" style="flex:1 1 260px">
+              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">Attendance Rules</div>
+              <div class="form-grid" style="grid-template-columns:1fr;gap:12px">
+                <div class="form-field">
+                  <label for="setPresentCutoff">Present Cutoff</label>
+                  <input type="time" id="setPresentCutoff" value="08:00">
+                  <div class="form-hint">Scans at or before this time are Present</div>
+                </div>
+                <div class="form-field">
+                  <label for="setLateCutoff">Late Cutoff</label>
+                  <input type="time" id="setLateCutoff" value="08:30">
+                  <div class="form-hint">Absence reconciliation starts after this time</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Weekly Schedule -->
+          <div class="detail-card" style="padding:16px 20px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600">Weekly Schedule</div>
                 <div style="font-size:10px;color:var(--ink-3);margin-top:2px">Configure standard working days for terminal attendance</div>
@@ -763,9 +819,9 @@ tr:hover td{background:var(--paper)}
                 <button class="btn" id="calResetWeekBtn">Reset week to Mon–Sat</button>
               </div>
             </div>
-            <div class="weekly-schedule-grid" id="weeklyScheduleGrid"></div>
+            <div class="weekly-schedule-grid" id="weeklyScheduleGrid" style="margin:8px 0"></div>
             <table class="weekly-table" id="weeklyTable" style="display:none"><thead><tr><th>Day</th><th>Working?</th></tr></thead><tbody></tbody></table>
-            <div class="priority-banner">
+            <div class="priority-banner" style="margin-top:6px;padding:6px 10px">
               <div class="priority-order">
                 <span style="font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600">Evaluation Priority:</span>
                 <span class="priority-step">1. Date Override</span>
@@ -777,7 +833,9 @@ tr:hover td{background:var(--paper)}
               <span style="font-size:10px;color:var(--ink-3)">Holidays &amp; Non-working days are never marked absent</span>
             </div>
           </div>
-          <div class="schedule-sub-grid">
+
+          <!-- 5. Holidays & Vacations, 6. Special Date Overrides -->
+          <div class="schedule-sub-grid" style="margin-bottom:12px">
             <div class="schedule-sub-card">
               <div class="schedule-sub-header">
                 <div class="schedule-sub-title-group">
@@ -785,9 +843,9 @@ tr:hover td{background:var(--paper)}
                     <span>Holidays &amp; Vacations</span>
                     <span class="schedule-count-pill" id="holidayCountBadge">0</span>
                   </div>
-                  <div class="schedule-sub-caption">Multi-day breaks &amp; exams · Students not marked absent on holidays</div>
+                  <div class="schedule-sub-caption">Multi-day breaks &amp; exams · No absences marked</div>
                 </div>
-                <button class="btn" id="addHolidayBtn">+ Add holiday</button>
+                <button class="btn schedule-sub-btn" id="addHolidayBtn">+ Add holiday</button>
               </div>
               <div class="schedule-item-list" id="holidayList"></div>
               <tbody id="holidayBody" style="display:none"></tbody>
@@ -799,47 +857,25 @@ tr:hover td{background:var(--paper)}
                     <span>Special Date Overrides</span>
                     <span class="schedule-count-pill" id="overrideCountBadge">0</span>
                   </div>
-                  <div class="schedule-sub-caption">Single-day calendar exceptions that supersede weekly rules</div>
+                  <div class="schedule-sub-caption">Single-day exceptions to the weekly schedule</div>
                 </div>
-                <button class="btn" id="addOverrideBtn">+ Add override</button>
+                <button class="btn schedule-sub-btn" id="addOverrideBtn">+ Add override</button>
               </div>
               <div class="schedule-item-list" id="overrideList"></div>
               <tbody id="overrideBody" style="display:none"></tbody>
             </div>
           </div>
-          <div class="detail-card" style="margin-top:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+
+          <!-- 7. Month View -->
+          <div class="detail-card" style="padding:16px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                 <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600">Month view</div>
-                <div style="display:flex;gap:6px;align-items:center"><span class="badge working" style="font-size:8px">Working</span><span class="badge holiday" style="font-size:8px;background:#FFF8F6">Holiday</span><span class="badge" style="font-size:8px;background:#F5F2EB">Vacation</span><span class="badge" style="font-size:8px;border-color:var(--ink)">Override</span></div>
+                <div style="display:flex;gap:6px;align-items:center"><span class="badge" style="font-size:8px;background:#FFFFFF;color:var(--ink);border-color:var(--line)">Working</span><span class="badge" style="font-size:8px;background:#0A0A0A;color:#FFFFFF;border-color:#0A0A0A">Non-working</span><span class="badge" style="font-size:8px;background:#FFFFFF;color:var(--ink);border-color:var(--ink);font-weight:600">Override</span></div>
               </div>
               <div style="display:flex;gap:8px;align-items:center"><button class="btn" id="calPrevBtn">‹ Prev</button><div id="calMonthLabel" style="font-size:11px;letter-spacing:0.08em;min-width:140px;text-align:center"></div><button class="btn" id="calNextBtn">Next ›</button><button class="btn" id="calTodayBtn">Today</button></div>
             </div>
             <div class="calendar-grid" id="calendarGrid"></div>
-          </div>
-        </div>
-      </div>
-      <!-- Settings -->
-      <div class="admin-pane hidden" id="pane-settings">
-        <div class="detail-scroll">
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <div class="detail-card" style="flex:1 1 360px">
-              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">Classes</div>
-              <div class="table-wrap"><div class="table-scroll no-scroll-x"><table class="table-fixed"><colgroup><col style="width:50%"><col style="width:25%"><col style="width:25%"></colgroup><thead><tr><th>Class</th><th>Students</th><th style="text-align:right">Action</th></tr></thead><tbody id="classBody"></tbody></table></div></div>
-              <div style="margin-top:12px;display:flex;gap:8px"><input id="newClassName" placeholder="New class e.g. Grade 11-A" style="height:30px;border:1px solid var(--line);padding:0 10px;font-size:11px;flex:1 1 0%"><button class="btn primary" id="addClassBtn">Add</button></div>
-              <div style="margin-top:8px;font-size:10px;color:var(--ink-2)">Classes are editable; adding a class here also creates it when enrolling a student.</div>
-            </div>
-            <div class="detail-card" style="flex:1 1 360px">
-              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">School information & rules</div>
-              <div class="form-grid">
-                <div class="form-field full"><label>School name</label><input id="setSchoolName" value="ATL Public School"></div>
-                <div class="form-field full"><label>Address</label><input id="setSchoolAddress" value="Shikrapur, Pune, Maharashtra"></div>
-                <div class="form-field"><label>Late threshold</label><input type="time" id="setLateThreshold" value="08:30"></div>
-                <div class="form-field"><label>Academic year</label><select id="setAcademicYear"><option>2026-27</option><option>2027-28</option></select></div>
-                <div class="form-field full"><label>Attendance start date</label><input type="date" id="setAttendanceStart"></div>
-              </div>
-              <div style="margin-top:12px;display:flex;gap:8px"><button class="btn primary" id="settingsSaveBtn">Save settings</button><button class="btn" id="settingsExportBtn">Export school info CSV</button></div>
-            </div>
           </div>
         </div>
       </div>
