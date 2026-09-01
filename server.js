@@ -305,6 +305,57 @@ function getWorkingDaysForStudent(student, s) {
   return s.workingDays || defaultSettings.workingDays;
 }
 
+function getScheduleTimingForStudent(student, s) {
+  const fallback = {
+    startTime: s.presentCutoff || "08:00",
+    endTime: s.lateCutoff || "08:30",
+    isCustom: false,
+    source: "global"
+  };
+  if (!student) return fallback;
+  const grade = (student.grade || student.class || "").trim();
+  const batch = (student.batch || student.group || "").trim();
+  const batchSchedules = s.batchSchedules || {};
+  const classSchedules = s.classSchedules || {};
+
+  // Precedence: 1. Grade|Batch -> 2. Batch -> 3. Class -> 4. Global
+  if (grade && batch) {
+    const key = `${grade}|${batch}`;
+    const v = batchSchedules[key];
+    if (v && typeof v === "object" && (v.startTime || v.endTime)) {
+      return {
+        startTime: v.startTime || fallback.startTime,
+        endTime: v.endTime || fallback.endTime,
+        isCustom: true,
+        source: key
+      };
+    }
+  }
+  if (batch && batchSchedules[batch]) {
+    const v = batchSchedules[batch];
+    if (v && typeof v === "object" && (v.startTime || v.endTime)) {
+      return {
+        startTime: v.startTime || fallback.startTime,
+        endTime: v.endTime || fallback.endTime,
+        isCustom: true,
+        source: batch
+      };
+    }
+  }
+  if (grade && classSchedules[grade]) {
+    const v = classSchedules[grade];
+    if (v && typeof v === "object" && (v.startTime || v.endTime)) {
+      return {
+        startTime: v.startTime || fallback.startTime,
+        endTime: v.endTime || fallback.endTime,
+        isCustom: true,
+        source: grade
+      };
+    }
+  }
+  return fallback;
+}
+
 function isStudentScheduled(dateIso, student, s) {
   const ov = overrideResult(dateIso, s);
   if (ov !== null) return ov;

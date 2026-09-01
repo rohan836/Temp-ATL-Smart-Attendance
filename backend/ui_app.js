@@ -1171,23 +1171,46 @@ async function sensorScanLoop(){
   }
 }
 // ---- render: Students ----
+function populateScheduleSelector(){
+  const calSel=$("calClassSelect");
+  if(!calSel) return;
+  const cur=calSel.value;
+  const allBatches = [...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean), ...(Settings.batches||[]), ...Object.keys(BatchSchedules||{})])].sort();
+  
+  let html = '<option value="">All classes (global)</option>';
+  if(Classes.length){
+    Classes.forEach(c => {
+      const entry = ClassSchedules[c];
+      const hasTime = entry && typeof entry === "object" && (entry.startTime || entry.endTime);
+      const timeStr = hasTime ? ` (${entry.startTime || "--"}–${entry.endTime || "--"})` : "";
+      html += `<option value="${esc(c)}" ${c===cur?'selected':''}>${esc(c)}${esc(timeStr)}</option>`;
+    });
+  }
+  if(allBatches.length){
+    allBatches.forEach(b => {
+      const val = "batch:" + b;
+      const entry = BatchSchedules[b];
+      const hasTime = entry && typeof entry === "object" && (entry.startTime || entry.endTime);
+      const timeStr = hasTime ? ` (${entry.startTime || "--"}–${entry.endTime || "--"})` : "";
+      html += `<option value="${esc(val)}" ${(val===cur || b===cur)?'selected':''}>Batch: ${esc(b)}${esc(timeStr)}</option>`;
+    });
+  }
+  calSel.innerHTML = html;
+  syncCalClassCustomSelect();
+}
+
 function renderClassFilters(){
   const opts=['<option value="">All Classes</option>'].concat(Classes.map(c=>`<option>${esc(c)}</option>`)).join("");
   if(classFilter) classFilter.innerHTML=opts;
   if(todayClassFilter) todayClassFilter.innerHTML=opts;
   reportClass.innerHTML='<option value="">Select class</option>'+Classes.map(c=>`<option>${esc(c)}</option>`).join("");
   if(batchFilter){
-    const batches=[...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
+    const batches=[...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean), ...(Settings.batches||[])])].sort();
     const cur=batchFilter.value;
     batchFilter.innerHTML='<option value="">All Batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
     if(!batches.includes(cur)) batchFilter.value="";
   }
-  // also populate per-class schedule selector
-  const calSel=$("calClassSelect");
-  if(calSel){
-    const cur=calSel.value;
-    calSel.innerHTML='<option value="">All classes (global)</option>'+Classes.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join("");
-  }
+  populateScheduleSelector();
   enhanceAllSelects();
 }
 function renderStudentList(){
@@ -1403,13 +1426,21 @@ function getWorkingDaysForClass(grade){
   if(grade && ClassSchedules[grade]){
     const v=ClassSchedules[grade];
     if(v && typeof v==="object" && v.workingDays) return v.workingDays;
-    if(v && typeof v==="object") return v;
+    if(v && typeof v==="object" && !v.startTime) return v;
   }
   // fallback to legacy UI key for offline
   if(grade && ClassSchedulesUI && ClassSchedulesUI[grade]){
     const v=ClassSchedulesUI[grade];
     if(v && v.workingDays) return v.workingDays;
-    if(v) return v;
+    if(v && typeof v==="object" && !v.startTime) return v;
+  }
+  return Settings.workingDays;
+}
+function getWorkingDaysForBatch(batch){
+  if(batch && BatchSchedules[batch]){
+    const v=BatchSchedules[batch];
+    if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+    if(v && typeof v==="object" && !v.startTime) return v;
   }
   return Settings.workingDays;
 }
@@ -1421,21 +1452,69 @@ function getWorkingDaysForStudent(student){
     const key=grade+"|"+batch;
     if(BatchSchedules[key]){
       const v=BatchSchedules[key];
-      if(v && v.workingDays) return v.workingDays;
-      if(v) return v;
+      if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+      if(v && typeof v==="object" && !v.startTime) return v;
     }
   }
   if(batch && BatchSchedules[batch]){
     const v=BatchSchedules[batch];
-    if(v && v.workingDays) return v.workingDays;
-    if(v) return v;
+    if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+    if(v && typeof v==="object" && !v.startTime) return v;
   }
   if(grade && ClassSchedules[grade]){
     const v=ClassSchedules[grade];
-    if(v && v.workingDays) return v.workingDays;
-    if(v) return v;
+    if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+    if(v && typeof v==="object" && !v.startTime) return v;
   }
   return Settings.workingDays;
+}
+function getScheduleTimingForStudent(student){
+  const fallback = {
+    startTime: Settings.presentCutoff || "08:00",
+    endTime: Settings.lateCutoff || Settings.lateAfter || "08:30",
+    isCustom: false,
+    source: "global"
+  };
+  if(!student) return fallback;
+  const grade=(student.class||student.grade||"").trim();
+  const batch=(student.batch||student.group||"").trim();
+
+  // Precedence: 1. Grade|Batch -> 2. Batch -> 3. Class -> 4. Global fallback
+  if(grade && batch){
+    const key=grade+"|"+batch;
+    const v=BatchSchedules[key];
+    if(v && typeof v==="object" && (v.startTime || v.endTime)){
+      return {
+        startTime: v.startTime || fallback.startTime,
+        endTime: v.endTime || fallback.endTime,
+        isCustom: true,
+        source: key
+      };
+    }
+  }
+  if(batch && BatchSchedules[batch]){
+    const v=BatchSchedules[batch];
+    if(v && typeof v==="object" && (v.startTime || v.endTime)){
+      return {
+        startTime: v.startTime || fallback.startTime,
+        endTime: v.endTime || fallback.endTime,
+        isCustom: true,
+        source: batch
+      };
+    }
+  }
+  if(grade && ClassSchedules[grade]){
+    const v=ClassSchedules[grade];
+    if(v && typeof v==="object" && (v.startTime || v.endTime)){
+      return {
+        startTime: v.startTime || fallback.startTime,
+        endTime: v.endTime || fallback.endTime,
+        isCustom: true,
+        source: grade
+      };
+    }
+  }
+  return fallback;
 }
 function isWorkingDayForClass(d, grade){
   const ov=getOverride(d);
@@ -1447,6 +1526,18 @@ function isWorkingDayForClass(d, grade){
   }
   const day=new Date(d+"T00:00:00").getDay();
   const wd=getWorkingDaysForClass(grade);
+  return asBool(wd[day] ?? wd[String(day)]);
+}
+function isWorkingDayForBatch(d, batch){
+  const ov=getOverride(d);
+  if(ov) return ov.isWorking;
+  const hol=isHoliday(d);
+  if(hol){
+    const type=String(hol.type||"holiday").toLowerCase();
+    return type==="exam";
+  }
+  const day=new Date(d+"T00:00:00").getDay();
+  const wd=getWorkingDaysForBatch(batch);
   return asBool(wd[day] ?? wd[String(day)]);
 }
 function isWorkingDayForStudent(d, student){
@@ -1471,13 +1562,20 @@ function holidaysToBackend(){ return Holidays.map(h=>{
 }); }
 function overridesToBackend(){ return Overrides.map(o=>o.date+(o.isWorking?":1":":0")+":"+o.note); }
 function classSchedulesToBackend(){
-  // normalize to backend expected format: {class: workingDays} or {class: {workingDays}}
+  // normalize to backend expected format: {class: {workingDays, startTime, endTime}}
   const out={};
   Object.keys(ClassSchedules).forEach(k=>{
     const v=ClassSchedules[k];
     if(!v) return;
-    if(v.workingDays) out[k]={workingDays: v.workingDays};
-    else out[k]=v;
+    if(typeof v==="object" && v.workingDays){
+      out[k]={
+        workingDays: v.workingDays,
+        startTime: v.startTime || "",
+        endTime: v.endTime || ""
+      };
+    } else {
+      out[k]=v;
+    }
   });
   return out;
 }
@@ -1486,8 +1584,15 @@ function batchSchedulesToBackend(){
   Object.keys(BatchSchedules).forEach(k=>{
     const v=BatchSchedules[k];
     if(!v) return;
-    if(v.workingDays) out[k]={workingDays: v.workingDays};
-    else out[k]=v;
+    if(typeof v==="object" && v.workingDays){
+      out[k]={
+        workingDays: v.workingDays,
+        startTime: v.startTime || "",
+        endTime: v.endTime || ""
+      };
+    } else {
+      out[k]=v;
+    }
   });
   return out;
 }
@@ -1587,8 +1692,44 @@ function renderOverrides(){
 }
 function renderWeekly(){
   const sel=$("calClassSelect");
-  const selectedClass = sel ? sel.value : "";
-  const wd = selectedClass ? getWorkingDaysForClass(selectedClass) : Settings.workingDays;
+  const selectedTarget = sel ? sel.value : "";
+  let wd = Settings.workingDays;
+  let timing = {
+    startTime: Settings.presentCutoff || "08:00",
+    endTime: Settings.lateCutoff || Settings.lateAfter || "08:30",
+    isCustom: false,
+    source: "global"
+  };
+
+  if(selectedTarget){
+    if(selectedTarget.startsWith("batch:")){
+      const batchName = selectedTarget.slice(6);
+      const entry = BatchSchedules[batchName];
+      if(entry && typeof entry==="object" && entry.workingDays) wd = entry.workingDays;
+      else if(entry && typeof entry==="object" && !entry.startTime) wd = entry;
+      if(entry && typeof entry==="object" && (entry.startTime || entry.endTime)){
+        timing = {
+          startTime: entry.startTime || "",
+          endTime: entry.endTime || "",
+          isCustom: true,
+          source: batchName
+        };
+      }
+    } else {
+      const className = selectedTarget.startsWith("class:") ? selectedTarget.slice(6) : selectedTarget;
+      wd = getWorkingDaysForClass(className);
+      const entry = ClassSchedules[className];
+      if(entry && typeof entry==="object" && (entry.startTime || entry.endTime)){
+        timing = {
+          startTime: entry.startTime || "",
+          endTime: entry.endTime || "",
+          isCustom: true,
+          source: className
+        };
+      }
+    }
+  }
+
   const days=[
     {name:"Sunday", short:"Sun"},
     {name:"Monday", short:"Mon"},
@@ -1615,11 +1756,55 @@ function renderWeekly(){
       return `<tr><td>${d.name}</td><td><div class="toggle ${on?"on":""}" data-day="${idx}"></div></td></tr>`;
     }).join("");
   }
-  // update selector options if needed (UI-only)
-  if(sel && sel.options.length===1 && Classes.length){
-    const cur=sel.value;
-    sel.innerHTML='<option value="">All classes (global)</option>'+Classes.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join("");
+
+  // Update Schedule Timing Bar Controls
+  const startInput = $("schedStartTime");
+  const endInput = $("schedEndTime");
+  const saveTimeBtn = $("schedSaveTimeBtn");
+  const clearTimeBtn = $("schedClearTimeBtn");
+  const timingBadge = $("schedTimingBadge");
+
+  if(startInput && endInput){
+    if(!selectedTarget){
+      startInput.value = Settings.presentCutoff || "08:00";
+      endInput.value = Settings.lateCutoff || Settings.lateAfter || "08:30";
+      startInput.disabled = true;
+      endInput.disabled = true;
+      if(saveTimeBtn) saveTimeBtn.style.display = "none";
+      if(clearTimeBtn) clearTimeBtn.style.display = "none";
+      if(timingBadge){
+        timingBadge.className = "badge";
+        timingBadge.style.cssText = "font-size:9px;background:#F6F4EF;color:var(--ink-2);border-color:#E2DFD7";
+        timingBadge.textContent = "Global Fallback (Configured in Attendance Rules)";
+      }
+    } else {
+      startInput.disabled = false;
+      endInput.disabled = false;
+      if(saveTimeBtn) saveTimeBtn.style.display = "";
+      if(clearTimeBtn) clearTimeBtn.style.display = "";
+
+      if(timing.isCustom){
+        startInput.value = timing.startTime || "";
+        endInput.value = timing.endTime || "";
+        if(timingBadge){
+          timingBadge.className = "badge";
+          timingBadge.style.cssText = "font-size:9px;background:#0A0A0A;color:#FFFFFF;border-color:#0A0A0A;font-weight:600";
+          timingBadge.textContent = `Custom Timing: ${timing.startTime || "--"} – ${timing.endTime || "--"}`;
+        }
+      } else {
+        startInput.value = "";
+        endInput.value = "";
+        startInput.placeholder = Settings.presentCutoff || "08:00";
+        endInput.placeholder = Settings.lateCutoff || Settings.lateAfter || "08:30";
+        if(timingBadge){
+          timingBadge.className = "badge";
+          timingBadge.style.cssText = "font-size:9px;background:#F6F4EF;color:var(--ink-2);border-color:#E2DFD7";
+          timingBadge.textContent = `Using Global Fallback (${Settings.presentCutoff || "08:00"} – ${Settings.lateCutoff || Settings.lateAfter || "08:30"})`;
+        }
+      }
+    }
   }
+
   syncCalClassCustomSelect();
 }
 // ---- Universal Custom Select Dropdown Engine (Eliminating OS Blue-bar Popups & Clipping) ----
@@ -1817,14 +2002,22 @@ function renderCalendarMonth(){
   const y=calendarMonth.getFullYear(), m=calendarMonth.getMonth();
   calMonthLabel.textContent=calendarMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const sel=$("calClassSelect");
-  const selectedClass = sel ? sel.value : "";
+  const selectedTarget = sel ? sel.value : "";
   const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
   let html=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="calendar-cell head">${d}</div>`).join("");
   for(let i=0;i<first;i++) html+=`<div class="calendar-cell empty"></div>`;
   for(let d=1;d<=last;d++){
     const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const hol=isHoliday(iso), ov=getOverride(iso), todayCls=iso===todayISO()?" today":"";
-    const working = selectedClass ? isWorkingDayForClass(iso, selectedClass) : isWorkingDayUI(iso);
+    let working;
+    if(!selectedTarget){
+      working = isWorkingDayUI(iso);
+    } else if(selectedTarget.startsWith("batch:")){
+      working = isWorkingDayForBatch(iso, selectedTarget.slice(6));
+    } else {
+      const cName = selectedTarget.startsWith("class:") ? selectedTarget.slice(6) : selectedTarget;
+      working = isWorkingDayForClass(iso, cName);
+    }
     const stateCls = working ? "working" : "non-working";
     let extraCls = "";
     if(ov) extraCls = " override";
@@ -1840,10 +2033,10 @@ function renderCalendarMonth(){
   calendarGrid.innerHTML=html;
 }
 function renderClasses(){
-  if(!Classes.length){ classBody.innerHTML=`<tr><td colspan="3"><div class="empty"><b>No classes configured</b></div></td></tr>`; return; }
+  if(!Classes.length){ classBody.innerHTML=`<tr><td colspan="3" style="padding:14px 10px"><div class="empty" style="padding:10px 4px"><b style="font-size:13px;margin-bottom:2px">No classes configured</b><span style="font-size:10px">Add a class below.</span></div></td></tr>`; return; }
   classBody.innerHTML=Classes.map(c=>{
     const n=Students.filter(s=>s.active && s.class===c).length;
-    return `<tr><td>${esc(c)}</td><td>${n}</td><td style="text-align:right"><button class="btn danger" data-del-class="${esc(c)}" data-students="${n}" style="height:24px;padding:0 8px;font-size:9px">Delete</button></td></tr>`;
+    return `<tr><td style="padding:6px 10px;font-size:11.5px;font-weight:500">${esc(c)}</td><td style="padding:6px 10px;font-size:11.5px;font-family:var(--mono)">${n}</td><td style="text-align:right;padding:6px 10px"><button class="btn danger" data-del-class="${esc(c)}" data-students="${n}" style="height:22px;padding:0 8px;font-size:9px">Delete</button></td></tr>`;
   }).join("");
 }
 function renderAudit(){
@@ -3345,25 +3538,47 @@ $("addOverrideBtn").onclick=()=>{
 };
 async function handleWeeklyDayToggle(day){
   const sel=$("calClassSelect");
-  const selectedClass = sel ? sel.value : "";
-  if(selectedClass){
-    let entry = ClassSchedules[selectedClass];
-    let wd;
-    if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
-    else if(entry && typeof entry==="object") wd={...entry};
-    else wd={...Settings.workingDays};
-    wd[day]=!wd[day];
-    wd[String(day)]=wd[day];
-    // persist as {workingDays:{}} to match backend helper
-    if(entry && entry.workingDays) ClassSchedules[selectedClass]={workingDays: wd};
-    else ClassSchedules[selectedClass]=wd;
-    ClassSchedulesUI=ClassSchedules;
-    if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  } else {
+  const selectedTarget = sel ? sel.value : "";
+  if(!selectedTarget){
     Settings.workingDays[day]=!Settings.workingDays[day];
     Settings.workingDays[String(day)]=Settings.workingDays[day];
     if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
+    return;
   }
+
+  if(selectedTarget.startsWith("batch:")){
+    const batchName = selectedTarget.slice(6);
+    let entry = BatchSchedules[batchName];
+    let wd;
+    if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
+    else if(entry && typeof entry==="object" && !entry.startTime) wd={...entry};
+    else wd={...Settings.workingDays};
+    wd[day]=!wd[day];
+    wd[String(day)]=wd[day];
+    BatchSchedules[batchName] = {
+      workingDays: wd,
+      startTime: (entry && entry.startTime) || "",
+      endTime: (entry && entry.endTime) || ""
+    };
+    if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
+    return;
+  }
+
+  const className = selectedTarget.startsWith("class:") ? selectedTarget.slice(6) : selectedTarget;
+  let entry = ClassSchedules[className];
+  let wd;
+  if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
+  else if(entry && typeof entry==="object" && !entry.startTime) wd={...entry};
+  else wd={...Settings.workingDays};
+  wd[day]=!wd[day];
+  wd[String(day)]=wd[day];
+  ClassSchedules[className] = {
+    workingDays: wd,
+    startTime: (entry && entry.startTime) || "",
+    endTime: (entry && entry.endTime) || ""
+  };
+  ClassSchedulesUI = ClassSchedules;
+  if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
 }
 if($("weeklyScheduleGrid")){
   $("weeklyScheduleGrid").addEventListener("click",(e)=>{
@@ -3385,6 +3600,81 @@ if($("weeklyTable")){
   });
 }
 if($("calClassSelect")) $("calClassSelect").onchange=()=>{ renderWeekly(); renderCalendarMonth(); if(currentTab==="today") renderToday(); };
+
+// Schedule Timing Save & Clear Handlers
+if($("schedSaveTimeBtn")){
+  $("schedSaveTimeBtn").onclick = async () => {
+    const sel = $("calClassSelect");
+    const selectedTarget = sel ? sel.value : "";
+    if(!selectedTarget){
+      alert("Please select a specific class or batch to configure custom schedule timing.");
+      return;
+    }
+    const start = ($("schedStartTime").value || "").trim();
+    const end = ($("schedEndTime").value || "").trim();
+
+    if(selectedTarget.startsWith("batch:")){
+      const batchName = selectedTarget.slice(6);
+      const entry = BatchSchedules[batchName] || {};
+      const wd = (entry && entry.workingDays) ? { ...entry.workingDays } : (entry && typeof entry==="object" && !entry.startTime ? { ...entry } : { ...Settings.workingDays });
+      BatchSchedules[batchName] = {
+        workingDays: wd,
+        startTime: start,
+        endTime: end
+      };
+    } else {
+      const className = selectedTarget.startsWith("class:") ? selectedTarget.slice(6) : selectedTarget;
+      const entry = ClassSchedules[className] || {};
+      const wd = (entry && entry.workingDays) ? { ...entry.workingDays } : (entry && typeof entry==="object" && !entry.startTime ? { ...entry } : { ...Settings.workingDays });
+      ClassSchedules[className] = {
+        workingDays: wd,
+        startTime: start,
+        endTime: end
+      };
+      ClassSchedulesUI = ClassSchedules;
+    }
+
+    if(await persistCalendar()){
+      populateScheduleSelector();
+      renderWeekly();
+    }
+  };
+}
+
+if($("schedClearTimeBtn")){
+  $("schedClearTimeBtn").onclick = async () => {
+    const sel = $("calClassSelect");
+    const selectedTarget = sel ? sel.value : "";
+    if(!selectedTarget) return;
+
+    if(selectedTarget.startsWith("batch:")){
+      const batchName = selectedTarget.slice(6);
+      const entry = BatchSchedules[batchName] || {};
+      const wd = (entry && entry.workingDays) ? { ...entry.workingDays } : (entry && typeof entry==="object" && !entry.startTime ? { ...entry } : { ...Settings.workingDays });
+      BatchSchedules[batchName] = {
+        workingDays: wd,
+        startTime: "",
+        endTime: ""
+      };
+    } else {
+      const className = selectedTarget.startsWith("class:") ? selectedTarget.slice(6) : selectedTarget;
+      const entry = ClassSchedules[className] || {};
+      const wd = (entry && entry.workingDays) ? { ...entry.workingDays } : (entry && typeof entry==="object" && !entry.startTime ? { ...entry } : { ...Settings.workingDays });
+      ClassSchedules[className] = {
+        workingDays: wd,
+        startTime: "",
+        endTime: ""
+      };
+      ClassSchedulesUI = ClassSchedules;
+    }
+
+    if(await persistCalendar()){
+      populateScheduleSelector();
+      renderWeekly();
+    }
+  };
+}
+
 document.addEventListener("click",(e)=>{
   if(!e.target.closest(".custom-select-wrap") && !e.target.closest(".custom-select-menu")){
     closeAllCustomSelects();
@@ -3399,15 +3689,33 @@ window.addEventListener("resize",()=>{ closeAllCustomSelects(); });
 window.addEventListener("scroll",()=>{ closeAllCustomSelects(); }, true);
 $("calResetWeekBtn").onclick=async()=>{
   const sel=$("calClassSelect");
-  const selectedClass = sel ? sel.value : "";
-  if(selectedClass){
-    ClassSchedules[selectedClass]={workingDays:{0:false,1:true,2:true,3:true,4:true,5:true,6:true}};
-    ClassSchedulesUI=ClassSchedules;
+  const selectedTarget = sel ? sel.value : "";
+  const standardWd = {0:false,1:true,2:true,3:true,4:true,5:true,6:true};
+  if(!selectedTarget){
+    Settings.workingDays = standardWd;
     if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  } else {
-    Settings.workingDays={0:false,1:true,2:true,3:true,4:true,5:true,6:true};
-    if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
+    return;
   }
+  if(selectedTarget.startsWith("batch:")){
+    const batchName = selectedTarget.slice(6);
+    const prev = BatchSchedules[batchName] || {};
+    BatchSchedules[batchName] = {
+      workingDays: standardWd,
+      startTime: prev.startTime || "",
+      endTime: prev.endTime || ""
+    };
+    if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
+    return;
+  }
+  const className = selectedTarget.startsWith("class:") ? selectedTarget.slice(6) : selectedTarget;
+  const prev = ClassSchedules[className] || {};
+  ClassSchedules[className] = {
+    workingDays: standardWd,
+    startTime: prev.startTime || "",
+    endTime: prev.endTime || ""
+  };
+  ClassSchedulesUI = ClassSchedules;
+  if(await persistCalendar()){ renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
 };
 
 function handleHolidayItemClick(e){
