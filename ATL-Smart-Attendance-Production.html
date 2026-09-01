@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Smart biometric fingerprint attendance kiosk and school management terminal with real-time tracking, scheduling, analytics, and reporting.">
+<meta property="og:title" content="ATL Smart Attendance">
+<meta property="og:description" content="Smart biometric fingerprint attendance kiosk and school management terminal with real-time tracking, scheduling, analytics, and reporting.">
+<title>ATL Smart Attendance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{--bg:#FCFBF7;--bg-left:#FFFFFF;--ink:#0A0A0A;--ink-2:#6B6B6B;--ink-3:#A8A5A0;--line:#E9E6E0;--line-strong:#0A0A0A;--paper:#F6F4EF;--danger:#8A3A3A;--ok:#2F5D34;--mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;--sans:'Plus Jakarta Sans',Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;--serif:'Cormorant Garamond',Newsreader,Times New Roman,Georgia,serif;--display:'Cinzel',serif;--ease:cubic-bezier(0.16,1,0.3,1);--ease-2:cubic-bezier(0.45,0,0.55,1);}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent;accent-color:#0A0A0A}
+html{height:100%;width:100%;overflow:hidden;overscroll-behavior:none;background:#000000;accent-color:#0A0A0A}
+body{height:100%;width:100%;overflow:hidden;background:#000000;color:var(--ink);-webkit-font-smoothing:antialiased;font-family:var(--sans);user-select:none;overscroll-behavior:none;scrollbar-color:#D8D4CB #FAF9F6}
+*::selection,input::selection,textarea::selection,select::selection{background:#0A0A0A!important;color:#FAF7F0!important}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#FAF9F6}
+::-webkit-scrollbar-thumb{background:#D8D4CB;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#B5B0A4}
+input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;filter:grayscale(1);opacity:0.65;transition:opacity 160ms}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,input[type="time"]::-webkit-calendar-picker-indicator:hover{opacity:1}
+.terminal{display:flex;flex-direction:row;height:100vh;height:100dvh;width:100vw;overflow:hidden;background:#000000;contain:strict;isolation:isolate;position:relative}
+.left{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0;background:transparent;border:0;overflow:hidden;contain:layout style paint;z-index:3;pointer-events:none}
+.scanner-stage{position:relative;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.hologram-canvas-container{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:1}
+.hologram-hud{position:absolute;inset:0;pointer-events:none;z-index:2;display:flex;flex-direction:column;justify-content:space-between;padding:24px 32px}
+.hud-corner-tl{position:absolute;top:20px;left:24px;width:24px;height:24px;border-top:1px solid rgba(250,247,240,0.22);border-left:1px solid rgba(250,247,240,0.22)}
+.hud-corner-tr{position:absolute;top:20px;right:24px;width:24px;height:24px;border-top:1px solid rgba(250,247,240,0.22);border-right:1px solid rgba(250,247,240,0.22)}
+.hud-corner-bl{position:absolute;bottom:20px;left:24px;width:24px;height:24px;border-bottom:1px solid rgba(250,247,240,0.22);border-left:1px solid rgba(250,247,240,0.22)}
+.hud-corner-br{position:absolute;bottom:20px;right:24px;width:24px;height:24px;border-bottom:1px solid rgba(250,247,240,0.22);border-right:1px solid rgba(250,247,240,0.22)}
+.hud-top-meta{display:flex;justify-content:space-between;align-items:center;width:100%;font-family:var(--mono);font-size:9.5px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(250,247,240,0.45);padding:0 4px}
+.hud-bottom-meta{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;margin-top:auto;padding-bottom:20px;z-index:3}
+.prompt{font-family:var(--mono);font-size:11px;letter-spacing:0.28em;text-transform:uppercase;font-weight:500;color:rgba(250,247,240,0.85);text-align:center;line-height:1.6;pointer-events:none;transition:opacity 320ms var(--ease),transform 320ms var(--ease)}
+.prompt.is-hidden{opacity:0;transform:translateY(-8px)}
+.prompt.identifying{color:rgba(250,247,240,0.45)}
+.left-bottom{position:absolute;bottom:24px;right:32px;display:flex;justify-content:flex-end;align-items:center;gap:16px;overflow:hidden;flex-shrink:0;z-index:12;pointer-events:auto}
+.admin-trigger{font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(250,247,240,0.55);cursor:pointer;border:1px solid rgba(250,247,240,0.18);padding:7px 14px;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);border-radius:2px;transition:all 180ms var(--ease);flex-shrink:0;font-family:var(--mono)}
+.admin-trigger:hover{border-color:rgba(250,247,240,0.7);color:#FAF7F0}
+.right{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;contain:layout style paint;z-index:8;pointer-events:none}
+.result-viewport{flex:1 1 0%;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 64px;position:relative;overflow:hidden;contain:layout style paint}
+.idle-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 32px;transition:opacity 420ms var(--ease),transform 420ms var(--ease);overflow:hidden;pointer-events:none}
+.idle-layer.hidden{opacity:0;pointer-events:none;transform:translateY(8px)}
+.reveal-box{overflow:hidden;contain:layout paint} .reveal-text{display:inline-block;transform:translateY(100%);opacity:0;clip-path:inset(0 0 100% 0)} .reveal-text.is-revealed{animation:typoReveal 720ms var(--ease) forwards}
+@keyframes typoReveal{0%{transform:translateY(18px);opacity:0;clip-path:inset(0 0 100% 0);letter-spacing:0.08em}100%{transform:translateY(0);opacity:1;clip-path:inset(0 0 0% 0);letter-spacing:0.22em}}
+@media (prefers-reduced-motion:reduce){.reveal-text{transform:none!important;opacity:1!important;clip-path:none!important;animation:none!important}}
+/* Front-page scan result — AMOLED black & warm luxury cream typography */
+.terminal.has-result .prompt{visibility:hidden;opacity:0}
+.identity-layer,.unknown-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:48px 64px;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity 480ms var(--ease),transform 480ms var(--ease);overflow:hidden;contain:layout;background:rgba(0,0,0,0.96);backdrop-filter:blur(24px);z-index:4}
+.identity-layer.visible,.unknown-layer.visible{opacity:1;transform:translateY(0)}
+.result-stage{display:flex;flex-direction:column;align-items:center;width:min(760px,100%);gap:0}
+.result-msg{font-family:var(--display);font-size:11.5px;letter-spacing:0.3em;text-transform:uppercase;font-weight:500;color:#D8D2C4;text-shadow:0 0 16px rgba(216,210,196,0.25);text-align:center;min-height:1.4em;opacity:0;transform:translateY(8px);transition:opacity 380ms var(--ease) 40ms,transform 380ms var(--ease) 40ms}
+.identity-layer.visible .result-msg,.unknown-layer.visible .result-msg{opacity:1;transform:translateY(0)}
+.result-msg.is-muted{color:rgba(250,247,240,0.45);text-shadow:none}
+.result-profile{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:52px;width:100%;margin-top:36px;opacity:0;transform:translateY(12px);transition:opacity 520ms var(--ease) 280ms,transform 520ms var(--ease) 280ms}
+.identity-layer.visible .result-profile{opacity:1;transform:translateY(0)}
+.result-photo{width:154px;height:194px;flex-shrink:0;background:#050507;border:1px solid rgba(250,247,240,0.18);border-radius:2px;overflow:hidden;position:relative;box-shadow:0 24px 64px -12px rgba(0,0,0,1)}
+.result-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#08080B;font-family:var(--serif);font-size:62px;font-weight:400;letter-spacing:-0.02em;color:#FAF7F0;text-transform:uppercase}
+.result-info{min-width:0;flex:1 1 280px;max-width:440px}
+.result-name{font-family:var(--serif);font-size:clamp(34px,4.2vw,56px);font-weight:600;line-height:1.02;letter-spacing:0.02em;text-transform:uppercase;color:#FAF7F0;text-shadow:0 4px 32px rgba(0,0,0,1);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.result-fields{margin-top:24px;display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:32px;row-gap:12px}
+.result-fields dt{font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;color:#8E8A82;padding-top:2px;font-family:var(--mono)}
+.result-fields dd{font-size:14px;letter-spacing:0.03em;color:#FAF7F0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans)}
+.result-fields dd.is-status{font-size:12px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;color:#D8D2C4;font-family:var(--mono)}
+.result-fields dd.is-time{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0.08em;color:#C5BFB3}
+.unknown-title{font-family:var(--display);font-size:12px;letter-spacing:0.28em;text-transform:uppercase;font-weight:600;color:#D8D2C4;text-shadow:0 0 16px rgba(216,210,196,0.3)}
+.unknown-sub{display:none}
+@media (max-width:720px){.result-profile{flex-direction:column;gap:28px;text-align:center}.result-fields{justify-content:center}.identity-layer,.unknown-layer{padding:32px 24px}}
+@media (prefers-reduced-motion:reduce){.identity-layer,.unknown-layer,.result-msg,.result-profile,.prompt{transition:none!important;transform:none!important}}
+/* Admin */
+.admin-layer{position:absolute;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity 320ms var(--ease),transform 320ms var(--ease);overflow:hidden;contain:layout style paint}
+.admin-layer.open{opacity:1;pointer-events:auto;transform:translateY(0)}
+.admin-top{height:64px;flex-shrink:0;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;overflow:hidden}
+.admin-title{font-family:var(--serif);font-size:18px;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-close{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;border:1px solid var(--line);padding:8px 12px;background:#fff;cursor:pointer;transition:all 180ms var(--ease);flex-shrink:0}
+.admin-close:hover{border-color:var(--ink)}
+.admin-nav{display:flex;gap:0;border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.admin-nav::-webkit-scrollbar{display:none}
+.admin-nav button{flex:1 1 0%;min-width:0;height:42px;padding:0 12px;background:transparent;border:0;border-right:1px solid var(--line);font-size:10px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;color:var(--ink-2);cursor:pointer;transition:all 180ms var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-nav button:last-child{border-right:0}
+.admin-nav button.active{background:var(--ink);color:#fff}
+.admin-body{flex:1 1 0%;min-height:0;display:flex;flex-direction:row;overflow:hidden;contain:layout style paint}
+.admin-pane{flex:1 1 0%;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.admin-pane.hidden{display:none!important}
+.tab-toolbar{height:48px;flex-shrink:0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 16px;overflow:hidden;background:#fff;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.tab-toolbar::-webkit-scrollbar{display:none}
+.tab-toolbar input,.tab-toolbar select{flex-shrink:0}
+.tab-toolbar .btn{flex-shrink:0;min-width:88px}
+.tab-toolbar input,.tab-toolbar select{height:32px;border:1px solid #E2DFD7;background:#FFFFFF;border-radius:5px;padding:0 10px;font-size:11.5px;letter-spacing:0.02em;color:var(--ink);min-width:0;max-width:240px;outline:0;transition:all 160ms var(--ease)}
+.tab-toolbar select{appearance:none;-webkit-appearance:none;padding-right:26px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%230A0A0A' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;cursor:pointer}
+.tab-toolbar select:hover,.tab-toolbar input:hover{border-color:#0A0A0A;background-color:#FAF9F6}
+.tab-toolbar input:focus,.tab-toolbar select:focus{border-color:#0A0A0A!important;background-color:#FFFFFF;box-shadow:0 0 0 2px rgba(10,10,10,0.08)!important;outline:0!important}
+select option{background:#FFFFFF;color:#0A0A0A;padding:6px 10px}
+select option:checked,select option:hover{background:#0A0A0A!important;color:#FFFFFF!important}
+.btn{height:30px;padding:0 12px;border:1px solid var(--line);background:#fff;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;cursor:pointer;transition:all 180ms var(--ease);white-space:nowrap;flex-shrink:0}
+.btn:hover{border-color:var(--ink)} .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)} .btn.danger{color:var(--danger);border-color:var(--line)} .btn.danger:hover{border-color:var(--danger)}
+.badge{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;padding:3px 6px;border:1px solid var(--line);background:#fff;white-space:nowrap}
+.badge.present{color:var(--ok);border-color:var(--ok)} .badge.late{color:#8A6A2A;border-color:#C7B07A} .badge.absent{color:var(--danger);border-color:var(--danger)} .badge.not-scheduled{color:var(--ink-2);border-color:var(--line);background:var(--paper)}
+.list-pane{width:380px;min-width:320px;max-width:440px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;background:#fff;contain:layout paint}
+.list-scroll{flex:1 1 0%;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;contain:layout paint}
+.student-row{height:68px;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background 160ms var(--ease);overflow:hidden;contain:layout}
+.student-row:hover{background:var(--paper)} .student-row.active{background:var(--ink);color:#fff}
+.student-row.active .student-roll,.student-row.active .student-class{color:rgba(255,255,255,0.65)}
+.student-thumb{width:42px;height:54px;flex-shrink:0;border:1px solid var(--line);background:var(--paper);overflow:hidden;position:relative}
+.student-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.student-thumb-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:18px;font-weight:600;letter-spacing:-0.02em;text-transform:uppercase;background:var(--paper);color:var(--ink)}
+.student-info{flex:1 1 0%;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px}
+.student-name{font-family:var(--serif);font-size:15px;font-weight:600;line-height:1.1;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.student-meta{font-size:10px;letter-spacing:0.06em;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:8px}
+.detail-pane{flex:1 1 0%;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);contain:layout style paint}
+.detail-scroll{flex:1 1 0%;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px;scrollbar-gutter:stable;contain:layout paint}
+.detail-card{background:#fff;border:1px solid var(--line);padding:22px;overflow:hidden;contain:layout paint}
+.detail-photo{width:260px;height:338px;flex-shrink:0;border:1px solid var(--line-strong);background:#fff;overflow:hidden;position:relative}
+.detail-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.detail-photo-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--paper);font-family:var(--serif);font-size:86px;font-weight:300;text-transform:uppercase;color:var(--ink)}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+.detail-field{min-width:0;overflow:hidden}
+.detail-field label{display:block;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-field span{display:block;font-size:11px;letter-spacing:0.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:anywhere}
+.table-wrap{margin-top:18px;border:1px solid var(--line);background:#fff;overflow:hidden;contain:layout paint}
+.table-scroll{max-height:48vh;overflow-y:auto;overflow-x:auto;scrollbar-gutter:stable;contain:layout paint}
+.table-scroll.large{max-height:62vh}
+.table-scroll.no-scroll-x{overflow-x:hidden}
+table{width:100%;border-collapse:collapse;font-size:11px;min-width:640px}
+table.table-fixed{min-width:0;width:100%;table-layout:fixed}
+table.table-fixed th,table.table-fixed td{box-sizing:border-box}
+th{position:sticky;top:0;background:#fff;z-index:1;text-align:left;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:18ch;font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--paper)}
+.empty{padding:36px 18px;text-align:center;font-size:11px;letter-spacing:0.08em;color:var(--ink-3);line-height:1.6}
+.empty b{display:block;font-family:var(--serif);font-size:18px;font-weight:500;color:var(--ink);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px}
+.stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+.stat{border:1px solid var(--line);background:#fff;padding:12px 14px;min-width:110px;flex:1 1 0%}
+.stat b{display:block;font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:-0.04em}
+.stat label{display:block;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
+/* Calendar */
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);background:#fff;overflow:hidden}
+.calendar-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:68px;padding:8px;position:relative;overflow:hidden}
+.calendar-cell:nth-child(7n){border-right:0}
+.calendar-cell.head{min-height:auto;background:var(--paper);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--ink-3);padding:10px 8px}
+.calendar-cell .day{font-family:var(--mono);font-size:11px}
+.calendar-cell.working{background:#fff} .calendar-cell.holiday{background:#FFF8F6} .calendar-cell.vacation{background:#F5F2EB} .calendar-cell.override{outline:1px solid var(--ink);outline-offset:-1px}
+.calendar-cell.today{box-shadow:inset 0 0 0 1px var(--ink)}
+.calendar-cell .tag{position:absolute;bottom:6px;left:6px;right:6px;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.weekly-schedule-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:12px 0}
+@media(max-width:860px){.weekly-schedule-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:540px){.weekly-schedule-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.day-card{background:#FFFFFF;border:1px solid #E5E2DC;border-radius:6px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;cursor:pointer;transition:all 160ms var(--ease);user-select:none;min-height:58px}
+.day-card:hover{border-color:#C8C4BC;transform:translateY(-1px)}
+.day-card.is-working{background:#0A0A0A;border-color:#0A0A0A;color:#FFFFFF;box-shadow:0 2px 8px rgba(10,10,10,0.12)}
+.day-card.is-working:hover{background:#1A1A1A;border-color:#1A1A1A}
+.day-card.is-working .day-short{color:#FFFFFF}
+.day-card.is-working .day-sub{color:rgba(255,255,255,0.72)}
+.day-card.is-off{background:#FFFFFF;border-color:#E5E2DC;color:var(--ink-3)}
+.day-card.is-off:hover{background:#FAFAF7;border-color:#D0CCC3}
+.day-card.is-off .day-short{color:var(--ink-2)}
+.day-card.is-off .day-sub{color:var(--ink-3)}
+.day-short{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;line-height:1.2}
+.day-sub{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;line-height:1;font-weight:500}
+.priority-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 12px;background:#F9F8F5;border:1px solid #EBE8E2;border-radius:5px;margin-top:10px;font-size:10.5px;color:var(--ink-2);line-height:1.45}
+.priority-order{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10.5px}
+.priority-step{display:inline-flex;align-items:center;gap:4px;font-weight:500;color:var(--ink)}
+.priority-arrow{color:var(--ink-3);font-size:10px}
+.weekly-table{border:1px solid var(--line);background:#fff;width:100%;border-collapse:collapse}
+.weekly-table th,.weekly-table td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:11px;text-align:left}
+.weekly-table th{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);background:var(--paper)}
+.toggle{width:34px;height:18px;border:1px solid var(--line-strong);background:#fff;position:relative;cursor:pointer;transition:all 180ms var(--ease);flex-shrink:0}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;background:var(--line);transition:all 180ms var(--ease)}
+.toggle.on{background:var(--ink);border-color:var(--ink)} .toggle.on::after{transform:translateX(16px);background:#fff}
+/* Custom Select Dropdowns */
+.custom-select-wrap{position:relative;display:inline-block;min-width:130px;font-family:var(--sans);flex-shrink:0;vertical-align:middle}
+.tab-toolbar .custom-select-wrap{min-width:130px;max-width:240px}
+.form-field .custom-select-wrap{width:100%;min-width:0;display:block}
+.custom-select-trigger{height:32px;padding:0 28px 0 10px;background:#FFFFFF;border:1px solid #E2DFD7;border-radius:5px;font-size:11.5px;color:#0A0A0A;font-weight:500;letter-spacing:0.02em;display:flex;align-items:center;cursor:pointer;user-select:none;transition:all 160ms var(--ease);position:relative;white-space:nowrap;width:100%;text-align:left;box-sizing:border-box;outline:0}
+.form-field .custom-select-trigger{height:38px;padding:0 32px 0 12px;font-size:12.5px;background:#FAF9F6}
+.custom-select-trigger:hover{border-color:#0A0A0A;background:#FAF9F6}
+.form-field .custom-select-trigger:hover{background:#FFFFFF}
+.custom-select-trigger:focus-visible,.custom-select-wrap.is-open .custom-select-trigger{border-color:#0A0A0A!important;background:#FFFFFF!important;box-shadow:0 0 0 2px rgba(10,10,10,0.08)!important;outline:0!important}
+.custom-select-trigger::after{content:"";position:absolute;right:10px;top:50%;width:5px;height:5px;border-right:1.5px solid #0A0A0A;border-bottom:1.5px solid #0A0A0A;transform:translateY(-70%) rotate(45deg);transition:transform 180ms var(--ease);pointer-events:none}
+.form-field .custom-select-trigger::after{right:12px}
+.custom-select-wrap.is-open .custom-select-trigger::after{transform:translateY(-20%) rotate(-135deg)}
+.custom-select-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%}
+.custom-select-menu{position:fixed;max-height:240px;overflow-y:auto;background:#FFFFFF;border:1px solid #E2DFD7;border-radius:6px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 2px 8px rgba(0,0,0,0.06);z-index:999999;display:none;padding:4px;scrollbar-width:thin;box-sizing:border-box}
+.custom-select-menu.is-portal-open{display:block;animation:dropdownFade 140ms var(--ease-2)}
+@keyframes dropdownFade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.custom-select-item{padding:7px 10px;font-size:11.5px;color:#0A0A0A;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background 120ms,color 120ms;user-select:none;white-space:nowrap;font-weight:500;gap:8px}
+.form-field .custom-select-item{padding:8px 12px;font-size:12px}
+.custom-select-item:hover{background:#F5F3ED;color:#0A0A0A}
+.custom-select-item.is-selected{background:#0A0A0A;color:#FFFFFF;font-weight:600}
+.custom-select-item.is-selected:hover{background:#1A1A1A;color:#FFFFFF}
+.custom-select-check{font-size:11px;line-height:1;margin-left:auto}
+.visually-hidden-select{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;opacity:0!important;pointer-events:none!important}
+/* Modal & Dialogs */
+.modal{position:fixed;inset:0;background:rgba(10,10,10,0.55);backdrop-filter:blur(8px);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 240ms var(--ease)}
+.modal.open{opacity:1;pointer-events:auto}
+.modal-card{width:100%;max-width:540px;max-height:88vh;overflow-y:auto;overflow-x:hidden;background:#FFFFFF;border:1px solid #E8E5DF;border-radius:8px;padding:26px 28px;transform:translateY(10px) scale(0.99);transition:transform 240ms var(--ease),opacity 240ms var(--ease);box-shadow:0 24px 64px -12px rgba(0,0,0,0.22),0 2px 6px rgba(0,0,0,0.04);scrollbar-width:thin;scrollbar-color:rgba(0,0,0,0.15) transparent}
+.modal-card::-webkit-scrollbar{width:5px}
+.modal-card::-webkit-scrollbar-track{background:transparent}
+.modal-card::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:99px}
+.modal-card::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.28)}
+.modal.open .modal-card{transform:translateY(0) scale(1)}
+.modal-header{margin-bottom:18px;display:flex;flex-direction:column;gap:4px}
+.modal-card h3{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:0.02em;color:var(--ink);line-height:1.2}
+.modal-card p{font-size:11.5px;color:var(--ink-2);line-height:1.45}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.form-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.form-field.full{grid-column:1 / -1}
+.form-field label{font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:#78756F;font-weight:500}
+.form-field input,.form-field select,.form-field textarea{height:38px;border:1px solid #E2DFD7;background:#FAF9F6;border-radius:5px;padding:0 12px;font-size:12.5px;font-family:var(--sans);color:#0A0A0A;outline:0;transition:all 180ms var(--ease);min-width:0}
+.form-field select{appearance:none;-webkit-appearance:none;padding-right:32px!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%230A0A0A' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;cursor:pointer}
+.form-field select:hover,.form-field input:hover{border-color:#0A0A0A;background-color:#FFFFFF}
+.form-field textarea{height:68px;padding:10px 12px;resize:vertical}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:#0A0A0A!important;background:#FFFFFF;box-shadow:0 0 0 2px rgba(10,10,10,0.08)!important;outline:0!important}
+.form-field input::placeholder,.form-field textarea::placeholder{color:#B5B1A8}
+/* Custom Modern Photo Uploader */
+.photo-uploader{display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px dashed #D6D2C8;border-radius:6px;background:#FAF9F6;transition:all 180ms var(--ease);cursor:pointer;position:relative}
+.photo-uploader:hover,.photo-uploader.dragover{border-color:#0A0A0A;background:#F4F2EB}
+.photo-uploader-thumb{width:56px;height:68px;border-radius:4px;border:1px solid #E2DFD7;background:#FFFFFF;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
+.photo-uploader-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-uploader-fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#A8A49C;width:100%;height:100%}
+.photo-uploader-fallback svg{width:22px;height:22px;stroke-width:1.5;stroke:currentColor;fill:none}
+.photo-uploader-body{flex:1 1 0%;min-width:0;display:flex;flex-direction:column;gap:3px}
+.photo-uploader-title{font-size:12px;font-weight:600;color:#0A0A0A;letter-spacing:0.01em;display:flex;align-items:center;gap:6px}
+.photo-uploader-desc{font-size:10.5px;color:#78756F;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-uploader-actions{display:flex;align-items:center;gap:8px;margin-top:2px}
+.photo-btn-subtle{font-family:var(--mono);font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:#0A0A0A;background:transparent;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:600}
+.photo-btn-subtle.danger{color:var(--danger)}
+.photo-btn-subtle:hover{opacity:0.75}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:6px}
+.btn{height:36px;padding:0 16px;border:1px solid #E2DFD7;background:#FFFFFF;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;cursor:pointer;border-radius:5px;transition:all 160ms var(--ease);white-space:nowrap;flex-shrink:0;font-family:var(--sans);display:inline-flex;align-items:center;justify-content:center}
+.btn:hover{border-color:#0A0A0A;background:#FAF9F6}
+.btn.primary{background:#0A0A0A;color:#FAF7F0;border-color:#0A0A0A}
+.btn.primary:hover{background:#262626;border-color:#262626;box-shadow:0 3px 10px rgba(0,0,0,0.14)}
+.btn.danger{color:var(--danger);border-color:#E8D4D4;background:#FFF9F9}
+.btn.danger:hover{border-color:var(--danger);background:#FFF2F2}
+.enroll-scan-box{border:1px solid #E8E5DF;border-radius:6px;background:#FAF9F6;padding:20px;text-align:center}
+.enroll-scan-count{font-family:var(--mono);font-size:28px;font-weight:400;letter-spacing:-0.02em}
+.enroll-scan-label{margin-top:8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-2)}
+.finger-visual{width:92px;height:122px;margin:16px auto 0;border:1px solid #E2DFD7;border-radius:4px;background:#FFFFFF;position:relative;overflow:hidden}
+.finger-line{position:absolute;left:-10px;right:-10px;height:2px;background:#0A0A0A;top:0;animation:scanSweep 0.92s var(--ease-2) infinite alternate}
+.lift-hint{margin-top:12px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3)}
+.inline-error{margin-top:2px;padding:9px 12px;border:1px solid #F3D2D2;background:#FFF6F6;color:#8A3A3A;font-size:11.5px;line-height:1.45;border-radius:5px;box-shadow:0 1px 3px rgba(138,58,58,0.05)}
+/* Schedule Sub-Sections (Holidays & Overrides) */
+.schedule-sub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+@media(max-width:860px){.schedule-sub-grid{grid-template-columns:1fr}}
+.schedule-sub-card{background:#FFFFFF;border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;min-width:0;box-sizing:border-box}
+.schedule-sub-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+.schedule-sub-title-group{display:flex;flex-direction:column;gap:2px;min-width:0}
+.schedule-sub-title{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px}
+.schedule-count-pill{font-family:var(--mono);font-size:9px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--paper);color:var(--ink-2);border:1px solid var(--line);line-height:1.3}
+.schedule-sub-caption{font-size:10px;color:var(--ink-3);line-height:1.35;margin-top:1px}
+.schedule-item-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.schedule-item-card{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#FAF9F6;border:1px solid #EAE7E0;border-radius:5px;gap:10px;transition:all 140ms var(--ease);min-width:0}
+.schedule-item-card:hover{background:#FFFFFF;border-color:#D4D0C7;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.schedule-item-info{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 0%}
+.schedule-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.schedule-item-name{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.schedule-item-badge{font-size:8.5px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;padding:2px 6px;border-radius:3px;line-height:1.2;white-space:nowrap}
+.schedule-item-badge.holiday{background:#FDF2F0;color:#8A3A3A;border:1px solid #E8C8C4}
+.schedule-item-badge.vacation{background:#F8F5EC;color:#8A6A2A;border:1px solid #E2D9C2}
+.schedule-item-badge.exam{background:#0A0A0A;color:#FFFFFF}
+.schedule-item-badge.working{background:#EAF4EC;color:#2F5D34;border:1px solid #BCDBC0}
+.schedule-item-badge.off{background:#FDF2F0;color:#8A3A3A;border:1px solid #E8C8C4}
+.schedule-item-meta{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--ink-2)}
+.schedule-item-date{font-family:var(--mono);font-size:10px;letter-spacing:0.02em;color:#555555;font-weight:500}
+.schedule-item-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.schedule-item-actions .btn{height:26px;padding:0 9px;font-size:9.5px}
+.schedule-empty-state{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;background:#FAF9F6;border:1px dashed #DDD9D0;border-radius:5px;font-size:11px;color:var(--ink-3);text-align:center}
+.schedule-empty-icon{font-size:13px;opacity:0.75}
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  html, body {
+    background: #FFFFFF !important;
+    color: #0A0A0A !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    line-height: 1.35 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 9pt !important;
+  }
+  .terminal, .admin-layer, .modal, .custom-select-menu {
+    display: none !important;
+  }
+  .print-root {
+    display: block !important;
+    width: 100% !important;
+    background: #FFFFFF !important;
+    color: #0A0A0A !important;
+  }
+}
+.print-root { display: none; }
+.print-doc {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #0A0A0A;
+  background: #FFFFFF;
+  line-height: 1.35;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+.print-header {
+  border-bottom: 2px solid #0A0A0A;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-school-name {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0A0A0A;
+  text-transform: uppercase;
+  margin: 0 0 2px 0;
+  line-height: 1.15;
+}
+.print-school-sub {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #555555;
+  font-weight: 600;
+  margin: 0 0 2px 0;
+}
+.print-school-meta {
+  font-size: 9px;
+  color: #666666;
+  line-height: 1.3;
+}
+.print-badge-official {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid #0A0A0A;
+  border-radius: 3px;
+  background: #F6F4EF;
+  color: #0A0A0A;
+  display: inline-block;
+  white-space: nowrap;
+}
+.print-doc-title {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0A0A0A;
+  margin-top: 3px;
+  text-align: right;
+}
+.print-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px 10px;
+  background: #FAF9F6;
+  border: 1px solid #E2DFD7;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.print-meta-label {
+  font-size: 7.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #777777;
+  font-weight: 600;
+}
+.print-meta-val {
+  font-size: 10px;
+  font-weight: 600;
+  color: #0A0A0A;
+  word-break: break-word;
+}
+.print-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-kpi-box {
+  border: 1px solid #D6D2C8;
+  background: #FFFFFF;
+  border-radius: 3px;
+  padding: 5px 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.print-kpi-box.highlight {
+  background: #F4F2EB;
+  border-color: #0A0A0A;
+}
+.print-kpi-num {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0A0A0A;
+  line-height: 1.1;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+.print-kpi-label {
+  font-size: 7.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #666666;
+  font-weight: 600;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.print-section-title {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #0A0A0A;
+  margin: 10px 0 5px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #E2DFD7;
+  padding-bottom: 3px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+  font-size: 8.5pt;
+  page-break-inside: auto;
+}
+.print-table thead {
+  display: table-header-group;
+}
+.print-table tfoot {
+  display: table-footer-group;
+}
+.print-table tbody {
+  display: table-row-group;
+}
+.print-table tr {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  page-break-after: auto;
+}
+.print-table th {
+  background: #F0EEE9;
+  border: 1px solid #D0CDC7;
+  color: #0A0A0A;
+  font-size: 7.5pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+.print-table td {
+  border: 1px solid #E2DFD7;
+  padding: 4px 6px;
+  color: #0A0A0A;
+  vertical-align: middle;
+  word-break: break-word;
+}
+.print-table tr:nth-child(even) td {
+  background: #FAF9F6;
+}
+.print-badge {
+  display: inline-block;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 2px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.print-badge.present {
+  background: #EAF4EC;
+  color: #2F5D34;
+  border: 1px solid #BCDBC0;
+}
+.print-badge.late {
+  background: #FFF8E6;
+  color: #8C6200;
+  border: 1px solid #EAD49B;
+}
+.print-badge.absent {
+  background: #FDF2F2;
+  color: #8A3A3A;
+  border: 1px solid #E8C4C4;
+}
+.print-badge.not-scheduled {
+  background: #F4F2EB;
+  color: #777777;
+  border: 1px solid #D6D2C8;
+}
+.print-badge.duplicate {
+  background: #F5F2EB;
+  color: #444444;
+  border: 1px solid #CCCCCC;
+}
+.print-signature-section {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 6px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-signature-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.print-sig-line {
+  border-bottom: 1px solid #0A0A0A;
+  height: 26px;
+  margin-bottom: 3px;
+}
+.print-sig-title {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0A0A0A;
+}
+.print-sig-sub {
+  font-size: 7.5px;
+  color: #777777;
+}
+.print-footer-bar {
+  margin-top: 12px;
+  padding-top: 5px;
+  border-top: 1px dashed #D6D2C8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7.5pt;
+  color: #777777;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-student-card {
+  display: flex;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid #E2DFD7;
+  background: #FAF9F6;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-student-photo {
+  width: 68px;
+  height: 84px;
+  border: 1px solid #D0CDC7;
+  border-radius: 3px;
+  background: #FFFFFF;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #666;
+  flex-shrink: 0;
+}
+.print-student-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.print-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px 10px;
+  flex: 1;
+}
+.print-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.print-detail-label {
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #777777;
+  font-weight: 600;
+}
+.print-detail-val {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #0A0A0A;
+  word-break: break-word;
+}
+</style>
+</head>
+<body>
+<div class="terminal" id="terminal">
+  <div class="left">
+    <div class="scanner-stage" id="scannerStage" title="Click or Touch to Scan Biometrics">
+      <div id="hologramCanvasContainer" class="hologram-canvas-container"></div>
+      <div class="hologram-hud">
+        <div class="hud-corner-tl"></div>
+        <div class="hud-corner-tr"></div>
+        <div class="hud-corner-bl"></div>
+        <div class="hud-corner-br"></div>
+        <div class="hud-top-meta">
+          <span>OPT-3D // VOLUMETRIC</span>
+          <span id="hologramFPS">60 FPS</span>
+        </div>
+        <div class="hud-bottom-meta">
+          <div class="prompt" id="promptText">PLACE YOUR FINGER TO SCAN</div>
+        </div>
+      </div>
+    </div>
+    <div class="left-bottom">
+      <button class="admin-trigger" id="openAdminBtn">Admin</button>
+    </div>
+  </div>
+  <div class="right">
+    <div class="result-viewport">
+      <canvas id="scan-particle-canvas" class="scan-particle-canvas"></canvas>
+      <div class="idle-layer" id="idleLayer"></div>
+      <div class="identity-layer" id="identityLayer">
+        <div class="result-stage">
+          <div class="result-msg" id="idConfirm">ATTENDANCE RECORDED</div>
+          <div class="result-profile">
+            <div class="result-photo" id="photoWrap"><div class="photo-fallback" id="photoFallback">--</div><img id="photoImg" alt="" style="display:none"></div>
+            <div class="result-info">
+              <div class="result-name" id="idName">—</div>
+              <dl class="result-fields">
+                <dt>Roll</dt><dd id="idRoll">—</dd>
+                <dt>Class / Grade</dt><dd id="idClass">—</dd>
+                <dt>Section / Batch</dt><dd id="idGroup">—</dd>
+                <dt>Student ID</dt><dd id="idSid">—</dd>
+                <dt>Status</dt><dd class="is-status" id="idStatus">—</dd>
+                <dt>Time</dt><dd class="is-time" id="idTime">—</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="unknown-layer" id="unknownLayer"><div class="result-msg unknown-title" id="unknownTitle">NOT RECOGNIZED</div></div>
+    </div>
+  </div>
+  <div class="admin-layer" id="adminLayer">
+    <div class="admin-top"><div class="admin-title" id="adminTitle">Students</div><div style="display:flex;gap:8px;align-items:center"><span style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3)">Esc to close</span><button class="admin-close" id="adminClose">Close</button></div></div>
+    <div class="admin-nav" id="adminNav">
+      <button data-tab="students" class="active">Students</button>
+      <button data-tab="today">Today</button>
+      <button data-tab="reports">Reports</button>
+      <button data-tab="calendar">Calendar</button>
+      <button data-tab="settings">Settings</button>
+      <button data-tab="backup">Backup</button>
+    </div>
+    <div class="admin-body">
+      <!-- Students -->
+      <div class="admin-pane" id="pane-students">
+        <div class="tab-toolbar">
+          <input id="searchInput" placeholder="Search name, roll, class, batch, phone, fingerprint" style="flex:1 1 0%">
+          <select id="classFilter"><option value="">All Classes</option></select>
+          <select id="batchFilter"><option value="">All Batches</option></select>
+          <select id="studentStatusFilter"><option value="active">Active only</option><option value="all">All</option><option value="inactive">Inactive only</option></select>
+          <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
+          <button class="btn" id="importStudentsBtn">Import CSV</button>
+          <button class="btn" id="exportStudentsBtn">Export CSV</button>
+        </div>
+        <div style="flex:1 1 0%;min-height:0;display:flex;flex-direction:row;overflow:hidden">
+          <div class="list-pane"><div class="list-scroll" id="studentList"></div></div>
+          <div class="detail-pane"><div class="detail-scroll" id="detailScroll"><div class="empty"><b>No student selected</b>Choose a student to view profile, attendance summary, history, and fingerprint controls. Search supports name, roll, class, section, parent phone, fingerprint ID.</div></div></div>
+        </div>
+      </div>
+      <!-- Today -->
+      <div class="admin-pane hidden" id="pane-today">
+        <div class="tab-toolbar">
+          <div id="todayDateLabel" style="font-size:11px;letter-spacing:0.08em;flex:1 1 0%">Today — --</div>
+          <select id="todayClassFilter"><option value="">All Classes</option></select>
+          <select id="todayStatusFilter"><option value="">All Status</option><option value="Present">Present</option><option value="Late">Late</option><option value="Absent">Absent</option><option value="Not Scheduled">Not Scheduled</option><option value="Unknown">Unknown</option><option value="Duplicate">Duplicate</option></select>
+          <select id="todaySort"><option value="time_desc">Time ↓</option><option value="time_asc">Time ↑</option><option value="name_asc">Name A→Z</option><option value="roll_asc">Roll</option><option value="class_asc">Class</option><option value="status_asc">Status</option></select>
+          <button class="btn" id="todayRefreshBtn">Refresh</button>
+          <button class="btn" id="todayPrintBtn">Print</button>
+          <button class="btn" id="todayExportBtn">Export CSV</button>
+        </div>
+        <div class="detail-scroll">
+          <div class="stats-row" id="todayStats"></div>
+          <div class="table-wrap"><div class="table-scroll large"><table><thead><tr><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Fingerprint</th></tr></thead><tbody id="todayTableBody"></tbody></table></div></div>
+          <div class="table-wrap" style="margin-top:12px"><div style="padding:10px 12px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;border-bottom:1px solid var(--line)">Unknown attempts</div><div class="table-scroll"><table><thead><tr><th>Time</th><th>Fingerprint</th><th>Note</th></tr></thead><tbody id="todayUnknownBody"></tbody></table></div></div>
+        </div>
+      </div>
+      <!-- Reports -->
+      <div class="admin-pane hidden" id="pane-reports">
+        <div class="tab-toolbar" style="flex-wrap:wrap;height:auto;min-height:48px;padding:8px 16px">
+          <select id="reportScope"><option value="school">Entire school</option><option value="class">One class</option><option value="student">One student</option></select>
+          <select id="reportClass"><option value="">Select class</option></select>
+          <select id="reportStudent" style="display:none"><option value="">Select student</option></select>
+          <select id="reportTime"><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="year">This year</option><option value="academic">Academic year 2026-27</option><option value="custom">Custom range</option></select>
+          <input type="date" id="reportFrom" style="display:none"><input type="date" id="reportTo" style="display:none">
+          <button class="btn primary" id="reportApplyBtn">Apply</button>
+          <button class="btn" id="reportPrintBtn">Print</button>
+          <button class="btn" id="reportCsvBtn">CSV</button>
+        </div>
+        <div class="detail-scroll">
+          <div class="stats-row" id="reportStats"></div>
+          <div class="table-wrap"><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Working day?</th></tr></thead><tbody id="reportBody"></tbody></table></div></div>
+        </div>
+      </div>
+      <!-- Calendar -->
+      <div class="admin-pane hidden" id="pane-calendar">
+        <div class="detail-scroll">
+          <div class="detail-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600">Weekly Schedule</div>
+                <div style="font-size:10px;color:var(--ink-3);margin-top:2px">Configure standard working days for terminal attendance</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <div class="custom-select-wrap" id="calClassSelectWrap">
+                  <select id="calClassSelect" class="visually-hidden-select"><option value="">All classes (global)</option></select>
+                  <button type="button" class="custom-select-trigger" id="calClassSelectTrigger" aria-haspopup="listbox" aria-expanded="false">
+                    <span id="calClassSelectLabel">All classes (global)</span>
+                  </button>
+                  <div class="custom-select-menu" id="calClassSelectMenu" role="listbox"></div>
+                </div>
+                <button class="btn" id="calResetWeekBtn">Reset week to Mon–Sat</button>
+              </div>
+            </div>
+            <div class="weekly-schedule-grid" id="weeklyScheduleGrid"></div>
+            <table class="weekly-table" id="weeklyTable" style="display:none"><thead><tr><th>Day</th><th>Working?</th></tr></thead><tbody></tbody></table>
+            <div class="priority-banner">
+              <div class="priority-order">
+                <span style="font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600">Evaluation Priority:</span>
+                <span class="priority-step">1. Date Override</span>
+                <span class="priority-arrow">→</span>
+                <span class="priority-step">2. Holiday / Vacation</span>
+                <span class="priority-arrow">→</span>
+                <span class="priority-step">3. Weekly Schedule</span>
+              </div>
+              <span style="font-size:10px;color:var(--ink-3)">Holidays &amp; Non-working days are never marked absent</span>
+            </div>
+          </div>
+          <div class="schedule-sub-grid">
+            <div class="schedule-sub-card">
+              <div class="schedule-sub-header">
+                <div class="schedule-sub-title-group">
+                  <div class="schedule-sub-title">
+                    <span>Holidays &amp; Vacations</span>
+                    <span class="schedule-count-pill" id="holidayCountBadge">0</span>
+                  </div>
+                  <div class="schedule-sub-caption">Multi-day breaks &amp; exams · Students not marked absent on holidays</div>
+                </div>
+                <button class="btn" id="addHolidayBtn">+ Add holiday</button>
+              </div>
+              <div class="schedule-item-list" id="holidayList"></div>
+              <tbody id="holidayBody" style="display:none"></tbody>
+            </div>
+            <div class="schedule-sub-card">
+              <div class="schedule-sub-header">
+                <div class="schedule-sub-title-group">
+                  <div class="schedule-sub-title">
+                    <span>Special Date Overrides</span>
+                    <span class="schedule-count-pill" id="overrideCountBadge">0</span>
+                  </div>
+                  <div class="schedule-sub-caption">Single-day calendar exceptions that supersede weekly rules</div>
+                </div>
+                <button class="btn" id="addOverrideBtn">+ Add override</button>
+              </div>
+              <div class="schedule-item-list" id="overrideList"></div>
+              <tbody id="overrideBody" style="display:none"></tbody>
+            </div>
+          </div>
+          <div class="detail-card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600">Month view</div>
+                <div style="display:flex;gap:6px;align-items:center"><span class="badge working" style="font-size:8px">Working</span><span class="badge holiday" style="font-size:8px;background:#FFF8F6">Holiday</span><span class="badge" style="font-size:8px;background:#F5F2EB">Vacation</span><span class="badge" style="font-size:8px;border-color:var(--ink)">Override</span></div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center"><button class="btn" id="calPrevBtn">‹ Prev</button><div id="calMonthLabel" style="font-size:11px;letter-spacing:0.08em;min-width:140px;text-align:center"></div><button class="btn" id="calNextBtn">Next ›</button><button class="btn" id="calTodayBtn">Today</button></div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Settings -->
+      <div class="admin-pane hidden" id="pane-settings">
+        <div class="detail-scroll">
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="detail-card" style="flex:1 1 360px">
+              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">Classes</div>
+              <div class="table-wrap"><div class="table-scroll no-scroll-x"><table class="table-fixed"><colgroup><col style="width:50%"><col style="width:25%"><col style="width:25%"></colgroup><thead><tr><th>Class</th><th>Students</th><th style="text-align:right">Action</th></tr></thead><tbody id="classBody"></tbody></table></div></div>
+              <div style="margin-top:12px;display:flex;gap:8px"><input id="newClassName" placeholder="New class e.g. Grade 11-A" style="height:30px;border:1px solid var(--line);padding:0 10px;font-size:11px;flex:1 1 0%"><button class="btn primary" id="addClassBtn">Add</button></div>
+              <div style="margin-top:8px;font-size:10px;color:var(--ink-2)">Classes are editable; adding a class here also creates it when enrolling a student.</div>
+            </div>
+            <div class="detail-card" style="flex:1 1 360px">
+              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">School information & rules</div>
+              <div class="form-grid">
+                <div class="form-field full"><label>School name</label><input id="setSchoolName" value="ATL Public School"></div>
+                <div class="form-field full"><label>Address</label><input id="setSchoolAddress" value="Shikrapur, Pune, Maharashtra"></div>
+                <div class="form-field"><label>Late threshold</label><input type="time" id="setLateThreshold" value="08:30"></div>
+                <div class="form-field"><label>Academic year</label><select id="setAcademicYear"><option>2026-27</option><option>2027-28</option></select></div>
+                <div class="form-field full"><label>Attendance start date</label><input type="date" id="setAttendanceStart"></div>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:8px"><button class="btn primary" id="settingsSaveBtn">Save settings</button><button class="btn" id="settingsExportBtn">Export school info CSV</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Backup -->
+      <div class="admin-pane hidden" id="pane-backup">
+        <div class="detail-scroll">
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="detail-card" style="flex:1 1 360px">
+              <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;margin-bottom:12px">Backup & restore — local file</div>
+              <div style="font-size:11px;line-height:1.6;color:var(--ink-2);margin-bottom:12px">Full SQLite database backup. Includes students, attendance, calendar, holidays, overrides, settings, fingerprint mappings, classes, audit. Works offline. Restore validates SQLite header before replacing.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="backupDownloadBtn">Download backup (DB)</button><label class="btn" style="cursor:pointer"><input type="file" id="backupFileInput" accept=".db,.sqlite,.sqlite3" style="display:none">Restore from file</label></div>
+              <div id="backupStatus" style="margin-top:12px;font-size:11px;color:var(--ink-2)"></div>
+              <div style="margin-top:18px"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;margin-bottom:8px">What gets backed up</div><div style="font-size:11px;line-height:1.6">Students, Attendance, Calendar (global weekly schedule plus per-class and per-batch schedules, holidays, overrides), School settings, Classes, Fingerprint mappings, Audit history. Per-class and per-batch schedules are stored in the database and included in this backup.</div></div>
+            </div>
+            <div class="detail-card" style="flex:2 1 480px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600">Audit history — attendance is administrative record</div><div style="display:flex;gap:8px"><button class="btn" id="auditExportBtn">Export CSV</button><button class="btn" id="auditClearBtn" title="Managed on backend" disabled style="opacity:0.5">Clear audit</button></div></div>
+              <div class="table-wrap"><div class="table-scroll large"><table><thead><tr><th>Time</th><th>Action</th><th>Details</th><th>By</th></tr></thead><tbody id="auditBody"></tbody></table></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal" id="enrollModal"><div class="modal-card"><div class="modal-header"><h3 id="enrollTitle">New student</h3><p id="enrollSub">Complete profile and fingerprint enrollment. Photo optional, max 2MB.</p></div><div id="enrollBody"></div></div></div>
+<div class="modal" id="holidayModal"><div class="modal-card"><div class="modal-header"><h3 id="holidayModalTitle">Add holiday</h3><p id="holidayModalSub">Holiday range affects attendance — student not marked absent on configured holiday.</p></div><div id="holidayModalBody"></div></div></div>
+<div class="modal" id="overrideModal"><div class="modal-card"><div class="modal-header"><h3 id="overrideModalTitle">Add special date override</h3><p id="overrideModalSub">Specific date overrides weekly schedule. Priority: override → holiday → weekly.</p></div><div id="overrideModalBody"></div></div></div>
+<div class="modal" id="correctionModal"><div class="modal-card"><div class="modal-header"><h3 id="correctionModalTitle">Correct attendance</h3><p id="correctionModalSub">Original status preserved in audit. Reason required.</p></div><div id="correctionModalBody"></div></div></div>
+<div class="modal" id="confirmModal"><div class="modal-card"><div class="modal-header"><h3 id="confirmModalTitle">Confirm</h3><p id="confirmModalSub">Are you sure?</p></div><div id="confirmModalBody"></div></div></div>
+<div class="print-root" id="printRoot"></div>
+
+<script>
+/* Application logic: backend/ui_app.js — spliced in at serve time by backend/app.py. */
+</script>
+</body>
+</html>

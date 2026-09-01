@@ -1,11 +1,34 @@
-<div align="center">
+# ATL Smart Attendance Terminal
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Fingerprint attendance: **GT-511C3** → **Raspberry Pi 3** → **Flask + SQLite**. Front page is a biometric terminal; Admin is behind it.
 
-  <h1>Built with AI Studio</h2>
+Finger on sensor → identify → record `PRESENT/LATE/DUPLICATE/NOT_SCHEDULED` → show frameless photo + fields → fade to `PLACE YOUR FINGER`. Works offline; SQLite + sensor are truth.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Hardware
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+GT-511C3 200 slots, UART `/dev/serial0` 9600, **VCC 3.3V pin 1 only — never 5V**. Pi 3 Model B, Debian 13, `lancer@192.168.1.8`.
 
-</div>
+Wiring: VCC→3.3V pin1, GND→pin6, RX→GPIO14/pin8, TX→GPIO15/pin10.
+
+## Run
+
+```bash
+python backend/app.py          # http://127.0.0.1:5000/
+python -m unittest backend.test_app -v
+```
+
+Pi: `http://192.168.1.8:5000/` · `sudo systemctl status atl-attendance` · `journalctl -u atl-attendance -f`
+
+Deploy: `powershell -File tools/deploy.ps1` — never copies `attendance.db` or `config.json`.
+
+## UI architecture
+
+`ATL-Smart-Attendance-Production.html` = shell/markup/CSS · `backend/ui_app.js` = behavior · `backend/app.py` = serves HTML with JS injected · `backend/gt511c3.py` = driver. Redesign: HTML/CSS in the HTML file, behavior in `ui_app.js`; rollback via Git tag `v1.0.0` (see `docs/VERSIONS.md`).
+
+## Docs
+
+- Agent rules: `AGENTS.md`
+- Product: `docs/PROJECT.md` · Workflow: `docs/WORKFLOW.md` · Admin: `docs/ADMIN.md`
+- Architecture: `docs/ARCHITECTURE.md` · Data: `docs/DATA_MODEL.md`
+- Development: `docs/DEVELOPMENT.md` · Testing: `docs/TESTING.md` · Operations: `docs/OPERATIONS.md`
+- API contract: `API.md`

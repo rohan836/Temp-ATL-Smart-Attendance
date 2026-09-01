@@ -1,0 +1,8 @@
+{
+  "name": "ATL Smart Attendance",
+  "description": "Smart biometric fingerprint attendance kiosk and school management terminal with real-time tracking, scheduling, analytics, and reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
