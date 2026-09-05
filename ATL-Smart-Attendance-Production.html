@@ -638,6 +638,20 @@
       display: none !important
     }
 
+    /* Global bottom boundary: one shared workspace footer hairline.
+       Every pane is an equal-height flex column, so this in-flow
+       trailing line renders at the identical vertical level on
+       Students, Attendance, Setup, and Backup. No overlay, no card,
+       no z-index games — inner scroll regions clip above it. */
+    .admin-pane::after {
+      content: "";
+      flex: none;
+      height: 1px;
+      margin: 12px clamp(16px, 3vw, 32px) 12px;
+      background: var(--hairline);
+      pointer-events: none;
+    }
+
     .tab-toolbar {
       height: 48px;
       flex-shrink: 0;
@@ -4541,6 +4555,8 @@
       text-transform: none !important;
     }
 
+    /* Schedule popup retired — inline month editor above. */
+
     /* ============================================================
        CLASS/BATCH SCHEDULE EDITOR — the single solid schedule editor.
        Same locked dialog treatment (veil, card, type, actions);
@@ -5999,7 +6015,7 @@
       grid-template-columns: minmax(0, 1fr) !important;
       gap: 0 !important;
       align-items: stretch !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
+      border-bottom: none !important;
       padding-bottom: 28px !important;
       margin-bottom: 28px !important;
       width: 100% !important;
@@ -6510,7 +6526,10 @@
     #overrideModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
     #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
-    #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
+    #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
+    #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+    #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+    #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
       background: rgba(242, 243, 246, 0.25) !important;
       color: #F2F3F6 !important;
     }
@@ -6536,7 +6555,10 @@
     html[data-ink="dark"] #overrideModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
     html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
-    html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
+    html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
+    html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+    html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+    html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
       background: rgba(24, 26, 32, 0.2) !important;
       color: #181A20 !important;
     }
@@ -6675,34 +6697,10 @@
       margin-bottom: 8px !important;
     }
 
-    /* Left bar owns tabs + add, stacked: same 280/240/300 width
-       + 24px gutter as #cubeGrid, so controls end at the wall and
-       never leak into the detail side (display + edit only). Both
-       views share one geometry — no width/height shift on switch. */
-    #pane-setup .setup-card-classes .setup-panel-header.compact {
-      display: flex !important;
-      align-items: stretch !important;
-      gap: 0 !important;
-    }
-
-    #pane-setup .setup-card-classes .cube-left-head {
-      flex: 0 1 280px !important;
-      min-width: 240px !important;
-      max-width: 300px !important;
-      padding-right: 24px !important;
-      box-sizing: border-box !important;
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 8px !important;
-      margin: 0 !important;
-    }
-
-    #pane-setup .setup-card-classes .cube-left-head .setup-add-row {
-      width: 100% !important;
-      flex: none !important;
-      margin-top: 0 !important;
-      margin-left: 0 !important;
-    }
+    /* Left rail add row lives in its own fixed grid row below the
+       secondary bar (display + edit only). Both views share one
+       geometry — no width/height shift on switch. Narrow stacking
+       re-establishes column flow at 1160px. */
 
     #pane-setup .setup-card-classes #newClassName,
     #pane-setup .setup-card-classes #newBatchName {
@@ -6711,15 +6709,66 @@
       min-width: 0 !important;
     }
 
-    /* CLASSES|BATCHES view tabs: text-first, active anchors 500 —
-       admin-nav language, zero motion. */
-    #pane-setup .setup-card-classes .cube-tabs {
+    /* Setup secondary bar: same two-bar geometry as the Students /
+       Attendance toolbars — one thin control row under TOP NAV
+       (left tabs, center month context, right month nav), hairline
+       below, then content, then the global footer. */
+    #pane-setup .setup-toolbar {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 10px 18px !important;
+      flex-wrap: wrap !important;
+      flex: none !important;
+      padding: 10px clamp(16px, 3vw, 32px) !important;
+      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
+      min-height: 48px !important;
+      box-sizing: border-box !important;
+    }
+
+    #pane-setup .setup-toolbar-left {
       display: flex !important;
       align-items: baseline !important;
       gap: 16px !important;
+      flex: none !important;
     }
 
-    #pane-setup .setup-card-classes .cube-tab {
+    /* Fixed equal tab slots: switching tabs never resizes the bar;
+       the 400↔500 weight swap happens inside the fixed width. */
+    #pane-setup .setup-toolbar-left .cube-tab {
+      width: 72px !important;
+      text-align: center !important;
+      flex: none !important;
+    }
+
+    /* Fixed regions: center absorbs viewport width so the legend
+       stays centered while left/right hold their geometry —
+       groups can no longer drift apart. */
+    #pane-setup .setup-toolbar .setup-monthview-legend {
+      flex: 1 1 auto !important;
+      justify-content: center !important;
+    }
+
+    #pane-setup .setup-toolbar .setup-monthview-nav {
+      flex: none !important;
+    }
+
+    /* The schedule-context select is secondary to the view toggles:
+       narrower slot + hairline divider so its long truncated label
+       never competes with the primary controls. */
+    #pane-setup .setup-monthview-legend .gsel:has(> select#calClassSelect) {
+      border-left: 1px solid var(--hairline) !important;
+      padding-left: 14px !important;
+      margin-left: 2px !important;
+    }
+
+    #pane-setup .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn {
+      max-width: 132px !important;
+    }
+
+    /* CLASSES|BATCHES view tabs: text-first, active anchors 500 —
+       admin-nav language, zero motion. */
+    #pane-setup .setup-toolbar .cube-tab {
       background: transparent !important;
       border: none !important;
       border-radius: 0 !important;
@@ -6736,24 +6785,24 @@
       transition: none !important;
     }
 
-    #pane-setup .setup-card-classes .cube-tab:hover {
+    #pane-setup .setup-toolbar .cube-tab:hover {
       color: #181A20 !important;
     }
 
-    #pane-setup .setup-card-classes .cube-tab.active {
+    #pane-setup .setup-toolbar .cube-tab.active {
       font-weight: 500 !important;
       color: #F2F3F6 !important;
     }
 
-    html[data-ink="dark"] #pane-setup .setup-card-classes .cube-tab {
+    html[data-ink="dark"] #pane-setup .setup-toolbar .cube-tab {
       color: rgba(24, 26, 32, 0.5) !important;
     }
 
-    html[data-ink="dark"] #pane-setup .setup-card-classes .cube-tab:hover {
+    html[data-ink="dark"] #pane-setup .setup-toolbar .cube-tab:hover {
       color: #F2F3F6 !important;
     }
 
-    html[data-ink="dark"] #pane-setup .setup-card-classes .cube-tab.active {
+    html[data-ink="dark"] #pane-setup .setup-toolbar .cube-tab.active {
       color: #181A20 !important;
     }
 
@@ -7001,11 +7050,10 @@
     }
 
     #pane-setup .cube-actions {
-      margin-left: auto !important;
       display: flex !important;
       align-items: center !important;
+      justify-content: center !important;
       gap: 4px !important;
-      flex-shrink: 0 !important;
     }
 
     /* Month View Calendar Grid: Seamless Hairline Grid */
@@ -7032,14 +7080,16 @@
        shared toolbar row + row-for-row cube/cell alignment via grid,
        caption below grid, 160px truncated context slot. */
     #pane-setup .setup-grid {
-      margin-top: 32px !important;
+      margin-top: 12px !important;
     }
 
-    /* Shared two-column grid: toolbar shares row 1 with the add row,
-       left cubes align row-for-row with month cells (56px + 8px gap). */
+    /* One workspace geometry: fixed 240px left rail, remaining
+       width for the month. Tops share row 1; roster and calendar
+       bottoms land on one datum; add footer aligns with the
+       cutoff strip. */
     #pane-setup .setup-card-classes .setup-subcard-section {
       display: grid !important;
-      grid-template-columns: minmax(220px, 260px) 1px minmax(0, 1fr) !important;
+      grid-template-columns: 240px minmax(0, 1fr) !important;
       column-gap: 20px !important;
       row-gap: 8px !important;
       align-items: start !important;
@@ -7050,49 +7100,128 @@
       display: contents !important;
     }
 
-    #pane-setup .setup-card-classes .setup-panel-header.compact {
+    /* Roster owns grid row 1 (7 rows = 392 = calendar height);
+       the fixed add footer owns row 2 beside the cutoff strip. */
+    #pane-setup .setup-card-classes .cube-add-head {
+      grid-column: 1 !important;
+      grid-row: 2 !important;
+      min-width: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      box-sizing: border-box !important;
+      /* Same top rhythm as the cutoff strip: one shared datum. */
+      border-top: 1px solid var(--hairline) !important;
+      margin-top: 10px !important;
+      padding-top: 10px !important;
+    }
+
+    #pane-setup .setup-card-classes .cube-add-head .setup-add-row {
+      width: 100% !important;
+      flex: none !important;
+      margin-top: 0 !important;
+      margin-left: 0 !important;
+    }
+
+    /* Add row borrows the Students search wash verbatim (same stops,
+       both inks): bare text input + text action on a directional
+       fade — the underline bar is retired. Focus deepens the wash
+       head, never draws a line. */
+    #pane-setup .cube-add-head .setup-add-row {
+      background: linear-gradient(90deg, rgba(242, 243, 246, 0.10), rgba(242, 243, 246, 0) 80%) !important;
+      border: none !important;
+      border-radius: 4px !important;
+      box-shadow: none !important;
+      padding: 4px 12px !important;
+    }
+
+    #pane-setup .cube-add-head .setup-add-row:focus-within {
+      background: linear-gradient(90deg, rgba(242, 243, 246, 0.16), rgba(242, 243, 246, 0) 80%) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup .cube-add-head .setup-add-row {
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.10), rgba(24, 26, 32, 0) 80%) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup .cube-add-head .setup-add-row:focus-within {
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0) 80%) !important;
+    }
+
+    #pane-setup .cube-add-head .setup-input-compact,
+    #pane-setup .cube-add-head .setup-input-compact:focus {
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .cube-add-head .setup-input-compact,
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .cube-add-head .setup-input-compact:focus {
+      border: none !important;
+    }
+
+    #pane-setup #cubeGrid {
       grid-column: 1 !important;
       grid-row: 1 !important;
       min-width: 0 !important;
-    }
-
-    #pane-setup .setup-card-classes .cube-left-head,
-    #pane-setup #cubeGrid {
       padding-right: 0 !important;
     }
 
-    #pane-setup .cube-wall {
-      grid-column: 2 !important;
-      grid-row: 1 / span 2 !important;
-      align-self: stretch !important;
-    }
-
-    #pane-setup #classDetail .setup-monthview-header {
-      grid-column: 3 !important;
-      grid-row: 1 !important;
-      min-width: 0 !important;
-    }
-
-    #pane-setup #cubeGrid {
-      grid-column: 1 !important;
-      grid-row: 2 !important;
-      min-width: 0 !important;
-    }
-
     #pane-setup #classDetail #calendarGrid {
-      grid-column: 3 !important;
-      grid-row: 2 !important;
+      grid-column: 2 !important;
+      grid-row: 1 !important;
       margin: 0 !important;
       min-width: 0 !important;
+      /* The global .calendar-grid frost rule also carries a 12px
+         backdrop-filter: with our transparent background that
+         renders as a pure blur rectangle exactly this box. Retire
+         the blur here (scoped — other pages keep their rule) so
+         the month sits directly on the ambient background. */
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      /* Stable footprint: 7 uniform rows (headers + 6 weeks) × 56px,
+         gapless so hairlines join into continuous guides = 392px
+         reserved. Shorter months leave quiet invisible space; 5-row
+         vs 6-row never moves the page. */
+      gap: 0 !important;
+      grid-auto-rows: 56px !important;
+      align-content: start !important;
+      min-height: 392px !important;
     }
 
-    /* Month header cards match cube height so rows line up exactly. */
+    /* Month header cards match cube height so rows line up exactly.
+       Flat text controls: no wash band, no blur, no radius — toggle
+       state reads through the WORKING/OFF word + text brightness. */
     #pane-setup #calendarGrid .weekly-day-card {
       height: 56px !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      transition: none !important;
+    }
+
+    #pane-setup #calendarGrid .weekly-day-card.working,
+    #pane-setup #calendarGrid .weekly-day-card.off,
+    #pane-setup #calendarGrid .weekly-day-card:hover {
+      background: transparent !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #calendarGrid .weekly-day-card,
+    html[data-ink="dark"] #pane-setup #calendarGrid .weekly-day-card.working,
+    html[data-ink="dark"] #pane-setup #calendarGrid .weekly-day-card.off,
+    html[data-ink="dark"] #pane-setup #calendarGrid .weekly-day-card:hover {
+      background: transparent !important;
+    }
+
+    #pane-setup #classDetail #monthEditor {
+      grid-column: 2 !important;
+      grid-row: 2 !important;
+      min-width: 0 !important;
     }
 
     #pane-setup #classDetail #calTemplateLegend {
-      grid-column: 3 !important;
+      grid-column: 2 !important;
       grid-row: 3 !important;
       margin: 8px 0 0 !important;
     }
@@ -7127,10 +7256,10 @@
         display: flex !important;
         flex-direction: column !important;
       }
-      #pane-setup #classDetail .setup-monthview-header {
+      #pane-setup #classDetail #calendarGrid {
         order: 1 !important;
       }
-      #pane-setup #classDetail #calendarGrid {
+      #pane-setup #classDetail #monthEditor {
         order: 2 !important;
       }
       #pane-setup #classDetail #calTemplateLegend {
@@ -7140,6 +7269,143 @@
         width: 100% !important;
         height: 1px !important;
       }
+    }
+
+    /* MONTH INLINE EDITOR — weekday headers toggle staged working days;
+       thin control strip below the grid (cutoffs + Save/Cancel). Each
+       cutoff field is a fixed two-track grid (label slot + time slot)
+       so the label can never overlap the value or clock glyph at any
+       viewport width; fields wrap as whole units on narrow screens.
+       Paint only: sans labels, mono times, text-first actions, hairline
+       top. Specificity stays under the D1/D2 dark blankets so both inks
+       follow the global pole law with zero bespoke theme rules. */
+    #calendarGrid button.weekly-day-card {
+      font: inherit !important;
+      padding: 0 !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+    }
+
+    #calendarGrid button.weekly-day-card:focus,
+    #calendarGrid button.weekly-day-card:focus-visible {
+      outline: none !important;
+    }
+
+    #monthEditor {
+      display: flex !important;
+      align-items: center !important;
+      flex-wrap: wrap !important;
+      column-gap: 40px !important;
+      row-gap: 8px !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border-top: 1px solid var(--hairline) !important;
+      margin-top: 10px !important;
+      padding-top: 10px !important;
+    }
+
+    #monthEditor .me-field {
+      display: grid !important;
+      grid-template-columns: 104px 148px !important;
+      align-items: center !important;
+      column-gap: 12px !important;
+      flex: none !important;
+      min-width: 0 !important;
+    }
+
+    #monthEditor .me-label {
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      color: rgba(242, 243, 246, 0.7) !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      min-width: 0 !important;
+    }
+
+    #monthEditor input[type="time"] {
+      font-family: var(--mono) !important;
+      font-size: 13px !important;
+      font-weight: 400 !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: #F2F3F6 !important;
+      padding: 2px !important;
+      outline: none !important;
+      color-scheme: light !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: none !important;
+      min-width: 0 !important;
+    }
+
+    #monthEditor input[type="time"]:focus {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+
+    #monthEditor .me-actions {
+      margin-left: auto !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+    }
+
+    #monthEditor .me-actions .btn {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      color: rgba(242, 243, 246, 0.85) !important;
+      font-family: var(--sans) !important;
+      font-weight: 500 !important;
+      font-size: 10.5px !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      text-decoration: none !important;
+      height: auto !important;
+      padding: 4px 6px !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+      transition: none !important;
+    }
+
+    #monthEditor .me-actions .btn:hover {
+      background: transparent !important;
+      border: none !important;
+      color: #F2F3F6 !important;
+    }
+
+    /* Dark pole: graphite mirror of the strip type above — same
+       sibling pole law, no new palette. Triple-ID keeps parity
+       with the D1/D2 blankets over the hardcoded light rules. */
+    html[data-ink="dark"] #pane-setup #monthEditor .me-label {
+      color: rgba(24, 26, 32, 0.7) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #monthEditor input[type="time"] {
+      color: #181A20 !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #monthEditor input[type="time"]:focus {
+      background: transparent !important;
+      border: none !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #monthEditor .me-actions .btn {
+      color: rgba(24, 26, 32, 0.85) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #monthEditor .me-actions .btn:hover {
+      color: #181A20 !important;
     }
 
     /* Bottom bar is its own row after the grid — never attached to it */
@@ -7155,21 +7421,50 @@
       background: rgba(24, 26, 32, 0.14) !important;
     }
 
+    /* FLAT EDITORIAL CELLS — text only, no containers: transparent,
+       no blur, no radius, no border, no shadow, no motion. Heights stay
+       fixed so every month occupies identical rows. */
     .calendar-cell {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.06), rgba(242, 243, 246, 0) 80%) !important;
-      backdrop-filter: blur(12px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       border: none !important;
-      border-radius: 4px !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
       color: #F2F3F6 !important;
+      height: 56px !important;
       min-height: 56px !important;
       padding: 6px 8px !important;
       box-sizing: border-box !important;
       position: relative !important;
+      transition: none !important;
+      transform: none !important;
     }
 
     .calendar-cell[data-date] {
       cursor: pointer !important;
+    }
+
+    /* Editorial hairline grid (Setup month only): top rules separate
+       week rows, right rules separate weekday columns — open edges,
+       no per-day boxes. Softer than structural lines (major dividers
+       keep --hairline) so guides read quiet, never tabular. Borders
+       sit inside the fixed 56px rows (border-box) so geometry never
+       shifts. */
+    #pane-setup #calendarGrid .calendar-cell {
+      border-top: 1px solid rgba(242, 243, 246, 0.08) !important;
+      border-right: 1px solid rgba(242, 243, 246, 0.08) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #calendarGrid .calendar-cell {
+      border-top-color: rgba(24, 26, 32, 0.08) !important;
+      border-right-color: rgba(24, 26, 32, 0.08) !important;
+    }
+
+    /* Saturday column: no trailing rule — right edge stays open */
+    #pane-setup #calendarGrid .calendar-cell:nth-child(7n) {
+      border-right: none !important;
     }
 
     .calendar-cell.head {
@@ -7189,51 +7484,50 @@
     }
 
     .calendar-cell.working {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.10), rgba(242, 243, 246, 0) 80%) !important;
+      background: transparent !important;
       border: none !important;
     }
 
     .calendar-cell.non-working,
     .calendar-cell.holiday,
     .calendar-cell.vacation {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.04), rgba(242, 243, 246, 0.02) 80%) !important;
+      background: transparent !important;
       border: none !important;
     }
 
     .calendar-cell.override {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.12), rgba(242, 243, 246, 0.02) 80%) !important;
+      background: transparent !important;
       outline: none !important;
       border: none !important;
     }
 
     .calendar-cell.today {
       box-shadow: none !important;
-      outline: 1px solid rgba(242, 243, 246, 0.35) !important;
-      outline-offset: -1px !important;
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.14), rgba(242, 243, 246, 0.02) 80%) !important;
+      outline: none !important;
+      background: transparent !important;
     }
 
-    /* Dark pole mirror: graphite stops, same heads/tails */
+    /* Dark pole mirror: equally flat — transparent in both inks */
     html[data-ink="dark"] #pane-setup .calendar-cell {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.06), rgba(24, 26, 32, 0) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .calendar-cell.working {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.10), rgba(24, 26, 32, 0) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .calendar-cell.non-working,
     html[data-ink="dark"] #pane-setup .calendar-cell.holiday,
     html[data-ink="dark"] #pane-setup .calendar-cell.vacation {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.04), rgba(24, 26, 32, 0.02) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .calendar-cell.override {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.12), rgba(24, 26, 32, 0.02) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .calendar-cell.today {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.14), rgba(24, 26, 32, 0.02) 80%) !important;
+      background: transparent !important;
     }
 
     div.calendar-cell[style*="background:#F2F3F6"],
@@ -7291,6 +7585,63 @@
       background: transparent !important;
       border: none !important;
       font-weight: 500 !important;
+    }
+
+    /* Legend emphasis (display-only): the pressed status keeps full
+       type while non-matching cells wash quiet. Monochrome pole
+       values only, both inks; geometry and data untouched. */
+    #calendarGrid.cal-dim-working .calendar-cell.non-working .day,
+    #calendarGrid.cal-dim-working .calendar-cell.holiday .day,
+    #calendarGrid.cal-dim-working .calendar-cell.vacation .day,
+    #calendarGrid.cal-dim-working .calendar-cell.override .day,
+    #calendarGrid.cal-dim-nonworking .calendar-cell.working .day,
+    #calendarGrid.cal-dim-nonworking .calendar-cell.override .day,
+    #calendarGrid.cal-dim-override .calendar-cell.working .day,
+    #calendarGrid.cal-dim-override .calendar-cell.non-working .day,
+    #calendarGrid.cal-dim-override .calendar-cell.holiday .day,
+    #calendarGrid.cal-dim-override .calendar-cell.vacation .day {
+      color: rgba(242, 243, 246, 0.30) !important;
+      font-weight: 400 !important;
+    }
+
+    #calendarGrid.cal-dim-working .calendar-cell.non-working .tag,
+    #calendarGrid.cal-dim-working .calendar-cell.holiday .tag,
+    #calendarGrid.cal-dim-working .calendar-cell.vacation .tag,
+    #calendarGrid.cal-dim-working .calendar-cell.override .tag,
+    #calendarGrid.cal-dim-nonworking .calendar-cell.working .tag,
+    #calendarGrid.cal-dim-nonworking .calendar-cell.override .tag,
+    #calendarGrid.cal-dim-override .calendar-cell.working .tag,
+    #calendarGrid.cal-dim-override .calendar-cell.non-working .tag,
+    #calendarGrid.cal-dim-override .calendar-cell.holiday .tag,
+    #calendarGrid.cal-dim-override .calendar-cell.vacation .tag {
+      color: rgba(242, 243, 246, 0.20) !important;
+      font-weight: 400 !important;
+    }
+
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.non-working .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.holiday .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.vacation .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.override .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.working .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.override .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.working .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.non-working .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.holiday .day,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.vacation .day {
+      color: rgba(24, 26, 32, 0.30) !important;
+    }
+
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.non-working .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.holiday .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.vacation .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.override .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.working .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.override .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.working .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.non-working .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.holiday .tag,
+    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.vacation .tag {
+      color: rgba(24, 26, 32, 0.20) !important;
     }
 
     /* -------------------------------------------------------------
@@ -7414,6 +7765,24 @@
       background: linear-gradient(90deg, rgba(24, 26, 32, 0.06), rgba(24, 26, 32, 0.02) 80%) !important;
     }
 
+    /* Dark pole text: graphite mirror of the light opacities above —
+       same sibling pole law, no new palette. */
+    html[data-ink="dark"] #pane-setup .weekly-day-card.working .w-name {
+      color: #181A20 !important;
+    }
+
+    html[data-ink="dark"] #pane-setup .weekly-day-card.working .w-status {
+      color: rgba(24, 26, 32, 0.8) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup .weekly-day-card.off .w-name {
+      color: rgba(24, 26, 32, 0.45) !important;
+    }
+
+    html[data-ink="dark"] #pane-setup .weekly-day-card.off .w-status {
+      color: rgba(24, 26, 32, 0.32) !important;
+    }
+
     .weekly-day-card.off .w-name {
       font-family: var(--sans) !important;
       font-size: 10.5px !important;
@@ -7467,17 +7836,6 @@
       margin-bottom: 32px !important;
     }
 
-    .setup-monthview-header {
-      display: flex !important;
-      justify-content: space-between !important;
-      align-items: center !important;
-      margin-bottom: 14px !important;
-      flex-wrap: wrap !important;
-      gap: 12px !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
-      padding-bottom: 10px !important;
-    }
-
     .setup-monthview-legend {
       display: flex !important;
       align-items: center !important;
@@ -7511,6 +7869,30 @@
 
     .setup-legend-item.off {
       color: rgba(242, 243, 246, 0.75) !important;
+    }
+
+    /* Legend items are real toggle controls: button reset keeps the
+       legend type scale; pressed state pins full primary + 500 in
+       both inks (same selectable language as the list tabs). */
+    button.setup-legend-item {
+      font: inherit !important;
+      cursor: pointer !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+    }
+
+    button.setup-legend-item:focus,
+    button.setup-legend-item:focus-visible {
+      outline: none !important;
+    }
+
+    button.setup-legend-item[aria-pressed="true"] {
+      color: #F2F3F6 !important;
+      font-weight: 500 !important;
+    }
+
+    html[data-ink="dark"] button.setup-legend-item[aria-pressed="true"] {
+      color: #181A20 !important;
     }
 
     .setup-legend-context {
@@ -7965,6 +8347,8 @@
     html[data-ink="dark"] #overrideModal#overrideModal textarea,
     html[data-ink="dark"] #classDetail#classDetail .sched-solid h3,
     html[data-ink="dark"] #classDetail#classDetail .sched-solid input,
+    html[data-ink="dark"] #schedModal#schedModal .sched-solid h3,
+    html[data-ink="dark"] #schedModal#schedModal .sched-solid input,
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov .gconfirm h3 {
       color: #181A20 !important;
     }
@@ -8053,6 +8437,7 @@
     html[data-ink="dark"] #holidayModal#holidayModal button:hover,
     html[data-ink="dark"] #overrideModal#overrideModal button:hover,
     html[data-ink="dark"] #classDetail#classDetail .sched-solid button:hover,
+    html[data-ink="dark"] #schedModal#schedModal button:hover,
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov button:hover {
       color: #F2F3F6 !important;
     }
@@ -8081,7 +8466,8 @@
     #holidayModal input[type="date"]::-webkit-calendar-picker-indicator,
     #overrideModal input[type="time"]::-webkit-calendar-picker-indicator,
     #overrideModal input[type="date"]::-webkit-calendar-picker-indicator,
-    #classDetail .sched-solid input[type="time"]::-webkit-calendar-picker-indicator {
+    #classDetail .sched-solid input[type="time"]::-webkit-calendar-picker-indicator,
+    #schedModal .sched-solid input[type="time"]::-webkit-calendar-picker-indicator {
       display: none !important;
     }
 
@@ -8102,7 +8488,8 @@
     #holidayModal#holidayModal input[type="date"],
     #overrideModal#overrideModal input[type="time"],
     #overrideModal#overrideModal input[type="date"],
-    #classDetail#classDetail .sched-solid input[type="time"] {
+    #classDetail#classDetail .sched-solid input[type="time"],
+    #schedModal#schedModal .sched-solid input[type="time"] {
       color-scheme: light !important;
       accent-color: #181A20 !important;
     }
@@ -8721,7 +9108,8 @@
     html[data-ink="dark"] #daySheetModal#daySheetModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #correctionModal#correctionModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #holidayModal#holidayModal input:not([type="file"]):not([type="checkbox"]),
-    html[data-ink="dark"] #overrideModal#overrideModal input:not([type="file"]):not([type="checkbox"]) {
+    html[data-ink="dark"] #overrideModal#overrideModal input:not([type="file"]):not([type="checkbox"]),
+    html[data-ink="dark"] #schedModal#schedModal input:not([type="file"]):not([type="checkbox"]) {
       color: rgba(24, 26, 32, 0.8) !important;
     }
 
@@ -8737,7 +9125,15 @@
       color: rgba(242, 243, 246, 0.55) !important;
     }
 
+    #schedModal .sched-solid .dt-trig:hover {
+      color: rgba(242, 243, 246, 0.55) !important;
+    }
+
     html[data-ink="dark"] #classDetail#classDetail .sched-solid .dt-trig:hover {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+
+    html[data-ink="dark"] #schedModal#schedModal .sched-solid .dt-trig:hover {
       color: rgba(24, 26, 32, 0.6) !important;
     }
 
@@ -8747,6 +9143,7 @@
     html[data-ink="dark"] #holidayModal#holidayModal .dt-trig,
     html[data-ink="dark"] #overrideModal#overrideModal .dt-trig,
     html[data-ink="dark"] #classDetail#classDetail .sched-solid .dt-trig,
+    html[data-ink="dark"] #schedModal#schedModal .sched-solid .dt-trig,
     html[data-ink="dark"] #enrollModal#enrollModal .dt-trig {
       color: rgba(24, 26, 32, 0.6) !important;
     }
@@ -8989,6 +9386,30 @@
         <div id="pane-reports" class="admin-pane hidden" style="display:none"></div>
         <!-- Setup: School Configuration & Schedule (Unified) -->
         <div class="admin-pane hidden" id="pane-setup">
+          <!-- Setup secondary bar: same two-bar geometry as Students /
+               Attendance (thin control row under TOP NAV). Left: list
+               tabs. Center: month context. Right: month navigation. -->
+          <div class="setup-toolbar" id="setupToolbar">
+            <div class="setup-toolbar-left">
+              <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
+              <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
+            </div>
+            <div class="setup-monthview-legend">
+              <span class="setup-monthview-title">Month View</span>
+              <button type="button" class="setup-legend-item" data-calview="working" aria-pressed="false">WORKING</button>
+              <button type="button" class="setup-legend-item off" data-calview="non-working" aria-pressed="false">NON-WORKING</button>
+              <button type="button" class="setup-legend-item" data-calview="override" aria-pressed="false">OVERRIDE</button>
+              <select id="calClassSelect">
+                <option value="">All classes (global)</option>
+              </select>
+            </div>
+            <div class="setup-monthview-nav">
+              <button class="btn" id="calPrevBtn">‹ Prev</button>
+              <div id="calMonthLabel">September 2026</div>
+              <button class="btn" id="calNextBtn">Next ›</button>
+              <button class="btn" id="calTodayBtn">Today</button>
+            </div>
+          </div>
           <div class="detail-scroll">
             <!-- Row 1: Classes & Batches -->
             <div class="setup-grid">
@@ -8996,12 +9417,12 @@
               <div class="detail-card setup-card setup-card-classes">
                 <!-- Classes Section -->
                 <div class="setup-subcard-section">
-                  <div class="setup-panel-header compact">
-                    <div class="cube-left-head">
-                      <div class="cube-tabs" role="tablist" aria-label="Classes or batches">
-                        <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
-                        <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
-                      </div>
+                  <!-- Left: roster (scrolls) + fixed add footer; right:
+                       month grid + cutoff strip. Weekday headers toggle
+                       staged days; cutoffs live in the strip. -->
+                  <div id="classCubes">
+                    <div id="cubeGrid"></div>
+                    <div class="cube-add-head">
                       <div class="setup-add-row" id="classAddRow">
                         <input id="newClassName" placeholder="New class e.g. Grade 11-A" class="setup-input-compact">
                         <button class="btn primary" id="addClassBtn">Add</button>
@@ -9011,34 +9432,13 @@
                         <button class="btn primary" id="addBatchBtn">Add</button>
                       </div>
                     </div>
-                    <div class="setup-panel-sub">Assigned grade sections</div>
-                  </div>
-
-                  <!-- Left: one list at a time (CLASSES|BATCHES tabs);
-                       wall; right: compact month view. Editor lives
-                       below in #scheduleEditor. No popup. -->
-                  <div id="classCubes">
-                    <div id="cubeGrid"></div>
-                    <div class="cube-wall"></div>
                     <div id="classDetail">
-                      <div class="setup-monthview-header">
-                        <div class="setup-monthview-legend">
-                          <span class="setup-monthview-title">Month View</span>
-                          <span class="setup-legend-item">WORKING</span>
-                          <span class="setup-legend-item off">NON-WORKING</span>
-                          <span class="setup-legend-item">OVERRIDE</span>
-                          <select id="calClassSelect">
-                            <option value="">All classes (global)</option>
-                          </select>
-                        </div>
-                        <div class="setup-monthview-nav">
-                          <button class="btn" id="calPrevBtn">‹ Prev</button>
-                          <div id="calMonthLabel">September 2026</div>
-                          <button class="btn" id="calNextBtn">Next ›</button>
-                          <button class="btn" id="calTodayBtn">Today</button>
-                        </div>
-                      </div>
                       <div class="calendar-grid" id="calendarGrid"></div>
+                      <div id="monthEditor">
+                        <div class="me-field"><span class="me-label" id="csPresentLabel">Present cutoff</span><input type="time" id="csPresentCutoff" value="08:00" aria-labelledby="csPresentLabel"></div>
+                        <div class="me-field"><span class="me-label" id="csLateLabel">Late cutoff</span><input type="time" id="csLateCutoff" value="08:30" aria-labelledby="csLateLabel"></div>
+                        <div class="me-actions"><button class="btn primary" id="csSaveTiming">Save</button><button class="btn" id="csCancelTiming">Cancel</button></div>
+                      </div>
                     </div>
                   </div>
 
@@ -9059,9 +9459,6 @@
             </div>
 
             <div class="setup-monthview-section">
-              <!-- Class/batch solid editor (was the right pane) -->
-              <div id="scheduleEditor"></div>
-
               <!-- Row 3: Holidays & Special Date Overrides (2 columns, below the grid) -->
               <div style="display:flex;gap:12px;margin:12px 0 0;flex-wrap:wrap">
                 <!-- Holidays & Vacations -->

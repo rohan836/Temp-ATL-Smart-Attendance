@@ -1387,24 +1387,29 @@ function renderCalendarMonth(){
   const ctx = getScheduleContext();
   const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
   // Phase 1: weekday headers are the recurring-template editor (same source as renderWeekly)
+  /* Month headers are the inline editor for the left selection (staged
+     pendingDays overlay saved values); cells below stay resolved. */
   let tplWd = Settings.workingDays;
-  if(ctx.type === "class") tplWd = getWorkingDaysForClass(ctx.name);
+  if(selName && (selKind==="class"||selKind==="batch")) tplWd = selKind==="batch" ? getWorkingDaysForBatch(selName) : getWorkingDaysForClass(selName);
+  else if(ctx.type === "class") tplWd = getWorkingDaysForClass(ctx.name);
   else if(ctx.type === "batch") tplWd = getWorkingDaysForBatch(ctx.name);
+  const meKey = selName ? selKind+":"+selName : null;
+  if(meKey && pendingDays[meKey]) tplWd = pendingDays[meKey];
   const tplNames=['SUN','MON','TUE','WED','THU','FRI','SAT'];
   let html=tplNames.map((d,idx)=>{
     const on = asBool(tplWd[idx] ?? tplWd[String(idx)]);
     const cls = on ? "weekly-day-card working" : "weekly-day-card off";
     const status = on ? "WORKING" : "OFF";
-    return `<div class="${cls}"><div class="w-name">${d}</div><div class="w-status">${status}</div></div>`;
+    return `<button type="button" class="${cls}" data-me-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${status}</div></button>`;
   }).join("");
   let tplLegend=$("calTemplateLegend");
   if(!tplLegend && calendarGrid.parentNode){
     tplLegend=document.createElement("div");
     tplLegend.id="calTemplateLegend";
-    tplLegend.style.cssText="font-size:10px;letter-spacing:0.04em;color:var(--ink-2);margin:8px 0 0;";
-    calendarGrid.after(tplLegend);
+    tplLegend.style.cssText="font-size:10px;letter-spacing:0.04em;color:var(--ink-2);margin:0 0 6px;";
+    calendarGrid.parentNode.insertBefore(tplLegend, calendarGrid);
   }
-  if(tplLegend) tplLegend.textContent="Headers show the recurring weekly template \u00B7 cells show resolved days including overrides and holidays. Edit schedules through the class/batch schedule editor.";
+  if(tplLegend) tplLegend.textContent="Headers are the editable weekly template \u2014 click a day to toggle \u00B7 cells show resolved days including overrides and holidays.";
   for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
   for(let d=1;d<=last;d++){
     const iso=toLocalISO(new Date(y,m,d));
@@ -1453,44 +1458,89 @@ function renderClasses(){
   const classRow=$("classAddRow"), batchRow=$("batchAddRow");
   if(classRow) classRow.hidden=(cubeView!=="class");
   if(batchRow) batchRow.hidden=(cubeView!=="batch");
-  /* List refills here; the right pane renders below into
-     #classDetail so one render owns list + editor together. */
-  if(!Classes.length){ selKind="class"; selName=null; classCubes.innerHTML=`<div class="empty" style="padding:14px;font-size:10px"><b>No classes configured</b></div>`; return; }
+  /* Static skeleton: #cubeGrid list + wall + #classDetail month.
+     Only the list refills here; selection changes clear staged
+     month edits, then the inline month editor repaints. */
+  const grid=$("cubeGrid");
+  if(!grid) return;
+  if(!Classes.length){ selKind="class"; selName=null; grid.innerHTML=`<div class="empty" style="padding:14px;font-size:10px"><b>No classes configured</b></div>`; syncMonthEditor(); return; }
   const allBatches=allBatchesList();
   const pool=(cubeView==="batch")?allBatches:Classes;
+  const prevKey=selName?selKind+":"+selName:null;
   const valid=(selKind===cubeView&&pool.includes(selName));
   if(!valid){ selKind=cubeView; selName=pool[0]||null; }
+  if((selName?selKind+":"+selName:null)!==prevKey) pendingDays={};
   syncCsCtx();
-  const tile=(k,label,n)=>`<div class="class-cube${selKind===k&&selName===label?" active":""}" data-kind="${k}" data-cube="${esc(label)}" role="tab"><span class="cube-name">${esc(label)}</span><span class="cube-count">${n}</span></div>`;
+  const tile=(k,label,n)=>{ const bin=`<span class="cube-actions"><button class="btn danger icon-del" data-del-${k}="${esc(label)}" aria-label="Remove ${k}">${TRASH_ICON}</button></span>`; return `<div class="class-cube${selKind===k&&selName===label?" active":""}" data-kind="${k}" data-cube="${esc(label)}" role="tab"><span class="cube-name">${esc(label)}</span><span class="cube-count">${n}</span>${bin}</div>`; };
   const rows=(cubeView==="batch"?allBatches:Classes).map(label=>tile(cubeView,label,Students.filter(s=>cubeView==="batch"?s.batch===label:s.class===label).length)).join("");
-  classCubes.innerHTML=`<div id="cubeGrid">${rows}</div><div class="cube-wall"></div><div id="classDetail"></div>`;
-  renderCubeDetail();
+  grid.innerHTML=rows;
+  syncMonthEditor();
 }
-/* Right-pane editor for the selected tile — class and batch share
-   one skeleton: head (bin kept on classes) + solid schedule
-   editor. Batch creation lives only in the left bar (BATCHES tab).
-   Editor skeleton keeps the popup cs* IDs so csRender/csSave run
-   verbatim. */
-function renderCubeDetail(){
-  const pane=$("classDetail"); if(!pane) return;
-  classCubes.querySelectorAll("#cubeGrid .class-cube").forEach(t=>t.classList.toggle("active",t.dataset.kind===selKind&&t.dataset.cube===selName));
-  if(!selName) { pane.innerHTML=""; return; }
-  let info="";
-  if(selKind==="batch"){
-    const n=Students.filter(s=>s.batch===selName).length;
-    info=`<div class="cube-head"><span class="cube-name">${esc(selName)}</span><span class="cube-count">${n}</span></div>`;
-  } else {
-    const n=Students.filter(s=>s.class===selName).length;
-    info=`<div class="cube-head"><span class="cube-name">${esc(selName)}</span><span class="cube-count">${n}</span><span class="cube-actions"><button class="btn danger icon-del" data-del-class="${esc(selName)}" aria-label="Remove class">${TRASH_ICON}</button></span></div>`;
+/* Inline month editor: staged days + snapshot + strip paint. Toggles
+   stage into pendingDays (never persisted); Save composes staged days
+   into the existing ClassSchedules/BatchSchedules entry, then runs the
+   existing timing save; Cancel restores the snapshot. */
+let pendingDays={};
+let schedSnapshot=null;
+function meKey(){ return selName ? selKind+":"+selName : null; }
+function snapshotSchedule(){
+  if(!selName){ schedSnapshot=null; return; }
+  const wd = selKind==="batch" ? getWorkingDaysForBatch(selName) : getWorkingDaysForClass(selName);
+  const t = getScheduleTiming({type:selKind,name:selName});
+  schedSnapshot={kind:selKind,name:selName,wd:{...wd},present:t.presentCutoff,late:t.lateCutoff};
+}
+function paintMonthEditor(){
+  const ed=$("monthEditor"); if(!ed) return;
+  ed.style.display=schedSnapshot?"":"none";
+  if(!schedSnapshot) return;
+  if($("csPresentCutoff")) $("csPresentCutoff").value=schedSnapshot.present;
+  if($("csLateCutoff")) $("csLateCutoff").value=schedSnapshot.late;
+}
+function syncMonthEditor(){
+  const grid=$("cubeGrid");
+  if(grid) grid.querySelectorAll(".class-cube").forEach(t=>t.classList.toggle("active",t.dataset.kind===selKind&&t.dataset.cube===selName));
+  snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
+}
+function onMeDayClick(e){
+  const b=e.target.closest("[data-me-day]"); if(!b||!selName) return;
+  if(selKind!=="class"&&selKind!=="batch") return;
+  const day=String(b.dataset.meDay), key=selKind+":"+selName;
+  const map = selKind==="batch" ? BatchSchedules : ClassSchedules;
+  const entry = map[selName];
+  let wd;
+  if(pendingDays[key]) wd={...pendingDays[key]};
+  else if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
+  else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
+  else wd={...Settings.workingDays};
+  wd[day]=!asBool(wd[day] ?? wd[String(day)]);
+  wd[String(day)]=wd[day];
+  pendingDays[key]=wd;
+  renderCalendarMonth();
+}
+async function onMeSave(){
+  if(!selName) return;
+  const key=selKind+":"+selName;
+  if(pendingDays[key]){
+    if(selKind==="batch"){
+      const entry=BatchSchedules[selName]||{};
+      BatchSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
+    } else if(selKind==="class"){
+      const entry=ClassSchedules[selName]||{};
+      ClassSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
+      ClassSchedulesUI=ClassSchedules;
+    }
+    delete pendingDays[key];
   }
-  pane.innerHTML=`<div class="cube-detail" data-kind="${selKind}" data-detail="${esc(selName)}">${info}<div class="sched-solid"><h3 id="csTitle">Schedule</h3><div id="csDays"></div><div class="form-grid"><div class="form-field"><label>Present cutoff</label><input type="time" id="csPresentCutoff" value="08:00"></div><div class="form-field"><label>Late cutoff</label><input type="time" id="csLateCutoff" value="08:30"></div><div class="form-field full"><div id="csTimingNotice" style="font-size:10.5px;color:var(--ink-2);line-height:1.5;"></div></div><div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn primary" id="csSaveTiming">Save</button></div></div></div></div>`;
-  wireSchedEditor();
-  csRender();
+  await onCsSaveTiming();
 }
-/* Editor wiring re-applied after every pane render (nodes are fresh). */
+function onMeCancel(){
+  const key=meKey(); if(key) delete pendingDays[key];
+  snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
+}
+/* Static strip wiring (nodes persist — wire once, not per render). */
 function wireSchedEditor(){
-  if($("csDays")) $("csDays").onclick=onCsDayClick;
-  if($("csSaveTiming")) $("csSaveTiming").onclick=onCsSaveTiming;
+  if($("csSaveTiming")) $("csSaveTiming").onclick=onMeSave;
+  if($("csCancelTiming")) $("csCancelTiming").onclick=onMeCancel;
 }
 function formatAuditDetails(raw, action){
   if(!raw) return "—";
@@ -2430,6 +2480,21 @@ function clearAttendanceSection(){
 $("calPrevBtn").onclick=()=>{ calendarMonth.setMonth(calendarMonth.getMonth()-1); renderCalendarMonth(); };
 $("calNextBtn").onclick=()=>{ calendarMonth.setMonth(calendarMonth.getMonth()+1); renderCalendarMonth(); };
 if($("calTodayBtn")) $("calTodayBtn").onclick=()=>{ calendarMonth=new Date(); renderCalendarMonth(); };
+/* Legend emphasis: display-only toggle over the existing resolved
+   day states (working / non-working + holidays / override). No
+   navigation, no data change — pressing the active status again
+   clears back to the full month. Grid classes survive re-render
+   (set on the container, cells repaint inside). */
+let calEmphasis=null;
+if($("setupToolbar")) $("setupToolbar").addEventListener("click",(e)=>{
+  const b=e.target.closest("[data-calview]"); if(!b) return;
+  calEmphasis = (calEmphasis===b.dataset.calview) ? null : b.dataset.calview;
+  document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed", x===b&&calEmphasis?"true":"false"));
+  const g=$("calendarGrid"); if(!g) return;
+  g.classList.toggle("cal-dim-working", calEmphasis==="working");
+  g.classList.toggle("cal-dim-nonworking", calEmphasis==="non-working");
+  g.classList.toggle("cal-dim-override", calEmphasis==="override");
+});
 /* Day window is read-only resolved display — tables own all holiday /
    override editing. Resolution read ONLY from the shared truth
    functions: override → holiday (exam = working) → active-context
@@ -2557,7 +2622,27 @@ function csRender(){
 if($("calendarGrid")){
   $("calendarGrid").addEventListener("click", onDayToggleClick);
 }
-if($("calClassSelect")) $("calClassSelect").onchange=()=>{ renderWeekly(); renderCalendarMonth(); if(currentTab==="attendance" || currentTab==="today") renderAttendance(); };
+/* Context dropdown drives the same single selection as the tiles:
+   retarget the editor to the chosen class/batch (or hide it for
+   global) so toolbar, month, roster, and editor never disagree.
+   Same flow as tile select: clear staged edits, sync, re-render. */
+if($("calClassSelect")) $("calClassSelect").onchange=()=>{
+  const ctx=getScheduleContext();
+  pendingDays={};
+  if(ctx.type==="global"){ selName=null; }
+  else{
+    selKind=ctx.type; selName=ctx.name;
+    if(cubeView!==ctx.type) cubeView=ctx.type;
+  }
+  syncCsCtx();
+  renderWeekly(); renderClasses();
+  const sel=$("calClassSelect");
+  if(sel&&selName){
+    sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
+    if(selKind==="class"&&!sel.value) sel.value=selName;
+  }
+  if(currentTab==="attendance" || currentTab==="today") renderAttendance();
+};
 /* Reset-week retired: template editing lives in the solid schedule editor. */
 $("addHolidayBtn").onclick=()=>{
   $("holidayModalBody").innerHTML=`<div class="form-grid">
@@ -2595,8 +2680,8 @@ $("addOverrideBtn").onclick=()=>{
 };
 /* Solid timing save: lifted verbatim from the popup — same
    validators, same 3 branches, same global double-POST, same mirror
-   sync, same confirmations. Only the tail changed: no modal to
-   close, so re-render the inline editor instead. */
+   sync, same confirmations. Only the tail changed: refresh the
+   snapshot/strip, then re-render month + editor. */
 async function onCsSaveTiming(){
   const ctx = csCtx || getScheduleContext();
   const pVal = $("csPresentCutoff") ? $("csPresentCutoff").value : "08:00";
@@ -2641,7 +2726,7 @@ async function onCsSaveTiming(){
       await glassAlert(`Timings saved for batch ${ctx.name}.`);
     }
   }
-  csRender();
+  snapshotSchedule(); paintMonthEditor();
   renderWeekly(); renderCalendarMonth(); renderToday(); renderReports();
 }
 /* Inherit-revert retired with the Setup bar: the popup is Save + Close.
@@ -2700,9 +2785,9 @@ $("overrideBody").addEventListener("click",async(e)=>{
   Overrides=Overrides.filter(o=>o.date!==btn.dataset.delOverride);
   if(await persistCalendar()){ renderOverrides(); renderCalendarMonth(); }
 });
-/* Class tiles + editor bin: one delegated handler on the split
-   root (tiles and bin both live inside #classCubes).
-   (Head Schedule retired with the popup — the pane IS the editor.) */
+/* Class tiles + inline month editor: tiles live in #cubeGrid, day
+   toggles in the month headers, cutoffs in the strip below the grid.
+   Tile select clears staged edits and repaints for the new item. */
 async function onCubesClick(e){
   const delBtn = e.target.closest("[data-del-class]");
   if(delBtn){
@@ -2716,21 +2801,41 @@ async function onCubesClick(e){
     }catch(err){ await glassAlert("Failed to remove class: "+err.message); }
     return;
   }
-  /* Tile select: same context sync as the row jumps, then the pane
-     re-renders in place — grid stands, right side adapts. */
+  /* Batch remove mirrors class remove exactly: same confirm, same
+     settings POST ({batches}), same refresh. Names carried only by
+     student records live outside the Batches list and cannot be
+     removed here — say so instead of silently no-opping. */
+  const delBatch = e.target.closest("[data-del-batch]");
+  if(delBatch){
+    const bName = delBatch.dataset.delBatch;
+    if(!(await glassConfirm(`Remove batch "${bName}"?`,{title:"Remove batch",okText:"Remove",danger:true}))) return;
+    try{
+      if(!(Batches||[]).some(b=>b===bName)){ await glassAlert(`"${bName}" is carried by student records and cannot be removed here.`); return; }
+      const next = (Batches||[]).filter(x=>x!==bName);
+      await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
+      await loadClassesHolidaysSettings();
+      renderAll();
+    }catch(err){ await glassAlert("Failed to remove batch: "+err.message); }
+    return;
+  }
+  /* Tile select: same context sync as the row jumps — staged edits
+     clear, then the inline month editor repaints for the new item. */
   const tile = e.target.closest("#cubeGrid .class-cube");
   if(tile){
     selKind=tile.dataset.kind||"class"; selName=tile.dataset.cube; syncCsCtx();
+    pendingDays={};
     const sel=$("calClassSelect");
     if(sel){
       sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
       if(selKind==="class"&&!sel.value) sel.value=selName;
-      renderWeekly(); renderCalendarMonth();
+      renderWeekly();
     }
-    renderCubeDetail(); return;
+    syncMonthEditor(); return;
   }
 }
 if(classCubes) classCubes.addEventListener("click", onCubesClick);
+if($("calendarGrid")) $("calendarGrid").addEventListener("click", onMeDayClick);
+wireSchedEditor();
 /* Batch rows retired from the class pane (batches live in their
    own left stack) — selection travels through the tiles only. */
 $("addClassBtn").onclick=async()=>{
