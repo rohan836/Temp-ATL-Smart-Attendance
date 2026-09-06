@@ -697,7 +697,7 @@ class UiE2eTest(unittest.TestCase):
         self.page.wait_for_function("!document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
 
     def test_13_calendar_schedule_context_class_batch_and_timings(self):
-        """Calendar schedule contexts with a solid inline editor: CLASSES|BATCHES tabs swap one left list, editor right, month below, no popup."""
+        """Calendar schedule contexts with a solid inline editor: CLASSES|BATCHES tabs swap one left list, compact month right, editor below, no popup."""
         self.page.goto(f"{_BASE_URL}/", wait_until="networkidle")
 
         # Open Admin panel
@@ -712,8 +712,10 @@ class UiE2eTest(unittest.TestCase):
         # Master-detail: CLASSES|BATCHES tabs, one list left, detail right
         cubes = self.page.locator("#classCubes")
         grid = self.page.locator("#cubeGrid")
-        detail = self.page.locator("#classDetail")
+        detail = self.page.locator("#scheduleEditor")
+        monthpane = self.page.locator("#classDetail")
         self.assertTrue(cubes.is_visible())
+        self.assertTrue(monthpane.locator("#calendarGrid").is_visible())
         self.assertTrue(self.page.locator("#cubeTabClasses.active").is_visible())
         self.assertTrue(self.page.evaluate("document.getElementById('batchAddRow').hidden"))
         for cls in ["Grade 10-A", "Grade 10-B", "Grade 9-A"]:
@@ -869,59 +871,60 @@ class UiE2eTest(unittest.TestCase):
         self.assertTrue(self.page.locator("#attTableBody").is_visible())
         self.assertTrue(self.page.locator("#attUnknownWrap").is_visible())
 
-        # 3. Test Yesterday preset (seg pills drive the hidden select)
-        self.page.locator(".seg-strip .seg-btn[data-v='yesterday']").click()
+        # 3. Test Yesterday preset
+        preset.select_option("yesterday")
         self.page.wait_for_timeout(300)
         self.assertIn("YESTERDAY", mode_badge.inner_text().upper())
 
-        # 4. Test Custom Date preset (single inline field only, no Apply)
-        self.page.locator(".seg-strip .seg-btn[data-v='custom_day']").click()
+        # 4. Test Custom Date preset
+        preset.select_option("custom_day")
         self.page.wait_for_timeout(300)
         single_input = self.page.locator("#attSingleDate")
         self.assertTrue(single_input.is_visible())
         apply_btn = self.page.locator("#attApplyBtn")
-        self.assertFalse(apply_btn.is_visible())
-        single_input.fill("2026-09-02")
-        self.page.wait_for_timeout(300)
-        self.assertEqual(single_input.input_value(), "2026-09-02")
-        # Only the single-date picker shows its trigger glyph
-        self.assertEqual(self.page.locator("#pane-attendance .tab-toolbar .dt-trig:visible").count(), 1)
+        self.assertTrue(apply_btn.is_visible())
 
-        # 5. Test Custom Range preset: no inline boxes, popup machinery owns values
-        self.page.locator(".seg-strip .seg-btn[data-v='custom_range']").click()
+        # 5. Test Custom Range preset and Apply button
+        preset.select_option("custom_range")
         self.page.wait_for_timeout(300)
         from_input = self.page.locator("#attFromDate")
         to_input = self.page.locator("#attToDate")
-        self.assertFalse(from_input.is_visible())
-        self.assertFalse(to_input.is_visible())
-        self.assertFalse(apply_btn.is_visible())
-        self.page.evaluate("document.getElementById('attFromDate').value='2026-09-01';document.getElementById('attToDate').value='2026-09-03';renderAttendance()")
+        self.assertTrue(from_input.is_visible())
+        self.assertTrue(to_input.is_visible())
+        self.assertTrue(apply_btn.is_visible())
+
+        from_input.fill("2026-09-01")
+        to_input.fill("2026-09-03")
+        apply_btn.click()
         self.page.wait_for_timeout(300)
-        # Bar holds one fixed row in every preset state (old-UI look)
-        self.assertEqual(self.page.evaluate("Math.round(document.querySelector('#pane-attendance .tab-toolbar').getBoundingClientRect().height)"), 52)
-        # No orphan date-picker glyphs while range inputs stay hidden
-        self.assertEqual(self.page.locator("#pane-attendance .tab-toolbar .dt-trig:visible").count(), 0)
 
         # Multi-day table head should show 'Working Day?' column
         th_texts = [self.page.locator("#attTableHead th").nth(i).inner_text().strip().upper() for i in range(self.page.locator("#attTableHead th").count())]
         self.assertIn("WORKING DAY?", th_texts)
 
-        # 6. Test Class, Batch, Status, and Student filter elements
+        # 6. Filter/action nodes stay in the DOM as logic truth but the
+        # leftover top bar is retired (hidden) — date presets live in the
+        # sidebar. Assert presence + hidden, then drive via JS events.
         class_filter = self.page.locator("#attClassFilter")
         batch_filter = self.page.locator("#attBatchFilter")
         status_filter = self.page.locator("#attStatusFilter")
         student_filter = self.page.locator("#attStudentFilter")
-        self.assertTrue(class_filter.is_visible())
-        self.assertTrue(batch_filter.is_visible())
-        self.assertTrue(status_filter.is_visible())
-        self.assertTrue(student_filter.is_visible())
+        self.assertEqual(class_filter.count(), 1)
+        self.assertEqual(batch_filter.count(), 1)
+        self.assertEqual(status_filter.count(), 1)
+        self.assertEqual(student_filter.count(), 1)
+        self.assertFalse(class_filter.is_visible())
+        self.assertFalse(batch_filter.is_visible())
+        self.assertFalse(status_filter.is_visible())
+        self.assertFalse(student_filter.is_visible())
 
         # 7. Test One Student Selection and authoritative metrics
         # Select first student in dropdown
         self.page.wait_for_function("document.getElementById('attStudentFilter').options.length > 1", timeout=3000)
         first_student_id = self.page.evaluate("document.getElementById('attStudentFilter').options[1].value")
         first_student_name = self.page.evaluate("document.getElementById('attStudentFilter').options[1].textContent")
-        student_filter.select_option(first_student_id)
+        # Hidden bar: set value via DOM + fire the real change handler
+        self.page.evaluate(f"const el=document.getElementById('attStudentFilter'); el.value='{first_student_id}'; el.dispatchEvent(new Event('change',{{bubbles:true}}))")
         self.page.wait_for_timeout(400)
 
         # Verify single student mode badge and KPI cards
@@ -929,9 +932,9 @@ class UiE2eTest(unittest.TestCase):
         self.assertIn("STUDENT", [self.page.locator("#attStats .stat label").nth(i).inner_text().strip().upper() for i in range(9)])
         self.assertIn("ELIGIBLE DAYS", [self.page.locator("#attStats .stat label").nth(i).inner_text().strip().upper() for i in range(9)])
 
-        # Reset student filter back to All Students
-        student_filter.select_option("")
-        self.page.locator(".seg-strip .seg-btn[data-v='today']").click()
+        # Reset student filter back to All Students (hidden bar: DOM + change)
+        self.page.evaluate("const el=document.getElementById('attStudentFilter'); el.value=''; el.dispatchEvent(new Event('change',{bubbles:true}))")
+        preset.select_option("today")
         self.page.wait_for_timeout(300)
 
         # 8. Test live auto-refresh while on currentTab='attendance' without interrupting identityLayer
@@ -942,10 +945,13 @@ class UiE2eTest(unittest.TestCase):
         # Verify identityLayer is NOT active/visible (suppressed while Admin is open)
         self.assertFalse(self.page.evaluate("document.getElementById('identityLayer').classList.contains('visible')"))
 
-        # 9. Test Action Buttons
-        self.assertTrue(self.page.locator("#attRefreshBtn").is_visible())
-        self.assertTrue(self.page.locator("#attPrintBtn").is_visible())
-        self.assertTrue(self.page.locator("#attExportBtn").is_visible())
+        # 9. Action buttons stay wired in the hidden bar (presence, not visible)
+        self.assertEqual(self.page.locator("#attRefreshBtn").count(), 1)
+        self.assertEqual(self.page.locator("#attPrintBtn").count(), 1)
+        self.assertEqual(self.page.locator("#attExportBtn").count(), 1)
+        self.assertFalse(self.page.locator("#attRefreshBtn").is_visible())
+        self.assertFalse(self.page.locator("#attPrintBtn").is_visible())
+        self.assertFalse(self.page.locator("#attExportBtn").is_visible())
 
         # Close Admin
         self.page.click("#adminClose")

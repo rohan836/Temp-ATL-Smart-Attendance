@@ -231,8 +231,8 @@ header weekday → its month column re-resolves. `test_13` green.
 ## Student-mirror Setup split (SHIPPED, CSS only)
 - Left list fixed to 340/280/360px + 24px gutter, wall, right
   detail 28px gutter — same metrics as `list-pane`/`detail-pane`.
-- `.class-cube` copies `.student-row` frost block (56px to match
-  month cells, 6px 14px pad, radius 4, 8px gap, 0.06/0.1/0.2, pole-law
+- `.class-cube` copies `.student-row` frost block verbatim
+  (68px, 0 14px, radius 4, 8px gap, 0.06/0.1/0.2, pole-law
   active) with translate + transition stripped (no-animation).
   Text-row rules (hairline bars, text-only selection) deleted.
 - Add-class input + Add parked at the LEFT section's top-right:
@@ -269,54 +269,24 @@ header weekday → its month column re-resolves. `test_13` green.
 - Pill retired: the selector IS the readout — `#calMonthContextLabel`
   node, its CSS entries, and the `renderCalendarMonth` pill block
   deleted; `test_13` asserts the selector value + pill absence.
-- `#cubeGrid` capped at 248px (4×56 tiles + 3×8 gaps) with
+- `#cubeGrid` capped at 296px (4×68 tiles + 3×8 gaps) with
   barless `overflow-y:auto` (`scrollbar-width:none` + hidden
   webkit bar) — wheel / touch / trackpad scroll inside the left
   bar, no visible scrollbar, page never stretches.
 
-## Toolbar geometry lock (SHIPPED, CSS + 2 empty nodes)
-- All four panes share one bar zone: 52px single row, same pads /
-  gaps / bottom bar / 20px gap below. Overflow scrolls barlessly
-  instead of wrapping — switching sections can't move bars or
-  content. Students search basis 100%→420px to ride the row.
-- Empty `.tab-toolbar` spacers (aria-hidden) top Setup + Backup.
-- Tradeoffs: toolbar content left-aligned (was centered on
-  Students); narrow screens scroll bars horizontally.
-
-## Attendance bar cleanup (SHIPPED — old-UI single row)
-- Honest provenance: the underlines + inline date boxes predate
-  this session (committed in `7527289`); they surfaced only in
-  Custom states while the old screenshot shows Today. Fixed anyway.
-- Filters text-only: select/gsel-btn/date-field underlines →
-  transparent (rest/hover/focus/dark), matching the preset pills.
-- Inline reveal retired: range/academic from/to + Apply stay
-  hidden (frost popup commits values); Custom Date keeps its one
-  inline field (no popup exists for it). Bar holds 52px in every
-  preset state; seg strip pinned nowrap.
-- `test_14` steps 4–5 rewritten (hidden asserts, machinery via
-  evaluate, 52px bar-height assert).
-- `test_14` harness fix: preset changes drive seg-pill clicks
-  (`select_option` can't target the hidden native select); plus
-  `.dt-trig:visible` counts per preset (1 in custom_day, 0 in
-  custom_range) guarding the orphan-glyph fix.
-
-## Shared-datum geometry lock (REVERTED with the swap below)
-- Kept: helper legend line below the grid; 56px cubes + 248px cap;
-  locked 28px editor head. Reverted: header-row hairline,
-  bottom-pinning, month-head-as-right-cell, 280 compression.
-
-## Month/editor swap (REVERTED per user order)
-- Month is back full-width in its section (legend + selector + nav
-  + grid, no pill); solid editor is back in the right pane
-  (`renderCubeDetail` → `#classDetail`, innerHTML rebuild,
-  `onCubesClick` on the split root only, left bar back to
-  340/280/360). `#scheduleEditor` fully removed (HTML/CSS/JS).
-- `test_13` repointed back: `detail` = `#classDetail`.
-- Verified live: editor-in-`#classDetail`, month-in-section,
-  `test_13` + `test_14` green locally.
-- Pre-existing failures (proven on stashed committed tree, not
-  this session): `test_15` override→grid refresh, `test_09`
-  USB text casing, `BinHoverTest` (`classBody` parked).
+## Month/editor swap (SHIPPED)
+- Right pane now hosts the compact month (legend + selector + nav
+  + grid moved verbatim into static `#classDetail`; 7-column grid
+  auto-compacts, nothing else changed). The class/batch editor
+  moved to full-width `#scheduleEditor` in the month's old slot.
+- Static skeleton (`#cubeGrid` + wall + `#classDetail`) replaces
+  the innerHTML rebuild; `renderCubeDetail` targets
+  `#scheduleEditor`. Tile/bin handler renamed to `onCubesClick`
+  and registered on BOTH roots (bin moved with the editor).
+- Left bar compressed 340→280 (240/300) to gift the month room;
+  ≤1160px the split stacks (wall turns horizontal).
+- `test_13` repointed: `detail` = `#scheduleEditor`, plus a
+  month-in-`#classDetail` visibility assert.
 
 ## Geometry lock (SHIPPED — fixes tab-switch stretch + right mess)
 - Cause 1: header add row flowed past the title segment into the

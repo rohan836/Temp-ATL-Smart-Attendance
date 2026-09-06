@@ -686,11 +686,16 @@ function renderStudentDetail(id){
   const histRows=history.length?history.map(a=>`<tr><td>${esc(a.date)}</td><td>${esc(a.time)}</td><td><span class="badge ${a.status.toLowerCase().replace(" ","-")}">${esc(a.status)}</span></td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"")}</td><td><button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(a.date)}" data-correct-status="${esc(a.status)}" style="height:22px;padding:0 8px;font-size:9px">Correct</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty"><b>No records</b>Scan results will appear here from the sensor.</div></td></tr>`;
   detailScroll.innerHTML=`
     <div class="detail-card">
-      <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div class="pf-head">
         <div class="detail-photo">${photo}</div>
-        <div style="flex:1 1 280px;min-width:0">
-          <div style="font-family:var(--serif);font-size:30px;text-transform:uppercase;letter-spacing:-0.02em;line-height:0.95">${esc(s.name)}</div>
-          <div style="margin-top:8px"><span class="badge ${s.active?'present':'not-scheduled'}">${esc(s.active?"Active":"Inactive")}</span>${s.batch?` <span class="badge">${esc(s.batch)}</span>`:""}</div>
+        <div class="pf-id">
+          <div class="pf-title-row">
+            <div style="font-family:var(--serif);font-size:30px;text-transform:uppercase;letter-spacing:-0.02em;line-height:0.95">${esc(s.name)}</div>
+            ${s.active ? `<button class="btn danger icon-del pf-del" data-action="delete" data-id="${s.id}" aria-label="Deactivate">${TRASH_ICON}</button>` : ``}
+          </div>
+          <div style="margin-top:4px"><span class="badge ${s.active?'present':'not-scheduled'}">${esc(s.active?"Active":"Inactive")}</span>${s.batch?` <span class="badge">${esc(s.batch)}</span>`:""}</div>
+        </div>
+      </div>
           <div class="detail-grid">
             <div class="detail-field"><label>Roll</label><span>${esc(s.roll)}</span></div>
             <div class="detail-field"><label>Class</label><span>${esc(s.class)}</span></div>
@@ -705,12 +710,10 @@ function renderStudentDetail(id){
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn primary" data-action="edit" data-id="${s.id}">Edit information</button>
             <button class="btn" data-action="reenroll" data-id="${s.id}">Re-enroll fingerprint</button>
-            ${s.active ? `<button class="btn danger icon-del" data-action="delete" data-id="${s.id}" aria-label="Deactivate">${TRASH_ICON}</button>` : `<button class="btn primary" data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
+            ${s.active ? `` : `<button class="btn primary" data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
             <button class="btn" data-action="print" data-id="${s.id}">Print profile</button>
             <button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(todayISO())}" data-correct-status="Present" style="border-style:dashed">Correct today</button>
           </div>
-        </div>
-      </div>
       <div class="table-wrap"><div style="padding:10px 12px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;border-bottom:1px solid var(--line)"><span>Attendance history — recent scans</span></div><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Fingerprint</th><th>Action</th></tr></thead><tbody>${histRows}</tbody></table></div></div>
     </div>`;
 }
@@ -744,11 +747,8 @@ async function renderAttendance(){
     if(attToDate) attToDate.style.display = "none";
   } else if(preset === "custom_range"){
     if(attSingleDate) attSingleDate.style.display = "none";
-    /* Range picking lives in the hover/tap frost popup — the bar
-       never hosts inline date boxes (old-UI single-row bar). The
-       hidden inputs stay the value truth the popup commits. */
-    if(attFromDate) attFromDate.style.display = "none";
-    if(attToDate) attToDate.style.display = "none";
+    if(attFromDate) attFromDate.style.display = "";
+    if(attToDate) attToDate.style.display = "";
     from = attFromDate.value || today;
     to = attToDate.value || today;
     if(!attFromDate.value) attFromDate.value = from;
@@ -778,10 +778,7 @@ async function renderAttendance(){
     if(attToDate) attToDate.style.display = "none";
   }
 
-  /* Apply retired from the bar: the range popup commits directly
-     and the single date auto-renders on change — no inline button
-     in any preset state. */
-  if(attApplyBtn) attApplyBtn.style.display = "none";
+  if(attApplyBtn) attApplyBtn.style.display = (preset === "custom_range" || preset === "custom_day") ? "" : "none";
 
   const isSingleDay = (from === to);
   const isToday = (from === today);
@@ -2155,6 +2152,14 @@ function updateTabs(){
   if(tab === "today" || tab === "reports") tab = "attendance";
   const pane = document.getElementById("pane-" + tab);
   if(pane){ pane.classList.remove("hidden"); pane.style.opacity = ""; }
+  /* Sidebar context follows the tab: only the active page's secondary
+     controls stay visible (Phase 2: students, Phase 3: attendance).
+     Nodes are pre-moved in markup; this just toggles the section.
+     Uses [hidden] + CSS display:none !important — plain inline
+     display:none loses to the .side-ctx display:flex !important shell.
+     The opened section starts at top (nav stays fixed above it; the
+     section scrolls internally, never the rail or the workspace). */
+  try{ document.querySelectorAll('#adminSide [data-side]').forEach(s=>{ const on=(s.dataset.side===tab); s.hidden=!on; if(on){ try{ s.scrollTop=0; }catch(_){} } }); }catch(e){}
   const pToday = document.getElementById("pane-today");
   const pReports = document.getElementById("pane-reports");
   if(tab === "attendance"){
@@ -2439,11 +2444,11 @@ if($("reportCsvBtn")) $("reportCsvBtn").onclick = handleAttendanceExport;
 
 if(attDatePreset) attDatePreset.addEventListener("change", () => {
   const v = attDatePreset.value;
+  const isCustom = (v === "custom_day" || v === "custom_range");
   if(attSingleDate) attSingleDate.style.display = (v === "custom_day") ? "" : "none";
-  /* Range/academic pick via frost popup only — never inline boxes. */
-  if(attFromDate) attFromDate.style.display = "none";
-  if(attToDate) attToDate.style.display = "none";
-  if(attApplyBtn) attApplyBtn.style.display = "none";
+  if(attFromDate) attFromDate.style.display = (v === "custom_range") ? "" : "none";
+  if(attToDate) attToDate.style.display = (v === "custom_range") ? "" : "none";
+  if(attApplyBtn) attApplyBtn.style.display = isCustom ? "" : "none";
   renderAttendance();
 });
 if(attSingleDate) attSingleDate.addEventListener("change", renderAttendance);
@@ -3937,12 +3942,12 @@ function enhancePhotoField(input){
           sel.value=o.value;
           /* Drive the flow directly (never rely on event delivery alone) */
           try{
-            const v=o.value;
+            const v=o.value, isCustom=(v==="custom_day"||v==="custom_range");
             if(v!=="academic"){ attAcadFrom=attAcadTo=null; }
             if(typeof attSingleDate!=="undefined"&&attSingleDate) attSingleDate.style.display=(v==="custom_day")?"":"none";
-            if(typeof attFromDate!=="undefined"&&attFromDate) attFromDate.style.display="none";
-            if(typeof attToDate!=="undefined"&&attToDate) attToDate.style.display="none";
-            if(typeof attApplyBtn!=="undefined"&&attApplyBtn) attApplyBtn.style.display="none";
+            if(typeof attFromDate!=="undefined"&&attFromDate) attFromDate.style.display=(v==="custom_range")?"":"none";
+            if(typeof attToDate!=="undefined"&&attToDate) attToDate.style.display=(v==="custom_range")?"":"none";
+            if(typeof attApplyBtn!=="undefined"&&attApplyBtn) attApplyBtn.style.display=isCustom?"":"none";
             if(typeof renderAttendance==="function") renderAttendance();
           }catch(e){}
           try{ sel.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){ try{ const ev=document.createEvent("HTMLEvents"); ev.initEvent("change",true,false); sel.dispatchEvent(ev); }catch(_){} }
@@ -4283,13 +4288,6 @@ function openRangePop(anchor){
     trig.setAttribute("tabindex","-1");
     trig.addEventListener("click",(e)=>{ e.preventDefault(); e.stopPropagation(); try{ input.focus(); }catch(_){} openPop(input,t); });
     wrap.appendChild(trig); input._dtTrig=trig;
-    /* Visibility mirror: hidden inputs hide the whole wrap, trigger
-       included — the three attendance date boxes start display:none
-       and must leave no orphan glyph in the bar. setProperty wins
-       over the .dt-wrap flex !important; removeProperty restores. */
-    function syncWrapVis(){ try{ if(getComputedStyle(input).display==="none"){ wrap.style.setProperty("display","none","important"); } else { wrap.style.removeProperty("display"); } }catch(e){} }
-    syncWrapVis();
-    try{ new MutationObserver(syncWrapVis).observe(input,{attributes:true,attributeFilter:["style","class","hidden"]}); }catch(e){}
     /* Click-anywhere: the field body opens the same popup as the
        trigger (same focus + openPop lines, trigger untouched).
        Drags keep text selection: only a true click (no movement,

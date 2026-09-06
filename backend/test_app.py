@@ -7,7 +7,7 @@ or
     python backend/test_app.py
 """
 import urllib
-import os, sys, json, tempfile, pathlib, unittest, sqlite3, io
+import os, sys, json, tempfile, pathlib, unittest, sqlite3, io, re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -68,7 +68,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         body = r.get_data(as_text=True)
         self.assertIn("__ATL_BRIDGE__", body)
-        self.assertIn("addHolidayBtn", body)
+        self.assertIn("daySheetModal", body)
         self.assertIn("function renderWeekly()", body)
         self.assertIn("function sensorScanLoop()", body)
         self.assertIn("PLACE YOUR FINGER", body)
@@ -2943,6 +2943,233 @@ class ApiTest(unittest.TestCase):
             finally:
                 os.environ.pop("ATL_USB_MOUNT_PATH", None)
                 atl.cfg["usb"] = orig_usb
+
+class BinHoverTest(unittest.TestCase):
+    """Dustbin hover contract: opposite poles, no plate.
+
+    White mode (default ink) darkens the glyph to graphite; dark mode
+    (data-ink="dark") whitens it — each mode inverts against its own
+    frost. Regression net for the bin saga (invisible silver on light
+    frost, then a graphite plate nobody asked for, then an over-unified
+    all-white round). The three live glyph bins (roster, detail,
+    class) must resolve their pole in BOTH inks, with no plate behind
+    them — the holiday/override table bins retired with their tables
+    in Phase 2 (the day sheet uses text verbs, not glyph bins).
+    Pure-static: parses Production.html + ui_app.js, stdlib only.
+    """
+
+    # (tbody id, pane id, button attrs) per dustbin context
+    BINS = [
+        ("studentList", "pane-students", {"data-action": "delete"}),
+        ("detailScroll", "pane-students", {"data-action": "delete"}),
+        ("classBody", "pane-setup", {"data-del-class": ""}),
+    ]
+    WHITE = "#f2f3f6"
+    DARK = "#181a20"
+
+    @classmethod
+    def _css(cls):
+        root = ROOT
+        html = (root / "ATL-Smart-Attendance-Production.html").read_text(encoding="utf-8")
+        blocks = re.findall(r"<style[^>]*>(.*?)</style>", html, re.S | re.I)
+        css = re.sub(r"/\*.*?\*/", "", "\n".join(blocks), flags=re.S)
+        # flatten @media/@supports: keep inner rules only
+        out, i = [], 0
+        while i < len(css):
+            at = css.find("@", i)
+            if at < 0:
+                out.append(css[i:])
+                break
+            brace, semi = css.find("{", at), css.find(";", at)
+            if brace < 0 or (semi >= 0 and semi < brace):
+                out.append(css[i:semi + 1 if semi >= 0 else len(css)])
+                i = semi + 1 if semi >= 0 else len(css)
+                continue
+            out.append(css[i:at])
+            depth, j = 0, brace
+            while j < len(css):
+                if css[j] == "{":
+                    depth += 1
+                elif css[j] == "}":
+                    depth -= 1
+                    if not depth:
+                        break
+                j += 1
+            out.append(css[brace + 1:j])
+            i = j + 1
+        return "".join(out)
+
+    @classmethod
+    def _rules(cls, css):
+        rules = []
+        for n, m in enumerate(re.finditer(r"([^{}]+)\{([^{}]*)\}", css)):
+            sels = [s.strip() for s in m.group(1).split(",") if s.strip()]
+            if not sels or m.group(1).strip().startswith("@"):
+                continue
+            decls = {}
+            for d in m.group(2).split(";"):
+                if ":" in d:
+                    k, v = d.split(":", 1)
+                    decls[k.strip().lower()] = v.strip().lower()
+            rules.append((n, sels, decls))
+        return rules
+
+    @classmethod
+    def _spec(cls, sel):
+        sel = re.sub(r":not\(([^()]*)\)", r" \1 ", sel)
+        sel = re.sub(r":is\(([^()]*)\)", r" \1 ", sel)
+        sel = re.sub(r":where\(([^()]*)\)", " ", sel)
+        a = len(re.findall(r"#[A-Za-z0-9_-]+", sel))
+        b = (len(re.findall(r"\.[A-Za-z0-9_-]+", sel))
+             + len(re.findall(r"\[[^\]]+\]", sel))
+             + len(re.findall(r":[a-zA-Z-]+", sel)))
+        c = len(re.findall(r"(?:^|[\s>+~])([a-zA-Z][a-zA-Z0-9-]*)", sel))
+        return (a, b, c)
+
+    @classmethod
+    def _chain(cls, tbody, pane, attrs, dark_ink):
+        btn = {"tag": "button", "id": None,
+               "classes": ["btn", "danger", "icon-del"], "attrs": attrs}
+        html_attrs = {"data-ink": "dark"} if dark_ink else {}
+        return [btn,
+                {"tag": "td", "id": None, "classes": [], "attrs": {}},
+                {"tag": "tr", "id": None, "classes": [], "attrs": {}},
+                {"tag": "tbody", "id": tbody, "classes": [], "attrs": {}},
+                {"tag": "table", "id": None, "classes": [], "attrs": {}},
+                {"tag": "div", "id": pane, "classes": [], "attrs": {}},
+                {"tag": "div", "id": "adminLayer",
+                 "classes": ["admin-layer"], "attrs": {}},
+                {"tag": "body", "id": None, "classes": [], "attrs": {}},
+                {"tag": "html", "id": None, "classes": [],
+                 "attrs": html_attrs}]
+
+    @classmethod
+    def _match_compound(cls, text, node, is_target):
+        text = text.strip()
+        if not text or text == "*":
+            return True
+        for inner in re.findall(r":not\(([^()]*)\)", text):
+            if cls._match_compound(inner, node, is_target):
+                return False
+        text = re.sub(r":not\([^()]*\)", " ", text)
+        for m in re.finditer(r":is\(([^()]*)\)", text):
+            if not any(cls._match_compound(a, node, is_target)
+                       for a in m.group(1).split(",")):
+                return False
+        text = re.sub(r":is\([^()]*\)|:where\([^()]*\)", " ", text)
+        tagm = re.match(r"^([A-Za-z][A-Za-z0-9-]*)", text)
+        if tagm and tagm.group(1).lower() != node["tag"]:
+            return False
+        mid = re.match(r"^#[A-Za-z0-9_-]+", text)
+        if mid and mid.group(0)[1:] != (node["id"] or ""):
+            return False
+        for cl in re.findall(r"\.([A-Za-z0-9_-]+)", text):
+            if cl not in node["classes"]:
+                return False
+        for am in re.finditer(r"\[([A-Za-z0-9_-]+)(?:=([^\]]+))?\]", text):
+            name, val = am.group(1), am.group(2)
+            if name not in node["attrs"]:
+                return False
+            if val and node["attrs"][name] not in ("", val.strip("\"'")):
+                if name == "data-ink" and node["attrs"].get(name) != val.strip("\"'"):
+                    return False
+        for p in re.findall(r":([a-zA-Z-]+)", text):
+            if p == "hover" and not is_target:
+                return False
+            if p == "root" and node["tag"] != "html":
+                return False
+        return True
+
+    @classmethod
+    def _match_sel(cls, sel, chain):
+        if re.search(r"::(before|after|placeholder|marker|selection|scrollbar)", sel):
+            return False
+        parts, cur, depth = [], "", 0
+        for ch in sel:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            if depth == 0 and ch in ">+~":
+                parts.append(cur)
+                cur = ""
+            elif depth == 0 and ch.isspace():
+                if cur.strip():
+                    parts.append(cur)
+                    cur = ""
+            else:
+                cur += ch
+        if cur.strip():
+            parts.append(cur)
+        parts = [p.strip() for p in parts if p.strip()]
+        if not parts:
+            return False
+        if not cls._match_compound(parts[-1], chain[0], True):
+            return False
+        idx = 1
+        for part in reversed(parts[:-1]):
+            found = False
+            while idx < len(chain):
+                if cls._match_compound(part, chain[idx], False):
+                    found, idx = True, idx + 1
+                    break
+                idx += 1
+            if not found:
+                return False
+        return True
+
+    @classmethod
+    def _winner(cls, rules, chain, prop):
+        best = None  # (important, spec, order, value)
+        for order, sels, decls in rules:
+            if prop not in decls:
+                continue
+            important = decls[prop].endswith("!important")
+            val = decls[prop].replace("!important", "").strip()
+            for sel in sels:
+                if not cls._match_sel(sel, chain):
+                    continue
+                key = (important, cls._spec(sel), order)
+                if best is None or key > best[0]:
+                    best = (key, val)
+        return best[1] if best else None
+
+    def test_css_braces_balanced(self):
+        css = self._css()
+        self.assertEqual(css.count("{"), css.count("}"))
+
+    def test_bin_hover_resolves_pole_both_inks(self):
+        rules = self._rules(self._css())
+        for tbody, pane, attrs in self.BINS:
+            for dark_ink in (False, True):
+                chain = self._chain(tbody, pane, attrs, dark_ink)
+                want = self.WHITE if dark_ink else self.DARK
+                with self.subTest(bin=tbody, dark_ink=dark_ink):
+                    self.assertEqual(self._winner(rules, chain, "color"),
+                                     want)
+
+    def test_bin_hover_has_no_plate(self):
+        rules = self._rules(self._css())
+        for tbody, pane, attrs in self.BINS:
+            for dark_ink in (False, True):
+                chain = self._chain(tbody, pane, attrs, dark_ink)
+                with self.subTest(bin=tbody, dark_ink=dark_ink):
+                    bg = self._winner(rules, chain, "background")
+                    if bg is not None:
+                        self.assertIn(bg, ("transparent", "none"))
+                    br = self._winner(rules, chain, "border-radius")
+                    if br is not None:
+                        self.assertIn(br, ("0", "0px"))
+
+    def test_trash_icon_follows_current_color(self):
+        src = (ROOT / "backend" / "ui_app.js").read_text(encoding="utf-8")
+        m = re.search(r"TRASH_ICON\s*=\s*'(.*?)';", src, re.S)
+        self.assertIsNotNone(m, "TRASH_ICON constant missing")
+        svg = m.group(1)
+        self.assertIn("currentColor", svg)
+        self.assertIsNone(re.search(r"#[0-9a-fA-F]{3,8}", svg),
+                          "hardcoded hex paint in trash icon")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

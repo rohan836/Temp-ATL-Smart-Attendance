@@ -1485,7 +1485,7 @@
       z-index: 0;
       pointer-events: none;
       opacity: 1;
-      background: url("/assets/images/ui/glass-bg.jpg") center/cover no-repeat, #A79B90
+      background: url("/assets/images/ui/glass-bg.png") center/cover no-repeat, #A79B90
     }
 
     .admin-layer.open {
@@ -2654,6 +2654,431 @@
       }
     }
 
+    /* Phase 1 shell: right sidebar owns the global nav (reference:
+       large main workspace + narrow right rail). Panes live in
+       .admin-main; #adminNav moves into .admin-side verbatim (same
+       node, same IDs) so the data-tab delegation in ui_app.js is
+       untouched. The old .admin-top .admin-nav centering rules go
+       inert (no match). */
+    #adminLayer .admin-body {
+      flex-direction: row !important;
+    }
+
+    #adminLayer .admin-main {
+      flex: 1 1 0% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: row !important;
+      overflow: hidden !important;
+    }
+
+    /* Narrow stable rail: one hairline boundary, no card/blur/shadow.
+       The rail itself never scrolls — global nav stays fixed at top and
+       the expanded page section (.side-ctx) scrolls internally beneath
+       it, so opening a section can never push nav off or jump the
+       248px main-workspace boundary. */
+    #adminLayer .admin-side {
+      flex: 0 0 248px !important;
+      width: 248px !important;
+      min-height: 0 !important;
+      align-self: stretch !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-left: 1px solid var(--hairline) !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 18px 0 !important;
+      overflow-y: hidden !important;
+      overflow-x: hidden !important;
+    }
+
+    /* Vertical nav: same node, same buttons — the horizontal bar
+       language retuned to a left-aligned stack. Paint (400/500 +
+       opposite-pole ink, hover-dim law) inherits from the existing
+       .admin-nav rules; only geometry is overridden here. */
+    #adminLayer #adminSide #adminNav {
+      position: static !important;
+      transform: none !important;
+      max-width: none !important;
+      overflow: visible !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+      flex: none !important;
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      gap: 0 !important;
+    }
+
+    #adminLayer #adminSide #adminNav button {
+      flex: none !important;
+      width: 100% !important;
+      height: 44px !important;
+      text-align: left !important;
+      padding: 0 24px !important;
+      border: none !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    /* Dark twins of the .admin-top-scoped hover/active/focus rules,
+       which no longer match once the node lives in the sidebar. */
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide #adminNav button:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide #adminNav button.active {
+      color: #F2F3F6 !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide #adminNav:hover button.active:not(:hover) {
+      color: rgba(24, 26, 32, 0.8) !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide #adminNav button:focus-visible {
+      color: #F2F3F6 !important;
+    }
+
+    /* Narrow guard: rail becomes a top strip so the workspace keeps
+       full width; nav scrolls horizontally, boundary rotates. */
+    @media (max-width: 900px) {
+      #adminLayer .admin-body {
+        flex-direction: column !important;
+      }
+
+      #adminLayer .admin-main {
+        flex: 1 1 0% !important;
+      }
+
+      #adminLayer .admin-side {
+        flex: none !important;
+        width: auto !important;
+        border-left: none !important;
+        border-bottom: 1px solid var(--hairline) !important;
+        padding: 0 12px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+      }
+
+      #adminLayer #adminSide #adminNav {
+        flex-direction: row !important;
+        overflow-x: auto !important;
+      }
+
+      #adminLayer #adminSide #adminNav button {
+        width: auto !important;
+        height: 44px !important;
+        padding: 0 14px !important;
+      }
+    }
+
+    /* Phase 2 shell: Students secondary controls live in the sidebar
+       (reference: quiet list under a separator + label). The nodes are
+       the original toolbar controls, moved verbatim — gsel wraps them
+       in place at boot, so dropdown structure is untouched. Paint below
+       mirrors the retired toolbar rules; only geometry is new. */
+    #adminLayer #adminSide .side-ctx {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      scrollbar-width: none !important;
+      padding-bottom: 16px !important;
+    }
+
+    #adminLayer #adminSide .side-ctx::-webkit-scrollbar {
+      display: none !important;
+    }
+
+    #adminLayer #adminSide .side-sep {
+      border: none !important;
+      border-top: 1px solid var(--hairline) !important;
+      margin: 20px 0 0 !important;
+      padding: 0 !important;
+    }
+
+    /* Section label mirrors the month-editor label language. */
+    #adminLayer #adminSide .side-label {
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      color: rgba(242, 243, 246, 0.7) !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      padding: 14px 24px 2px !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-label {
+      color: rgba(24, 26, 32, 0.7) !important;
+    }
+
+    /* Filter dropdowns: full-width quiet rows (the fixed 128/112px
+       toolbar slots are retired with the bar). */
+    #adminLayer #adminSide .side-ctx .gsel {
+      width: 100% !important;
+      display: flex !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .gsel-btn {
+      width: 100% !important;
+      max-width: none !important;
+      height: 40px !important;
+      flex: none !important;
+      display: flex !important;
+      align-items: center !important;
+      background: transparent !important;
+      border: none !important;
+      border-bottom: 1px solid transparent !important;
+      padding: 0 24px !important;
+      color: rgba(242, 243, 246, 0.88) !important;
+      font-size: 11px !important;
+      letter-spacing: 0.04em !important;
+      font-weight: 400 !important;
+      cursor: pointer !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .gsel-btn:hover,
+    #adminLayer #adminSide .side-ctx .gsel.open .gsel-btn {
+      border-bottom-color: rgba(242, 243, 246, 0.75) !important;
+      color: #F2F3F6 !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .gsel-btn .gsel-lab {
+      text-align: left !important;
+    }
+
+    /* Dark twins of the retired students-toolbar filter rules. */
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn {
+      border-bottom-color: rgba(24, 26, 32, 0.35) !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn:hover {
+      border-bottom-color: #181A20 !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx select:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn:hover {
+      color: #F2F3F6 !important;
+    }
+
+    /* Action rows: same borderless text actions as the toolbar (their
+       ID-scoped ALL-TEXT paint survives the move); only the row
+       geometry is set here. */
+    #adminLayer #adminSide .side-ctx .btn {
+      flex: none !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      height: 40px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      padding: 0 24px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    /* New Enrollment joins the sidebar text language. Its contained
+       pill came back because the ALL-TEXT override was scoped
+       `#pane-students` (dead after the move) while the contained
+       `#newStudentToolbarBtn`/`.btn.primary` rules still match.
+       This twin restores text-first with the same metrics as the
+       Import/Export siblings; specificity (2 IDs) outranks both. */
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      transition: none !important;
+    }
+
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn {
+      height: 40px !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      margin-left: 0 !important;
+      padding: 0 24px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+    }
+
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover {
+      color: #181A20 !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover {
+      color: #F2F3F6 !important;
+    }
+
+    /* Sidebar context mapping: hidden wins over the flex shell above.
+       updateTabs() toggles [hidden]; without this the
+       display:flex !important rule would keep the inactive page's
+       context visible (Students controls leaking onto Attendance). */
+    #adminLayer #adminSide .side-ctx[hidden] {
+      display: none !important;
+    }
+
+    /* Leftover Attendance bar: hidden truth (filters/actions stay wired,
+       render nothing). Beats the #pane-attendance .tab-toolbar
+       display:flex !important shell; plain inline display:none would lose. */
+    #pane-attendance .tab-toolbar[hidden] {
+      display: none !important;
+    }
+
+    /* Phase 3 shell: Attendance secondary controls live in the sidebar
+       (Today / Yesterday / Custom Date / Custom Range / This Week (7d) /
+       This Month / Academic Year + Clear). Nodes are the original
+       pane-attendance preset controls, moved verbatim — the seg-strip
+       builder inserts before #attDatePreset wherever it lives, so IDs,
+       change events, custom-day/range reveal, Apply, acad/range popups
+       and renderAttendance flow are untouched. Paint mirrors the retired
+       toolbar seg rules; only geometry is vertical like Student controls. */
+    #adminLayer #adminSide .side-ctx .seg-strip {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .seg-btn {
+      flex: none !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      height: 40px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      padding: 0 24px !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: rgba(242, 243, 246, 0.88) !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.04em !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      transition: none !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .seg-btn:hover {
+      color: #181A20 !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .seg-btn.active {
+      color: #181A20 !important;
+      font-weight: 500 !important;
+    }
+
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .seg-btn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .seg-btn.active {
+      color: #F2F3F6 !important;
+    }
+
+    #adminLayer #adminSide .side-ctx .seg-sep {
+      border: none !important;
+      border-top: 1px solid var(--hairline) !important;
+      margin: 8px 0 0 !important;
+      padding: 0 !important;
+      width: auto !important;
+      height: 0 !important;
+      background: transparent !important;
+      opacity: 1 !important;
+      align-self: stretch !important;
+      pointer-events: none !important;
+    }
+
+    /* Custom date/range inputs + Apply follow the preset into the rail;
+       hidden until custom_day/custom_range reveal sets display:"". */
+    #adminLayer #adminSide .side-ctx #attSingleDate,
+    #adminLayer #adminSide .side-ctx #attFromDate,
+    #adminLayer #adminSide .side-ctx #attToDate {
+      width: calc(100% - 48px) !important;
+      margin: 8px 24px 0 !important;
+    }
+
+    #adminLayer #adminSide .side-ctx #attApplyBtn:not([style*="display: none"]):not([style*="display:none"]) {
+      display: flex !important;
+    }
+
+    /* Narrow guard: context flows inline in the top strip. */
+    @media (max-width: 900px) {
+      #adminLayer #adminSide .side-ctx {
+        flex-direction: row !important;
+        flex: none !important;
+        align-items: center !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 0 12px !important;
+      }
+
+      #adminLayer #adminSide .side-sep,
+      #adminLayer #adminSide .side-label {
+        display: none !important;
+      }
+
+      #adminLayer #adminSide .side-ctx .gsel {
+        width: auto !important;
+        flex: none !important;
+      }
+
+      #adminLayer #adminSide .side-ctx .gsel-btn,
+      #adminLayer #adminSide .side-ctx .btn,
+      #adminLayer #adminSide .side-ctx .seg-btn {
+        width: auto !important;
+        height: 44px !important;
+        padding: 0 14px !important;
+      }
+
+      #adminLayer #adminSide .side-ctx .seg-strip {
+        flex-direction: row !important;
+        align-items: center !important;
+      }
+
+      #adminLayer #adminSide .side-ctx .seg-sep {
+        border-top: none !important;
+        border-left: 1px solid var(--hairline) !important;
+        margin: 0 4px !important;
+        width: 1px !important;
+        height: 14px !important;
+        align-self: center !important;
+      }
+    }
+
     /* 3. Universal Structural Hairlines */
     tr,
     .student-row,
@@ -2672,72 +3097,108 @@
       border-right: 0 !important;
     }
 
-    /* Roster cubes: separate frost blocks like the weekly/month tiles */
+    /* Roster rows: flat editorial list, same language as the Setup
+       rail. Transparent, hairline-separated; selection is type-only
+       (400 → 500) plus a 1px marker in a reserved left slot. */
     #pane-students .student-row {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       border: none !important;
-      background: rgba(242, 243, 246, 0.06) !important;
-      backdrop-filter: blur(12px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
-      border-radius: 4px !important;
-      margin-bottom: 8px !important;
+      border-bottom: 1px solid rgba(242, 243, 246, 0.08) !important;
+      border-left: 1px solid transparent !important;
+      border-radius: 0 !important;
+      margin-bottom: 0 !important;
+      padding-left: 7px !important;
       box-shadow: none !important;
-      transition: background 140ms ease, transform 180ms var(--ease) !important;
+      outline: none !important;
+      transform: none !important;
+      transition: none !important;
+      /* Explicit row grid (Setup-rail pattern): fixed avatar track,
+         flexible identity track. No action track exists in list
+         rows — info already flexes with ellipsis, so long names
+         cannot move anything. */
+      display: grid !important;
+      grid-template-columns: 42px minmax(0, 1fr) !important;
+      align-items: center !important;
+      column-gap: 12px !important;
+    }
+
+    html[data-ink="dark"] #pane-students .student-row {
+      border-bottom-color: rgba(24, 26, 32, 0.08) !important;
     }
 
     #pane-students .student-row:hover {
-      background: rgba(242, 243, 246, 0.1) !important;
+      background: transparent !important;
     }
 
-    /* Selected cube slides out right like a CD from its tray.
-       Pole law: white mode = silver fill + graphite text,
-       dark mode = graphite fill + silver text (one 0.2 value). */
+    /* Selected row: marker + 500 name + a soft localized wash.
+       The wash is the locked directional fade (solid at the leading
+       edge, dissolving toward the end) — illumination, not a card:
+       no border, no radius, no shadow, no blur, no motion. Pole law
+       follows the ink, same as the Setup rail. */
     #pane-students .student-row.active,
     #pane-students .student-row.active:hover {
-      background: rgba(242, 243, 246, 0.2) !important;
+      background: linear-gradient(90deg, rgba(242, 243, 246, 0.14), rgba(242, 243, 246, 0) 80%) !important;
+      border-left-color: #F2F3F6 !important;
       box-shadow: none !important;
-      transform: translateX(10px) !important;
+      transform: none !important;
     }
 
     #pane-students .student-row.active .student-name,
     #pane-students .student-row.active .student-meta,
     #pane-students .student-row.active .student-meta span,
     #pane-students .student-row.active .student-roll {
-      color: #181A20 !important;
+      color: #F2F3F6 !important;
+    }
+
+    #pane-students .student-row.active .student-name {
+      font-weight: 500 !important;
+    }
+
+    #pane-students .student-name {
+      font-weight: 400 !important;
     }
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active:hover {
-      background: rgba(24, 26, 32, 0.2) !important;
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.18), rgba(24, 26, 32, 0) 80%) !important;
+      border-left-color: #181A20 !important;
     }
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active .student-name,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active .student-meta,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active .student-meta span,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active .student-roll {
-      color: #F2F3F6 !important;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      #pane-students .student-row {
-        transition: background 140ms ease !important;
-      }
-      #pane-students .student-row.active,
-      #pane-students .student-row.active:hover {
-        transform: none !important;
-      }
+      color: #181A20 !important;
     }
 
     #pane-students .student-thumb {
       border: none !important;
-      background: rgba(242, 243, 246, 0.1) !important;
-      border-radius: 2px !important;
+      background: transparent !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
     }
 
-    /* Uploaded photos render as pure image — no frame, matched corners */
+    /* Initials are identity text, not tiles: no box, no fill —
+       same flat treatment as the profile placeholder. */
+    #pane-students .student-thumb-fallback {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: rgba(242, 243, 246, 0.85) !important;
+    }
+
+    html[data-ink="dark"] #pane-students .student-thumb-fallback {
+      color: rgba(24, 26, 32, 0.85) !important;
+    }
+
+    /* Uploaded photos render as pure image — no frame, square corners */
     #pane-students .student-thumb img {
       border: none !important;
       outline: none !important;
-      border-radius: 2px !important;
+      border-radius: 0 !important;
     }
 
     /* ============================================================
@@ -2765,7 +3226,7 @@
        always share one line (zero layout change elsewhere). */
     /* Search field: no underline bar — a directional frost wash, solid
        at the leading edge dissolving toward the end */
-    #pane-students .tab-toolbar .search-wrap {
+    #pane-students .search-wrap {
       flex: 1 1 100% !important;
       display: flex !important;
       align-items: center !important;
@@ -2780,19 +3241,19 @@
       transition: none !important;
     }
 
-    #pane-students .tab-toolbar .search-wrap:focus-within {
+    #pane-students .search-wrap:focus-within {
       background: linear-gradient(90deg, rgba(242, 243, 246, 0.16), rgba(242, 243, 246, 0) 80%) !important;
     }
 
-    html[data-ink="dark"] #pane-students .tab-toolbar .search-wrap {
+    html[data-ink="dark"] #pane-students .search-wrap {
       background: linear-gradient(90deg, rgba(24, 26, 32, 0.1), rgba(24, 26, 32, 0) 80%) !important;
     }
 
-    html[data-ink="dark"] #pane-students .tab-toolbar .search-wrap:focus-within {
+    html[data-ink="dark"] #pane-students .search-wrap:focus-within {
       background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0) 80%) !important;
     }
 
-    #pane-students .tab-toolbar .search-ico {
+    #pane-students .search-ico {
       color: rgba(242, 243, 246, 0.55) !important;
       font-size: 18px !important;
       line-height: 1 !important;
@@ -2801,8 +3262,36 @@
       flex: 0 0 auto !important;
     }
 
-    html[data-ink="dark"] #pane-students .tab-toolbar .search-ico {
+    html[data-ink="dark"] #pane-students .search-ico {
       color: rgba(24, 26, 32, 0.6) !important;
+    }
+
+    /* Left rail list: flexible viewport fill, not a fixed row
+       count. The rail stretches from toolbar to the global bottom
+       boundary; roster growth scrolls inside #studentList while the
+       pinned search footer never moves. */
+    #pane-students #studentList {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+    }
+
+    #pane-students .list-search {
+      flex: none !important;
+      border-top: 1px solid var(--hairline) !important;
+      margin-top: 12px !important;
+      padding-top: 12px !important;
+    }
+
+    #pane-students .list-search .search-wrap {
+      flex: 1 1 auto !important;
+      max-width: none !important;
+      min-width: 0 !important;
+    }
+
+    #pane-students .list-search #searchInput {
+      min-width: 0 !important;
+      flex: 1 1 0% !important;
     }
 
     /* (Search bar retired: the wrap's fade wash carries both inks now) */
@@ -2824,10 +3313,10 @@
 
     #pane-students .list-pane,
     #studentListWrap {
-      border-right: 1px solid rgba(242, 243, 246, 0.12) !important;
+      border-right: 1px solid var(--hairline) !important;
       padding-right: 24px !important;
-      min-width: 280px !important;
-      max-width: 360px !important;
+      min-width: 320px !important;
+      max-width: 400px !important;
       box-sizing: border-box !important;
     }
 
@@ -2973,7 +3462,8 @@
       color: #181A20 !important;
     }
 
-    /* Student Roster Rows: Hairlines only */
+    /* Student Roster Rows: geometry base (the #pane-students rules
+       above own paint + selection) */
     .student-row {
       background: transparent !important;
       border: none !important;
@@ -2981,17 +3471,7 @@
       border-radius: 0 !important;
       padding: 10px 8px !important;
       cursor: pointer !important;
-      transition: background 140ms ease !important;
-    }
-
-    .student-row:hover {
-      background: rgba(242, 243, 246, 0.04) !important;
-    }
-
-    .student-row.active {
-      background: rgba(242, 243, 246, 0.08) !important;
-      border-left: 2px solid #F2F3F6 !important;
-      padding-left: 12px !important;
+      transition: none !important;
     }
 
     .student-name {
@@ -3006,13 +3486,16 @@
       margin-top: 3px !important;
     }
 
-    /* Student Detail (Profile Right Column): Borderless Editorial Content */
+    /* Student Detail (Profile Right Column): Borderless Editorial Content.
+       One deliberate column: header, metadata, actions, and history
+       share the same max width so every section boundary aligns. */
     #detailScroll .detail-card {
       background: transparent !important;
       border: none !important;
       border-radius: 0 !important;
       box-shadow: none !important;
       padding: 0 !important;
+      max-width: 940px !important;
     }
 
     .detail-photo {
@@ -3052,13 +3535,19 @@
       text-shadow: none !important;
     }
 
-    .detail-grid {
+    #detailScroll .detail-grid {
       display: grid !important;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
       gap: 14px 20px !important;
-      margin-top: 18px !important;
-      padding-top: 16px !important;
+      margin-top: 14px !important;
+      padding-top: 12px !important;
       border-top: 1px solid rgba(242, 243, 246, 0.1) !important;
+    }
+
+    @media (max-width: 1000px) {
+      #detailScroll .detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
     }
 
     .detail-field {
@@ -3130,15 +3619,45 @@
       border: none !important;
     }
 
-    /* Profile action row: airy rhythm, bin docked top-right corner */
+    /* Profile action row: airy rhythm (unchanged) */
     #detailScroll div:has(> button[data-action="edit"]) {
       gap: 20px !important;
       align-items: center !important;
     }
 
-    #detailScroll button.icon-del {
-      order: 99 !important;
+    /* Profile header: avatar → identity → delete. The bin lives
+       in the header row (margin-left:auto) instead of floating at
+       the far edge of the action row. */
+    #detailScroll .pf-head {
+      display: flex !important;
+      align-items: center !important;
+      gap: 18px !important;
+      flex-wrap: wrap !important;
+      min-width: 0 !important;
+    }
+
+    #detailScroll .pf-id {
+      flex: 1 1 280px !important;
+      min-width: 0 !important;
+    }
+
+    /* Title row: serif name + delete share one baseline, so the bin
+       anchors to the title instead of floating at the content edge. */
+    #detailScroll .pf-title-row {
+      display: flex !important;
+      align-items: baseline !important;
+      gap: 16px !important;
+      min-width: 0 !important;
+    }
+
+    #detailScroll .pf-title-row > div:first-child {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+
+    #detailScroll .pf-del {
       margin-left: auto !important;
+      flex: none !important;
     }
 
     html[data-ink="dark"] #adminLayer#adminLayer #detailScroll button:hover,
@@ -3164,6 +3683,12 @@
       letter-spacing: 0.06em !important;
       text-transform: uppercase !important;
       font-weight: 500 !important;
+    }
+
+    /* Compact history empty state: hugs the header instead of
+       opening a tall void. */
+    #detailScroll .table-wrap .empty {
+      padding: 10px 0 !important;
     }
 
     /* ============================================================
@@ -6833,35 +7358,33 @@
       color: rgba(242, 243, 246, 0.75) !important;
     }
 
-    /* Class rows, master-detail: mirrors the Students split-view —
-       compressed left list (280/240/300 + 24px gutter), 1px wall,
-       compact month right. Tile click swaps the editor below
-       (renderCubeDetail into #scheduleEditor), same as
-       selectStudent. */
-    #pane-setup #classCubes {
-      display: flex !important;
-      align-items: stretch !important;
-      gap: 14px !important;
-      min-width: 0 !important;
-    }
-
+    /* Wide layout geometry lives in the workspace grid below
+       (#classCubes/#classDetail are display:contents there);
+       narrow stacking re-establishes column flow at 1160px. */
     #pane-setup #cubeGrid {
-      flex: 0 1 280px !important;
-      min-width: 240px !important;
-      max-width: 300px !important;
-      padding-right: 24px !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      padding-right: 0 !important;
       box-sizing: border-box !important;
       display: flex !important;
       flex-direction: column !important;
       align-content: start !important;
       align-items: stretch !important;
-      /* Four tiles visible, then inner scroll: 4×56px + 3×8px gap.
-         The page never stretches no matter how many classes or
-         batches exist; extra tiles scroll inside the left bar. */
-      max-height: 248px !important;
+      /* Seven rows visible, then inner scroll: 7×56px = 392px, an
+         exact multiple so the viewport always ends on a row
+         boundary — never a clipped sliver. Roster and calendar
+         share row 1 at 392px each, so tops and bottoms align;
+         the fixed add footer sits in row 2 beside the cutoff
+         strip. Extra rows scroll inside the rail; the page never
+         stretches no matter how many classes or batches exist. */
+      max-height: 392px !important;
       min-height: 0 !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
+      /* Contain roster scrolling (Students pattern): wheel/touch at
+         the list ends must not chain into page scroll, so the
+         calendar, strip, toolbar, and footer never move. */
+      overscroll-behavior: contain !important;
       /* Barless scroll: wheel / touch / trackpad keep working, no
          visible scrollbar — zero layout shift, minimal look. */
       scrollbar-width: none !important;
@@ -6873,40 +7396,18 @@
       width: 0 !important;
     }
 
-    #pane-setup .cube-wall {
-      flex: 0 0 auto !important;
-      width: 1px !important;
-      background: var(--hairline) !important;
-      align-self: stretch !important;
-    }
-
-    #pane-setup #classDetail {
-      flex: 1 1 0% !important;
-      min-width: 0 !important;
-      padding-left: 28px !important;
-      box-sizing: border-box !important;
-    }
-
-    /* Class/batch solid editor, full width in the month's old slot
-       (transparent flow, same as the month section around it). */
-    #pane-setup #scheduleEditor {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      padding: 0 !important;
-      margin-bottom: 28px !important;
-      min-width: 0 !important;
-    }
+    /* (Wide layout: #classDetail is display:contents in the
+       workspace grid, so it takes no box of its own.) */
 
     /* Narrow screens: list stacks over the month (same 1160px
-       breakpoint as the setup grid); wall turns horizontal. */
+       breakpoint as the setup grid). Roster, add footer, then
+       month flow in DOM order. */
     @media (max-width: 1160px) {
       #pane-setup #classCubes {
         flex-direction: column !important;
       }
 
-      #pane-setup .setup-card-classes .cube-left-head,
+      #pane-setup .setup-card-classes .cube-add-head,
       #pane-setup #cubeGrid {
         flex: none !important;
         min-width: 0 !important;
@@ -6914,33 +7415,36 @@
         padding-right: 0 !important;
       }
 
-      #pane-setup .cube-wall {
-        width: 100% !important;
-        height: 1px !important;
-        align-self: auto !important;
-      }
-
       #pane-setup #classDetail {
         padding-left: 0 !important;
       }
     }
 
-    /* Cubes copy the student-row block exactly (68px frost tile,
-       0 14px pad, 4px radius, 8px stack gap, 0.06/0.1/0.2 fills,
-       pole-law active text) — motion stripped per no-animation
-       rule (no translate, no transition; cursor is the answer). */
+    /* Rail follows the Students roster exactly: the list itself is
+       fully transparent (no container wash — a full-box wash keeps
+       hard left/top/bottom edges and reads as a panel). Only the
+       selected row carries a soft single wash + 1px marker + 500
+       type. NAME | COUNT | DELETE grid unchanged. */
+    #pane-setup #cubeGrid {
+      background: transparent !important;
+    }
+
+    html[data-ink="dark"] #pane-setup #cubeGrid {
+      background: transparent !important;
+    }
     #pane-setup .class-cube {
       min-height: 56px !important;
-      display: flex !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 36px 28px !important;
       align-items: center !important;
-      gap: 12px !important;
+      column-gap: 12px !important;
       padding: 0 14px !important;
-      margin-bottom: 8px !important;
-      background: rgba(242, 243, 246, 0.06) !important;
-      backdrop-filter: blur(12px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+      margin-bottom: 0 !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       border: none !important;
-      border-radius: 4px !important;
+      border-radius: 0 !important;
       box-shadow: none !important;
       outline: none !important;
       min-width: 0 !important;
@@ -6952,21 +7456,26 @@
     }
 
     #pane-setup .class-cube:hover {
-      background: rgba(242, 243, 246, 0.1) !important;
+      background: transparent !important;
+    }
+
+    html[data-ink="dark"] #pane-setup .class-cube:hover {
+      background: transparent !important;
     }
 
     #pane-setup .class-cube.active,
     #pane-setup .class-cube.active:hover {
-      background: rgba(242, 243, 246, 0.2) !important;
+      background: linear-gradient(90deg, rgba(242, 243, 246, 0.14), rgba(242, 243, 246, 0) 80%) !important;
       transform: none !important;
     }
 
     #pane-setup #cubeGrid .cube-name {
       font-size: 12px !important;
-      font-weight: 500 !important;
+      font-weight: 400 !important;
       letter-spacing: 0.06em !important;
       text-transform: uppercase !important;
       color: #F2F3F6 !important;
+      min-width: 0 !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       white-space: nowrap !important;
@@ -6974,7 +7483,8 @@
 
     #pane-setup #cubeGrid .class-cube.active .cube-name,
     #pane-setup #cubeGrid .class-cube.active .cube-count {
-      color: #181A20 !important;
+      color: #F2F3F6 !important;
+      font-weight: 500 !important;
     }
 
     html[data-ink="dark"] #pane-setup #cubeGrid .cube-name {
@@ -6983,18 +7493,17 @@
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .class-cube.active,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .class-cube.active:hover {
-      background: rgba(24, 26, 32, 0.2) !important;
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.18), rgba(24, 26, 32, 0) 80%) !important;
     }
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #cubeGrid .class-cube.active .cube-name,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #cubeGrid .class-cube.active .cube-count {
-      color: #F2F3F6 !important;
+      color: #181A20 !important;
     }
 
     #pane-setup #cubeGrid .cube-count {
       font-size: 10.5px !important;
-      margin-left: auto !important;
-      flex-shrink: 0 !important;
+      text-align: right !important;
     }
 
     /* Dark resting count goes graphite — silver-on-silver frost
@@ -8305,6 +8814,8 @@
     html[data-ink="dark"] #overrideModal#overrideModal *:not(option),
     html[data-ink="dark"] #classDetail#classDetail .sched-solid,
     html[data-ink="dark"] #classDetail#classDetail .sched-solid *:not(option),
+    html[data-ink="dark"] #schedModal#schedModal,
+    html[data-ink="dark"] #schedModal#schedModal *:not(option),
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov,
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov *:not(option) {
       color: rgba(24, 26, 32, 0.8) !important;
@@ -9239,45 +9750,24 @@
     <div class="admin-layer" id="adminLayer">
       <div class="admin-top">
         <div class="admin-title" id="adminTitle">Students</div>
-        <div class="admin-nav" id="adminNav">
-          <button data-tab="students" class="active">Students</button>
-          <button data-tab="attendance">Attendance</button>
-          <button data-tab="setup">Setup</button>
-          <button data-tab="backup">Backup</button>
-          <button data-tab="today" style="display:none"></button>
-          <button data-tab="reports" style="display:none"></button>
-          <button data-tab="calendar" style="display:none"></button>
-          <button data-tab="settings" style="display:none"></button>
-        </div>
         <div style="display:flex;gap:8px;align-items:center"><button
             class="admin-close close-btn" id="inkToggleBtn" aria-label="Toggle ink">☀</button><span class="esc-hint"
             style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase">Esc</span><button
             class="admin-close close-btn" id="adminClose">Close</button></div>
       </div>
       <div class="admin-body">
+        <div class="admin-main" id="adminMain">
         <!-- Students -->
         <div class="admin-pane" id="pane-students">
-          <div class="tab-toolbar">
-            <div class="search-wrap"><span class="search-ico" aria-hidden="true">⌕</span><input id="searchInput" placeholder="Search name, roll, class, batch, phone, fingerprint"
-              style="flex:1 1 0%"></div>
-            <select id="classFilter">
-              <option value="">All Classes</option>
-            </select>
-            <select id="batchFilter">
-              <option value="">All Batches</option>
-            </select>
-            <select id="studentStatusFilter">
-              <option value="active">Active only</option>
-              <option value="all">All</option>
-              <option value="inactive">Inactive only</option>
-            </select>
-            <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
-            <button class="btn" id="importStudentsBtn">Import CSV</button>
-            <button class="btn" id="exportStudentsBtn">Export CSV</button>
+          <div class="tab-toolbar" style="display:none" aria-hidden="true">
+            <!-- Students controls live in the right sidebar (Phase 2).
+                 This node stays so the CSV-import fallback in ui_app.js
+                 still finds its anchor; it renders nothing. -->
           </div>
           <div class="split-view" style="flex:1 1 0%;min-height:0;display:flex;flex-direction:row;overflow:hidden">
             <div class="list-pane">
               <div class="list-scroll" id="studentList"></div>
+              <div class="list-search"><div class="search-wrap"><span class="search-ico" aria-hidden="true">⌕</span><input id="searchInput" placeholder="Search name, roll, class, batch, phone, fingerprint"></div></div>
             </div>
             <div class="detail-pane">
               <div class="detail-scroll" id="detailScroll">
@@ -9290,20 +9780,13 @@
         </div>
         <!-- Attendance: Unified Live Today & Historical Attendance Workspace -->
         <div class="admin-pane hidden" id="pane-attendance">
-          <div class="tab-toolbar">
-            <select id="attDatePreset">
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="custom_day">Custom Date</option>
-              <option value="custom_range">Custom Range</option>
-              <option value="week">This Week (7d)</option>
-              <option value="month">This Month</option>
-              <option value="academic">Academic Year</option>
-            </select>
-            <input type="date" id="attSingleDate" style="display:none">
-            <input type="date" id="attFromDate" style="display:none">
-            <input type="date" id="attToDate" style="display:none">
-            <button class="btn primary" id="attApplyBtn" style="display:none">Apply</button>
+          <div class="tab-toolbar" hidden aria-hidden="true">
+            <!-- Attendance filter/action controls stay in the DOM as logic
+                 truth (ids, values, change handlers untouched) but render
+                 nothing: date presets moved to the sidebar (Phase 3) and
+                 this leftover bar must not show a top filter row. The
+                 [hidden] + CSS override below beats the
+                 #pane-attendance .tab-toolbar display:flex !important shell. -->
             <select id="attClassFilter">
               <option value="">All Classes</option>
             </select>
@@ -9885,6 +10368,54 @@
             </div>
           </div>
         </div>
+        </div>
+        <aside class="admin-side" id="adminSide" aria-label="Global navigation">
+          <div class="admin-nav" id="adminNav">
+            <button data-tab="students" class="active">Students</button>
+            <button data-tab="attendance">Attendance</button>
+            <button data-tab="setup">Setup</button>
+            <button data-tab="backup">Backup</button>
+            <button data-tab="today" style="display:none"></button>
+            <button data-tab="reports" style="display:none"></button>
+            <button data-tab="calendar" style="display:none"></button>
+            <button data-tab="settings" style="display:none"></button>
+          </div>
+          <div class="side-ctx" id="sideCtx-students" data-side="students">
+            <div class="side-sep" aria-hidden="true"></div>
+            <div class="side-label">Student controls</div>
+            <select id="classFilter">
+              <option value="">All Classes</option>
+            </select>
+            <select id="batchFilter">
+              <option value="">All Batches</option>
+            </select>
+            <select id="studentStatusFilter">
+              <option value="active">Active only</option>
+              <option value="all">All</option>
+              <option value="inactive">Inactive only</option>
+            </select>
+            <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
+            <button class="btn" id="importStudentsBtn">Import CSV</button>
+            <button class="btn" id="exportStudentsBtn">Export CSV</button>
+          </div>
+          <div class="side-ctx" id="sideCtx-attendance" data-side="attendance" hidden>
+            <div class="side-sep" aria-hidden="true"></div>
+            <div class="side-label">Attendance controls</div>
+            <select id="attDatePreset">
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="custom_day">Custom Date</option>
+              <option value="custom_range">Custom Range</option>
+              <option value="week">This Week (7d)</option>
+              <option value="month">This Month</option>
+              <option value="academic">Academic Year</option>
+            </select>
+            <input type="date" id="attSingleDate" style="display:none">
+            <input type="date" id="attFromDate" style="display:none">
+            <input type="date" id="attToDate" style="display:none">
+            <button class="btn primary" id="attApplyBtn" style="display:none">Apply</button>
+          </div>
+        </aside>
       </div>
     </div>
   </div>
