@@ -971,11 +971,21 @@ class UiE2eTest(unittest.TestCase):
         self.page.wait_for_function("!document.getElementById('pane-setup').classList.contains('hidden')", timeout=3000)
         self.page.wait_for_function("document.querySelectorAll('#calendarGrid .calendar-cell[data-date]').length > 0", timeout=4000)
 
-        # 1. Tables + both modals live
-        self.assertTrue(self.page.locator("#holidayBody").is_visible())
-        self.assertTrue(self.page.locator("#overrideBody").is_visible())
+        # 1. Tables + all modals live (records live in eye popups)
         self.assertFalse(self.page.evaluate("document.getElementById('holidayModal') === null"))
         self.assertFalse(self.page.evaluate("document.getElementById('overrideModal') === null"))
+        self.assertFalse(self.page.evaluate("document.getElementById('holidayViewModal') === null"))
+        self.assertFalse(self.page.evaluate("document.getElementById('overrideViewModal') === null"))
+        self.page.click("#eyeHolidaysBtn")
+        self.page.wait_for_function("document.getElementById('holidayViewModal').classList.contains('open')", timeout=3000)
+        self.assertTrue(self.page.locator("#holidayBody").is_visible())
+        self.page.locator("#holidayViewClose").click()
+        self.page.wait_for_function("!document.getElementById('holidayViewModal').classList.contains('open')", timeout=3000)
+        self.page.click("#eyeOverrideBtn")
+        self.page.wait_for_function("document.getElementById('overrideViewModal').classList.contains('open')", timeout=3000)
+        self.assertTrue(self.page.locator("#overrideBody").is_visible())
+        self.page.locator("#overrideViewClose").click()
+        self.page.wait_for_function("!document.getElementById('overrideViewModal').classList.contains('open')", timeout=3000)
 
         # 2. Add a holiday range through the table on a working day
         hol_iso = self.page.locator("#calendarGrid .calendar-cell[data-date].working").first.get_attribute("data-date")
@@ -1006,6 +1016,9 @@ class UiE2eTest(unittest.TestCase):
             timeout=4000)
 
         # 4. Table Edit prefills; rename moves the range, no orphan
+        # (open the Holiday popup first — records live there)
+        self.page.click("#eyeHolidaysBtn")
+        self.page.wait_for_function("document.getElementById('holidayViewModal').classList.contains('open')", timeout=3000)
         self.page.locator("#holidayBody [data-edit-holiday]").first.click()
         self.page.wait_for_function("document.getElementById('holidayModal').classList.contains('open')", timeout=3000)
         self.assertEqual(self.page.locator("#holidayName").input_value(), "E2E table range")

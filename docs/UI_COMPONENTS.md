@@ -130,9 +130,11 @@ for canonical frost numbers see `docs/UI_TOKENS.md`.
   radius). Today keeps its ring marker. Legend + prev/next/today are
   text actions.
 - **Holidays / overrides**: list tables own all editing — holiday
-  ranges and single-date overrides are added via `+ Add` buttons
-  and edited/removed via table Edit/Remove (`#holidayModal` /
-  `#overrideModal` forms with the holiday validators). Every month
+  ranges and single-date overrides are added via the sidebar
+  (`ADD HOLIDAY`, `ADD OVERRIDE`) and edited/removed via table
+  Edit/Remove (`#holidayModal` / `#overrideModal` forms with the
+  holiday validators). Tables live in eye popups (same frost
+  modals as creation; `Close` dismisses). Every month
   day cell opens a read-only day window (resolved badge +
   global-vs-template source line + Close) — no editing verbs.
   Schedule editing lives in one popup (`#classScheduleModal`,

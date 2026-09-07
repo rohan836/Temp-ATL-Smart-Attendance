@@ -1816,13 +1816,13 @@
     }
 
     .gsel>select {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      pointer-events: none;
-      margin: 0
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      margin: 0 !important;
     }
 
     .gsel-btn {
@@ -2870,9 +2870,13 @@
       border-bottom-color: #181A20 !important;
     }
 
+    /* Dark twins: the rail floats over the bright ambient in BOTH inks
+       (backgrounds frozen per UI_TOKENS), so interactive rows keep the
+       same opposite-pole ink as light mode — near-white would vanish. */
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx select:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn:hover {
-      color: #F2F3F6 !important;
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel.open .gsel-btn {
+      color: #181A20 !important;
     }
 
     /* Action rows: same borderless text actions as the toolbar (their
@@ -3006,7 +3010,15 @@
 
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .seg-btn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .seg-btn.active {
-      color: #F2F3F6 !important;
+      color: #181A20 !important;
+    }
+
+    /* Resting tier flips with the ink system (base 0.8 graphite, per the
+       locked opposite-pole law) — without it the rows stay near-white in
+       dark mode and wash out against the bright ambient. Geometry
+       untouched; light mode unchanged. */
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .seg-btn {
+      color: rgba(24, 26, 32, 0.8) !important;
     }
 
     #adminLayer #adminSide .side-ctx .seg-sep {
@@ -3023,16 +3035,174 @@
     }
 
     /* Custom date/range inputs + Apply follow the preset into the rail;
-       hidden until custom_day/custom_range reveal sets display:"". */
-    #adminLayer #adminSide .side-ctx #attSingleDate,
-    #adminLayer #adminSide .side-ctx #attFromDate,
-    #adminLayer #adminSide .side-ctx #attToDate {
+       hidden until custom_day/custom_range reveal sets display:"".
+       The dt-wrap (JS frost-picker wrapper) carries the inset box so its
+       trigger glyph docks to the field edge instead of floating at the
+       rail edge; the input fills the wrap. Paint mirrors the retired
+       toolbar field language: transparent, hairline underline only. */
+    #adminLayer #adminSide .side-ctx .dt-wrap {
       width: calc(100% - 48px) !important;
       margin: 8px 24px 0 !important;
     }
+    /* The wrap itself is never display-toggled by JS — only its input
+       is (display:none vs ""). Without this, an empty wrap keeps
+       rendering its trigger glyph with no field attached: the stray
+       icon at the rail edge. Hide wraps whose input is hidden. */
+    #adminLayer #adminSide .side-ctx .dt-wrap:has(> input[style*="display: none"]),
+    #adminLayer #adminSide .side-ctx .dt-wrap:has(> input[style*="display:none"]) {
+      display: none !important;
+    }
+    #adminLayer #adminSide .side-ctx .dt-wrap > input {
+      width: 100% !important;
+      margin: 0 !important;
+      background: transparent !important;
+      border: 0 !important;
+      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
+      border-radius: 0 !important;
+      color: #F2F3F6 !important;
+      font-family: var(--sans) !important;
+      font-size: 11.5px !important;
+      height: 28px !important;
+      outline: none !important;
+    }
 
+    /* Apply joins the sidebar text language. Same defect class New
+       Enrollment had: the glass .btn.primary contained box (fill +
+       1px border + radius) matches here because the ALL-TEXT override
+       was scoped to the retired toolbar path. Restores text-first with
+       sibling row metrics; triple-ID outranks the box and also governs
+       display (hidden until reveal sets inline display), so no extra
+       override is layered. */
+    #adminLayer #adminSide .side-ctx #attApplyBtn {
+      display: none !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      transition: none !important;
+      height: 40px !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      margin-left: 0 !important;
+      padding: 0 24px !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+    }
     #adminLayer #adminSide .side-ctx #attApplyBtn:not([style*="display: none"]):not([style*="display:none"]) {
       display: flex !important;
+    }
+    #adminLayer #adminSide .side-ctx #attApplyBtn:hover {
+      color: #181A20 !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn {
+      color: rgba(24, 26, 32, 0.8) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn:hover {
+      color: #181A20 !important;
+    }
+
+    /* Setup entry points join the sidebar text language. Same defect
+       class New Enrollment had: the base .btn bordered box matches
+       here (no toolbar override ever covered these two). Text-first
+       with sibling row metrics; no underline (seg-row voice). */
+    #adminLayer #adminSide .side-ctx #addHolidayBtn,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn,
+    #adminLayer #adminSide .side-ctx #addHolidayBtn:hover,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn:hover {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      transition: none !important;
+    }
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn,
+    #adminLayer #adminSide .side-ctx #addHolidayBtn,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn {
+      height: 40px !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      margin-left: 0 !important;
+      padding: 0 24px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+    }
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn:hover,
+    #adminLayer #adminSide .side-ctx #addHolidayBtn:hover,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn:hover {
+      color: #181A20 !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn {
+      color: rgba(24, 26, 32, 0.8) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn:hover {
+      color: #181A20 !important;
+    }
+
+    /* Setup action rows: label (existing creation entry point) takes
+       the row; the eye is a fixed view affordance at its side. Same
+       40px row metrics and neutral voice as every sibling row. */
+    #adminLayer #adminSide .side-ctx .side-act-row {
+      display: flex !important;
+      align-items: stretch !important;
+      min-width: 0 !important;
+    }
+    #adminLayer #adminSide .side-ctx .side-act-row #addHolidayBtn,
+    #adminLayer #adminSide .side-ctx .side-act-row #addOverrideBtn {
+      flex: 1 1 auto !important;
+      width: auto !important;
+      min-width: 0 !important;
+    }
+    #adminLayer #adminSide .side-ctx .side-eye {
+      flex: none !important;
+      width: 40px !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: rgba(242, 243, 246, 0.5) !important;
+      font-size: 13px !important;
+      line-height: 1 !important;
+      cursor: pointer !important;
+      transition: color 0.12s ease !important;
+    }
+    #adminLayer #adminSide .side-ctx .side-eye:hover {
+      color: #F2F3F6 !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .side-eye {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .side-eye:hover {
+      color: #181A20 !important;
     }
 
     /* Narrow guard: context flows inline in the top strip. */
@@ -3062,6 +3232,13 @@
         width: auto !important;
         height: 44px !important;
         padding: 0 14px !important;
+      }
+
+      #adminLayer #adminSide .side-ctx .dt-wrap {
+        width: auto !important;
+        flex: none !important;
+        align-self: center !important;
+        margin: 0 0 0 8px !important;
       }
 
       #adminLayer #adminSide .side-ctx .seg-strip {
@@ -4720,15 +4897,20 @@
     }
 
     /* ============================================================
-       CORRECTION MODAL — identical locked treatment (same 7 defects
-       the holiday review found: veil, card, type, ghost select,
-       split actions, red error, stacked buttons). Zero JS/DOM change.
+       MODAL FORM SYSTEM — correction + holiday + override share one
+       locked treatment (same species: veil, card, type, ghost
+       select, split actions, plain error, stacked buttons). Single
+       selector list; zero JS/DOM change.
        ============================================================ */
-    #correctionModal.modal {
+    #correctionModal.modal,
+    #holidayModal.modal,
+    #overrideModal.modal {
       background: transparent !important;
     }
 
-    #correctionModal .modal-card {
+    #correctionModal .modal-card,
+    #holidayModal .modal-card,
+    #overrideModal .modal-card {
       background: var(--frost-bg) !important;
       backdrop-filter: var(--frost-blur) !important;
       -webkit-backdrop-filter: var(--frost-blur) !important;
@@ -4738,12 +4920,18 @@
     }
 
     #correctionModal .modal-card,
-    #correctionModal .modal-card * {
+    #correctionModal .modal-card *,
+    #holidayModal .modal-card,
+    #holidayModal .modal-card *,
+    #overrideModal .modal-card,
+    #overrideModal .modal-card * {
       font-family: var(--sans) !important;
       text-shadow: none !important;
     }
 
-    #correctionModal h3 {
+    #correctionModal h3,
+    #holidayModal h3,
+    #overrideModal h3 {
       font-size: 14px !important;
       font-weight: 500 !important;
       letter-spacing: 0.01em !important;
@@ -4751,7 +4939,9 @@
       color: #F2F3F6 !important;
     }
 
-    #correctionModal .modal-card > p {
+    #correctionModal .modal-card > p,
+    #holidayModal .modal-card > p,
+    #overrideModal .modal-card > p {
       color: rgba(242, 243, 246, 0.65) !important;
       opacity: 1 !important;
       font-weight: 400 !important;
@@ -4759,7 +4949,9 @@
       letter-spacing: normal !important;
     }
 
-    #correctionModal label {
+    #correctionModal label,
+    #holidayModal label,
+    #overrideModal label {
       color: rgba(242, 243, 246, 0.7) !important;
       opacity: 1 !important;
       font-size: 9.5px !important;
@@ -4770,7 +4962,13 @@
 
     #correctionModal input:not([type=file]):not([type=checkbox]),
     #correctionModal select,
-    #correctionModal textarea {
+    #correctionModal textarea,
+    #holidayModal input:not([type=file]):not([type=checkbox]),
+    #holidayModal select,
+    #holidayModal textarea,
+    #overrideModal input:not([type=file]):not([type=checkbox]),
+    #overrideModal select,
+    #overrideModal textarea {
       background: transparent !important;
       border: none !important;
       border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
@@ -4785,7 +4983,13 @@
 
     #correctionModal input:focus,
     #correctionModal select:focus,
-    #correctionModal textarea:focus {
+    #correctionModal textarea:focus,
+    #holidayModal input:focus,
+    #holidayModal select:focus,
+    #holidayModal textarea:focus,
+    #overrideModal input:focus,
+    #overrideModal select:focus,
+    #overrideModal textarea:focus {
       border-bottom-color: #F2F3F6 !important;
       background: transparent !important;
       box-shadow: none !important;
@@ -4796,18 +5000,28 @@
     }
 
     #correctionModal input::placeholder,
-    #correctionModal textarea::placeholder {
+    #correctionModal textarea::placeholder,
+    #holidayModal input::placeholder,
+    #holidayModal textarea::placeholder,
+    #overrideModal input::placeholder,
+    #overrideModal textarea::placeholder {
       color: rgba(242, 243, 246, 0.4) !important;
       font-weight: 400 !important;
     }
 
     /* Native select stays invisible truth under the custom button */
-    #correctionModal .gsel > select {
+    #correctionModal .gsel > select,
+    #holidayModal .gsel > select,
+    #overrideModal .gsel > select {
       opacity: 0 !important;
     }
 
     #correctionModal .gsel-btn,
-    #correctionModal .form-field .gsel-btn {
+    #correctionModal .form-field .gsel-btn,
+    #holidayModal .gsel-btn,
+    #holidayModal .form-field .gsel-btn,
+    #overrideModal .gsel-btn,
+    #overrideModal .form-field .gsel-btn {
       background: transparent !important;
       border: none !important;
       border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
@@ -4885,26 +5099,38 @@
     }
 
     /* ============================================================
-       HOLIDAY + OVERRIDE MODALS — identical locked treatment to the
-       correction dialog above (same species: veil, card, type, ghost
-       select, split actions, red error, stacked buttons). Values
-       copied 1:1; only the scope differs. Zero JS/DOM change.
+       FROSTED MODALS — Holiday, Override, School Info, and Views
+       Locked visual language matching approved frost reference:
+       transparent veil, 3px radius, 1px frost-line, text-only actions,
+       underlined inputs, hidden native select (zero ghost text).
        ============================================================ */
+    #schoolInfoModal.modal,
+    #holidayViewModal.modal,
+    #overrideViewModal.modal,
     #overrideModal.modal,
     #holidayModal.modal {
       background: transparent !important;
     }
 
+    #schoolInfoModal .modal-card,
+    #holidayViewModal .modal-card,
+    #overrideViewModal .modal-card,
     #overrideModal .modal-card,
     #holidayModal .modal-card {
       background: var(--frost-bg) !important;
       backdrop-filter: var(--frost-blur) !important;
       -webkit-backdrop-filter: var(--frost-blur) !important;
-      border: none !important;
+      border: 1px solid var(--frost-line) !important;
       border-radius: 3px !important;
       box-shadow: none !important;
     }
 
+    #schoolInfoModal .modal-card,
+    #schoolInfoModal .modal-card *,
+    #holidayViewModal .modal-card,
+    #holidayViewModal .modal-card *,
+    #overrideViewModal .modal-card,
+    #overrideViewModal .modal-card *,
     #overrideModal .modal-card,
     #overrideModal .modal-card *,
     #holidayModal .modal-card,
@@ -4913,6 +5139,9 @@
       text-shadow: none !important;
     }
 
+    #schoolInfoModal h3,
+    #holidayViewModal h3,
+    #overrideViewModal h3,
     #overrideModal h3,
     #holidayModal h3 {
       font-size: 14px !important;
@@ -4922,6 +5151,9 @@
       color: #F2F3F6 !important;
     }
 
+    #schoolInfoModal .modal-card > p,
+    #holidayViewModal .modal-card > p,
+    #overrideViewModal .modal-card > p,
     #overrideModal .modal-card > p,
     #holidayModal .modal-card > p {
       color: rgba(242, 243, 246, 0.65) !important;
@@ -4931,6 +5163,7 @@
       letter-spacing: normal !important;
     }
 
+    #schoolInfoModal label,
     #overrideModal label,
     #holidayModal label {
       color: rgba(242, 243, 246, 0.7) !important;
@@ -4941,6 +5174,9 @@
       text-transform: uppercase !important;
     }
 
+    #schoolInfoModal input:not([type=file]):not([type=checkbox]),
+    #schoolInfoModal select,
+    #schoolInfoModal textarea,
     #overrideModal input:not([type=file]):not([type=checkbox]),
     #overrideModal select,
     #overrideModal textarea,
@@ -4956,9 +5192,12 @@
       font-weight: 400 !important;
       letter-spacing: normal !important;
       box-shadow: none !important;
-      color-scheme: dark !important;
+      color-scheme: light !important;
     }
 
+    #schoolInfoModal input:focus,
+    #schoolInfoModal select:focus,
+    #schoolInfoModal textarea:focus,
     #overrideModal input:focus,
     #overrideModal select:focus,
     #overrideModal textarea:focus,
@@ -4970,6 +5209,8 @@
       box-shadow: none !important;
     }
 
+    #schoolInfoModal input::placeholder,
+    #schoolInfoModal textarea::placeholder,
     #overrideModal input::placeholder,
     #overrideModal textarea::placeholder,
     #holidayModal input::placeholder,
@@ -4981,11 +5222,14 @@
     /* Native select stays invisible truth under the custom button —
        same pin as enroll/daySheet/correction. The .modal-card select
        opacity:1 rule otherwise re-shows it: ghost/doubled text. */
+    #schoolInfoModal .gsel > select,
     #overrideModal .gsel > select,
     #holidayModal .gsel > select {
       opacity: 0 !important;
     }
 
+    #schoolInfoModal .gsel-btn,
+    #schoolInfoModal .form-field .gsel-btn,
     #overrideModal .gsel-btn,
     #overrideModal .form-field .gsel-btn,
     #holidayModal .gsel-btn,
@@ -5003,6 +5247,8 @@
       letter-spacing: normal !important;
     }
 
+    #schoolInfoModal .gsel-btn:hover,
+    #schoolInfoModal .gsel.open .gsel-btn,
     #overrideModal .gsel-btn:hover,
     #overrideModal .gsel.open .gsel-btn,
     #holidayModal .gsel-btn:hover,
@@ -5011,12 +5257,21 @@
       color: #F2F3F6 !important;
     }
 
+    #schoolInfoModal .gsel-chev,
     #overrideModal .gsel-chev,
     #holidayModal .gsel-chev {
       color: rgba(242, 243, 246, 0.6) !important;
     }
 
-    /* Button row sits before the error div — pin row layout explicitly */
+    /* Button row: School info has Export on left, Cancel/Save on right;
+       Exceptions have Cancel/Save on right */
+    #schoolInfoModal .form-field:has(#settingsSaveBtn) {
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 12px !important;
+    }
+
     #overrideModal .form-field:has(#overrideSave),
     #holidayModal .form-field:has(#holidaySave) {
       flex-direction: row !important;
@@ -5025,7 +5280,14 @@
       gap: 12px !important;
     }
 
-    /* Both actions plain clickable text (no split-brain) */
+    /* All modal actions plain clickable text (no split-brain, no solid pill boxes) */
+    #schoolInfoModal .btn,
+    #schoolInfoModal .btn.primary,
+    #schoolInfoModal #settingsSaveBtn,
+    #schoolInfoModal #settingsExportBtn,
+    #schoolInfoModal #schoolInfoCancel,
+    #holidayViewModal .btn,
+    #overrideViewModal .btn,
     #overrideModal #overrideSave,
     #overrideModal .btn.primary,
     #overrideModal #overrideCancel,
@@ -5051,6 +5313,21 @@
       transition: none !important;
     }
 
+    /* Primary save verbs flash pure white */
+    #schoolInfoModal #settingsSaveBtn,
+    #schoolInfoModal .btn.primary,
+    #holidayModal #holidaySave,
+    #overrideModal #overrideSave {
+      color: #F2F3F6 !important;
+      font-weight: 600 !important;
+    }
+
+    #schoolInfoModal .btn:hover,
+    #schoolInfoModal #settingsSaveBtn:hover,
+    #schoolInfoModal #settingsExportBtn:hover,
+    #schoolInfoModal #schoolInfoCancel:hover,
+    #holidayViewModal .btn:hover,
+    #overrideViewModal .btn:hover,
     #overrideModal #overrideSave:hover,
     #overrideModal .btn.primary:hover,
     #overrideModal #overrideCancel:hover,
@@ -5065,6 +5342,8 @@
       text-decoration: none !important;
     }
 
+    #schoolInfoModal .inline-error,
+    #schoolInfoModal #schoolInfoErr,
     #overrideModal .inline-error,
     #overrideModal #overrideErr,
     #holidayModal .inline-error,
@@ -5080,7 +5359,443 @@
       text-transform: none !important;
     }
 
-    /* Schedule popup retired — inline month editor above. */
+    /* ============================================================
+       EXCEPTIONS & SCHOOL INFO MODALS
+       Inherits standard modal veil, backdrop, typography, and buttons.
+       ============================================================ */
+    #schoolInfoModal .modal-card {
+      max-width: 520px !important;
+    }
+    #holidayViewModal .modal-card,
+    #overrideViewModal .modal-card {
+      max-width: 580px !important;
+    }
+
+    .exc-table-wrap {
+      width: 100% !important;
+      max-height: 270px !important;
+      overflow-y: auto !important;
+      scrollbar-width: thin !important;
+      scrollbar-color: rgba(242, 243, 246, 0.18) transparent !important;
+      margin-top: 14px !important;
+      margin-bottom: 6px !important;
+    }
+
+    .exc-table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      font-family: var(--sans) !important;
+      font-size: 12px !important;
+      text-align: left !important;
+      table-layout: auto !important;
+    }
+
+    .exc-table thead tr {
+      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
+    }
+
+    .exc-table th {
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: rgba(242, 243, 246, 0.5) !important;
+      padding: 6px 12px 8px !important;
+      background: transparent !important;
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 1 !important;
+    }
+
+    .exc-table tbody tr {
+      border-bottom: 1px solid rgba(242, 243, 246, 0.07) !important;
+      transition: background 0.1s ease !important;
+    }
+    .exc-table tbody tr:hover {
+      background: rgba(242, 243, 246, 0.03) !important;
+    }
+    .exc-table tbody tr:last-child {
+      border-bottom: none !important;
+    }
+
+    .exc-table td {
+      padding: 9px 12px !important;
+      color: rgba(242, 243, 246, 0.88) !important;
+      vertical-align: middle !important;
+      font-size: 11.5px !important;
+    }
+
+    .exc-col-date,
+    .exc-col-type,
+    .exc-col-act {
+      white-space: nowrap !important;
+    }
+
+    .exc-col-act {
+      text-align: right !important;
+      width: 1% !important;
+    }
+
+    .exc-table .exc-date {
+      font-family: var(--mono) !important;
+      font-size: 11px !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+    }
+
+    .exc-badge {
+      display: inline-flex !important;
+      align-items: center !important;
+      padding: 2px 7px !important;
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      border-radius: 2px !important;
+      background: rgba(242, 243, 246, 0.08) !important;
+      border: 1px solid rgba(242, 243, 246, 0.16) !important;
+      color: rgba(242, 243, 246, 0.85) !important;
+      line-height: 1.2 !important;
+      white-space: nowrap !important;
+    }
+
+    .exc-badge.exam,
+    .exc-badge.working {
+      border-color: rgba(242, 243, 246, 0.28) !important;
+      color: #F2F3F6 !important;
+    }
+
+    .exc-act-group {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 8px !important;
+      white-space: nowrap !important;
+    }
+
+    .exc-act-btn {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 2px !important;
+      padding: 3px 7px !important;
+      font-family: var(--sans) !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.02em !important;
+      color: rgba(242, 243, 246, 0.7) !important;
+      cursor: pointer !important;
+      line-height: 1.2 !important;
+      transition: color 0.1s ease, background 0.1s ease !important;
+    }
+    .exc-act-btn:hover {
+      color: #F2F3F6 !important;
+      background: rgba(242, 243, 246, 0.08) !important;
+    }
+    .exc-act-btn.danger {
+      color: rgba(242, 243, 246, 0.5) !important;
+    }
+    .exc-act-btn.danger:hover {
+      color: #FF7B72 !important;
+      background: rgba(255, 123, 114, 0.08) !important;
+    }
+
+    .exc-empty {
+      padding: 32px 16px !important;
+      text-align: center !important;
+      background: transparent !important;
+    }
+    .exc-empty-title {
+      font-family: var(--sans) !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+      color: rgba(242, 243, 246, 0.8) !important;
+      margin-bottom: 4px !important;
+    }
+    .exc-empty-sub {
+      font-family: var(--sans) !important;
+      font-size: 10.5px !important;
+      font-weight: 400 !important;
+      color: rgba(242, 243, 246, 0.5) !important;
+      line-height: 1.4 !important;
+      max-width: 360px !important;
+      margin: 0 auto !important;
+    }
+
+    /* Dark mode twins */
+    html[data-ink="dark"] .exc-table-wrap {
+      scrollbar-color: rgba(24, 26, 32, 0.2) transparent !important;
+    }
+    html[data-ink="dark"] .exc-table thead tr {
+      border-bottom-color: rgba(24, 26, 32, 0.14) !important;
+    }
+    html[data-ink="dark"] .exc-table th {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html[data-ink="dark"] .exc-table tbody tr {
+      border-bottom-color: rgba(24, 26, 32, 0.08) !important;
+    }
+    html[data-ink="dark"] .exc-table tbody tr:hover {
+      background: rgba(24, 26, 32, 0.03) !important;
+    }
+    html[data-ink="dark"] .exc-table td {
+      color: rgba(24, 26, 32, 0.88) !important;
+    }
+    html[data-ink="dark"] .exc-table .exc-date {
+      color: rgba(24, 26, 32, 0.75) !important;
+    }
+    html[data-ink="dark"] .exc-badge {
+      background: rgba(24, 26, 32, 0.06) !important;
+      border-color: rgba(24, 26, 32, 0.16) !important;
+      color: rgba(24, 26, 32, 0.85) !important;
+    }
+    html[data-ink="dark"] .exc-badge.exam,
+    html[data-ink="dark"] .exc-badge.working {
+      border-color: rgba(24, 26, 32, 0.3) !important;
+      color: #181A20 !important;
+    }
+    html[data-ink="dark"] .exc-act-btn {
+      color: rgba(24, 26, 32, 0.7) !important;
+    }
+    html[data-ink="dark"] .exc-act-btn:hover {
+      color: #181A20 !important;
+      background: rgba(24, 26, 32, 0.08) !important;
+    }
+    html[data-ink="dark"] .exc-act-btn.danger {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html[data-ink="dark"] .exc-act-btn.danger:hover {
+      color: #B22222 !important;
+      background: rgba(178, 34, 34, 0.08) !important;
+    }
+    html[data-ink="dark"] .exc-empty-title {
+      color: rgba(24, 26, 32, 0.85) !important;
+    }
+    html[data-ink="dark"] .exc-empty-sub {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+    html[data-ink="dark"] .exc-close {
+      border-color: rgba(24, 26, 32, 0.22) !important;
+      color: rgba(24, 26, 32, 0.85) !important;
+    }
+    html[data-ink="dark"] .exc-close:hover {
+      background: rgba(24, 26, 32, 0.08) !important;
+      border-color: rgba(24, 26, 32, 0.38) !important;
+      color: #181A20 !important;
+    }
+
+    /* ============================================================
+       SETUP ACTION WHEEL — Radial HUD Menu
+       Translates tactical wheel pattern to monochrome frosted UI.
+       ============================================================ */
+    #setupWheelModal.modal {
+      background: transparent !important;
+      backdrop-filter: blur(16px) saturate(1.2) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
+      z-index: 50 !important;
+    }
+
+    .setup-wheel-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      pointer-events: auto;
+      transform: scale(0.96);
+      opacity: 0;
+      transition: transform 220ms var(--ease), opacity 220ms var(--ease);
+    }
+
+    #setupWheelModal.open .setup-wheel-wrap {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    .setup-wheel-svg {
+      width: 500px;
+      height: 500px;
+      max-width: 90vw;
+      max-height: 82vh;
+      overflow: visible;
+      filter: drop-shadow(0 18px 48px rgba(0, 0, 0, 0.4));
+    }
+
+    .wheel-slice {
+      cursor: pointer;
+      transition: opacity 160ms var(--ease);
+    }
+
+    .wheel-slice path.slice-arc {
+      fill: var(--frost-bg);
+      stroke: var(--frost-line);
+      stroke-width: 1px;
+      transition: fill 140ms ease, stroke 140ms ease;
+    }
+
+    .wheel-slice:hover path.slice-arc,
+    .wheel-slice.active path.slice-arc {
+      fill: rgba(242, 243, 246, 0.16) !important;
+      stroke: rgba(242, 243, 246, 0.4) !important;
+    }
+
+    .wheel-slice.action-slice path.slice-arc {
+      fill: rgba(242, 243, 246, 0.05);
+      stroke: rgba(242, 243, 246, 0.18);
+    }
+
+    .wheel-slice.action-slice:hover path.slice-arc {
+      fill: rgba(242, 243, 246, 0.18) !important;
+      stroke: #F2F3F6 !important;
+    }
+
+    .wheel-slice .slice-icon-wrap {
+      stroke: rgba(242, 243, 246, 0.9);
+      fill: none;
+      stroke-width: 1.8px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .wheel-slice text {
+      font-family: var(--sans);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .wheel-slice .slice-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      fill: #F2F3F6;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .wheel-slice .slice-sub {
+      font-size: 8.5px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      fill: rgba(242, 243, 246, 0.65);
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .wheel-slice .slice-icon {
+      font-size: 14px;
+      fill: rgba(242, 243, 246, 0.9);
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .wheel-hub-circle {
+      fill: rgba(242, 243, 246, 0.09);
+      stroke: var(--frost-line);
+      stroke-width: 1.2px;
+      cursor: pointer;
+      transition: fill 140ms ease, stroke 140ms ease;
+    }
+
+    .wheel-hub-circle:hover {
+      fill: rgba(242, 243, 246, 0.16);
+      stroke: rgba(242, 243, 246, 0.4);
+    }
+
+    .wheel-hub text.hub-title {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      fill: #F2F3F6;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .wheel-hub text.hub-sub {
+      font-family: var(--sans);
+      font-size: 8px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      fill: rgba(242, 243, 246, 0.65);
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .setup-wheel-hint {
+      margin-top: 14px;
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(242, 243, 246, 0.55);
+      font-weight: 400;
+      text-align: center;
+    }
+
+    /* Dark Mode Twins */
+    html[data-ink="dark"] .wheel-slice path.slice-arc {
+      fill: rgba(24, 26, 32, 0.08) !important;
+      stroke: rgba(24, 26, 32, 0.14) !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice:hover path.slice-arc,
+    html[data-ink="dark"] .wheel-slice.active path.slice-arc {
+      fill: rgba(24, 26, 32, 0.16) !important;
+      stroke: rgba(24, 26, 32, 0.38) !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice.action-slice path.slice-arc {
+      fill: rgba(24, 26, 32, 0.05) !important;
+      stroke: rgba(24, 26, 32, 0.18) !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice.action-slice:hover path.slice-arc {
+      fill: rgba(24, 26, 32, 0.18) !important;
+      stroke: #181A20 !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice .slice-icon-wrap {
+      stroke: #181A20 !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice .slice-title {
+      fill: #181A20 !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice .slice-sub {
+      fill: rgba(24, 26, 32, 0.65) !important;
+    }
+
+    html[data-ink="dark"] .wheel-slice .slice-icon {
+      fill: #181A20 !important;
+    }
+
+    html[data-ink="dark"] .wheel-hub-circle {
+      fill: rgba(24, 26, 32, 0.09) !important;
+      stroke: rgba(24, 26, 32, 0.14) !important;
+    }
+
+    html[data-ink="dark"] .wheel-hub-circle:hover {
+      fill: rgba(24, 26, 32, 0.16) !important;
+      stroke: rgba(24, 26, 32, 0.4) !important;
+    }
+
+    html[data-ink="dark"] .wheel-hub text.hub-title {
+      fill: #181A20 !important;
+    }
+
+    html[data-ink="dark"] .wheel-hub text.hub-sub {
+      fill: rgba(24, 26, 32, 0.65) !important;
+    }
+
+    html[data-ink="dark"] .setup-wheel-hint {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
 
     /* ============================================================
        CLASS/BATCH SCHEDULE EDITOR — the single solid schedule editor.
@@ -5193,12 +5908,16 @@
        the text language (small, ink-2, no box), both inks. */
     /* (2) No OS blue: drag-select across time numbers gets an
        ink-tone wash inside the popup, both inks */
-    #classDetail .sched-solid input[type="time"]::selection {
+    #classDetail .sched-solid input[type="time"]::selection,
+    #schoolInfoModal input[type="time"]::selection,
+    #schoolInfoModal input[type="date"]::selection {
       background: rgba(242, 243, 246, 0.15) !important;
       color: #F2F3F6 !important;
     }
 
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid input[type="time"]::selection {
+    html[data-ink="dark"] #classDetail#classDetail .sched-solid input[type="time"]::selection,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input[type="time"]::selection,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input[type="date"]::selection {
       background: rgba(24, 26, 32, 0.15) !important;
       color: #181A20 !important;
     }
@@ -5333,28 +6052,8 @@
       letter-spacing: normal !important;
     }
 
-    /* Revealed custom date/range controls: first-class frost fields so
-       the Custom options land on a usable, visible row */
-    #pane-attendance .tab-toolbar #attSingleDate,
-    #pane-attendance .tab-toolbar #attFromDate,
-    #pane-attendance .tab-toolbar #attToDate {
-      background: transparent !important;
-      border: 0 !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 0 !important;
-      color: #F2F3F6 !important;
-      font-family: var(--sans) !important;
-      font-size: 11.5px !important;
-      height: 28px !important;
-      outline: none !important;
-    }
-
-    #pane-attendance .tab-toolbar #attApplyBtn {
-      font-size: 11px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-    }
+    /* (Retired toolbar date-field paint removed with the sidebar move:
+       the rail twin above is the single truth. The bar stays hidden.) */
 
     /* Date preset segmented strip: the Today→Academic Year options
        render as an inline left→right strip instead of a popup window.
@@ -5500,19 +6199,8 @@
       display: none !important;
     }
 
-    #pane-attendance .tab-toolbar #attApplyBtn:not([style*="display: none"]):not([style*="display:none"]) {
-      display: inline-flex !important;
-      background: rgba(242, 243, 246, 0.14) !important;
-      border: 1px solid rgba(242, 243, 246, 0.35) !important;
-      border-radius: 4px !important;
-      color: #F2F3F6 !important;
-      font-weight: 500 !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      padding: 4px 10px !important;
-      text-decoration: none !important;
-    }
+    /* (Retired toolbar contained Apply box removed: the rail twin is
+       the single truth. The bar stays hidden.) */
 
     /* Metadata label above KPIs (#attDateLabel, #attDatePreset) */
     #attDateLabel,
@@ -7029,7 +7717,9 @@
     }
 
     /* Native time/date segments live in shadow DOM (global ::selection
-       never reaches them) — monochrome focus instead of OS blue */
+       never reaches them). No segment marking at all: clicking a field
+       opens the frost picker, which is the only feedback — the field
+       itself stays text-first in every state. */
     #adminLayer input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     #adminLayer input[type="time"]:focus::-webkit-datetime-edit-minute-field,
     #adminLayer input[type="time"]:focus::-webkit-datetime-edit-second-field,
@@ -7049,13 +7739,43 @@
     #overrideModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
     #overrideModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
     #overrideModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
+    #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+    #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+    #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-second-field,
+    #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
+    #schoolInfoModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
+    #schoolInfoModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
+    #schoolInfoModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
+    #schoolInfoModal input::-webkit-datetime-edit-hour-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-minute-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-second-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-ampm-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-day-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-month-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-year-field:focus,
+    #schoolInfoModal input::-webkit-datetime-edit-fields-wrapper:focus,
+    .modal input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+    .modal input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+    .modal input[type="time"]:focus::-webkit-datetime-edit-second-field,
+    .modal input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
+    .modal input[type="date"]:focus::-webkit-datetime-edit-day-field,
+    .modal input[type="date"]:focus::-webkit-datetime-edit-month-field,
+    .modal input[type="date"]:focus::-webkit-datetime-edit-year-field,
+    .modal input::-webkit-datetime-edit-hour-field:focus,
+    .modal input::-webkit-datetime-edit-minute-field:focus,
+    .modal input::-webkit-datetime-edit-second-field:focus,
+    .modal input::-webkit-datetime-edit-ampm-field:focus,
+    .modal input::-webkit-datetime-edit-day-field:focus,
+    .modal input::-webkit-datetime-edit-month-field:focus,
+    .modal input::-webkit-datetime-edit-year-field:focus,
+    .modal input::-webkit-datetime-edit-fields-wrapper:focus,
     #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
     #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
     #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
     #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
-      background: rgba(242, 243, 246, 0.25) !important;
+      background: transparent !important;
       color: #F2F3F6 !important;
     }
 
@@ -7078,13 +7798,43 @@
     html[data-ink="dark"] #overrideModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
     html[data-ink="dark"] #overrideModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
     html[data-ink="dark"] #overrideModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-second-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
+    html[data-ink="dark"] #schoolInfoModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-hour-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-minute-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-second-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-ampm-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-day-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-month-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-year-field:focus,
+    html[data-ink="dark"] #schoolInfoModal input::-webkit-datetime-edit-fields-wrapper:focus,
+    html[data-ink="dark"] .modal input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+    html[data-ink="dark"] .modal input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+    html[data-ink="dark"] .modal input[type="time"]:focus::-webkit-datetime-edit-second-field,
+    html[data-ink="dark"] .modal input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
+    html[data-ink="dark"] .modal input[type="date"]:focus::-webkit-datetime-edit-day-field,
+    html[data-ink="dark"] .modal input[type="date"]:focus::-webkit-datetime-edit-month-field,
+    html[data-ink="dark"] .modal input[type="date"]:focus::-webkit-datetime-edit-year-field,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-hour-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-minute-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-second-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-ampm-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-day-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-month-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-year-field:focus,
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-fields-wrapper:focus,
     html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
     html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
     html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
     html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
     html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
-      background: rgba(24, 26, 32, 0.2) !important;
+      background: transparent !important;
       color: #181A20 !important;
     }
 
@@ -7917,19 +8667,6 @@
       color: #181A20 !important;
     }
 
-    /* Bottom bar is its own row after the grid — never attached to it */
-    .setup-monthview-section::after {
-      content: "" !important;
-      display: block !important;
-      height: 1px !important;
-      background: rgba(242, 243, 246, 0.12) !important;
-      margin-top: 14px !important;
-    }
-
-    html[data-ink="dark"] .setup-monthview-section::after {
-      background: rgba(24, 26, 32, 0.14) !important;
-    }
-
     /* FLAT EDITORIAL CELLS — text only, no containers: transparent,
        no blur, no radius, no border, no shadow, no motion. Heights stay
        fixed so every month occupies identical rows. */
@@ -8335,7 +9072,6 @@
        SETUP MONTH VIEW
        ============================================================ */
     /* Month View Section */
-    .setup-monthview-section,
     #pane-setup .detail-card:has(#calendarGrid) {
       background: transparent !important;
       border: none !important;
@@ -8513,7 +9249,6 @@
 
     .btn.primary,
     #newStudentToolbarBtn,
-    #settingsSaveBtn,
     #backupNowBtn,
     #gdriveDeviceStartBtn {
       background: rgba(242, 243, 246, 0.14) !important;
@@ -8534,7 +9269,6 @@
 
     .btn.primary:hover,
     #newStudentToolbarBtn:hover,
-    #settingsSaveBtn:hover,
     #backupNowBtn:hover,
     #gdriveDeviceStartBtn:hover {
       background: rgba(242, 243, 246, 0.22) !important;
@@ -8551,13 +9285,15 @@
     #enrollModal #edSave,
     #enrollModal .btn.primary,
     .gconfirm-ok,
-    #pane-attendance .tab-toolbar #attApplyBtn,
     #backupNowBtn,
     #gdriveDeviceStartBtn,
     #backupSchedSaveBtn,
     #addClassBtn,
     #addBatchBtn,
-    #pane-setup #settingsSaveBtn {
+    #schoolInfoModal #settingsSaveBtn,
+    #schoolInfoModal .btn.primary,
+    #schoolInfoModal #settingsExportBtn,
+    #schoolInfoModal #schoolInfoCancel {
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
@@ -8575,13 +9311,15 @@
     #enrollModal #edSave:hover,
     #enrollModal .btn.primary:hover,
     .gconfirm-ok:hover,
-    #pane-attendance .tab-toolbar #attApplyBtn:hover,
     #backupNowBtn:hover,
     #gdriveDeviceStartBtn:hover,
     #backupSchedSaveBtn:hover,
     #addClassBtn:hover,
     #addBatchBtn:hover,
-    #pane-setup #settingsSaveBtn:hover {
+    #schoolInfoModal #settingsSaveBtn:hover,
+    #schoolInfoModal .btn.primary:hover,
+    #schoolInfoModal #settingsExportBtn:hover,
+    #schoolInfoModal #schoolInfoCancel:hover {
       background: transparent !important;
       border: none !important;
       color: #181A20 !important;
@@ -8808,6 +9546,8 @@
     html[data-ink="dark"] #daySheetModal#daySheetModal *:not(option),
     html[data-ink="dark"] #correctionModal#correctionModal,
     html[data-ink="dark"] #correctionModal#correctionModal *:not(option),
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal *:not(option),
     html[data-ink="dark"] #holidayModal#holidayModal,
     html[data-ink="dark"] #holidayModal#holidayModal *:not(option),
     html[data-ink="dark"] #overrideModal#overrideModal,
@@ -8848,6 +9588,10 @@
     html[data-ink="dark"] #correctionModal#correctionModal input,
     html[data-ink="dark"] #correctionModal#correctionModal select,
     html[data-ink="dark"] #correctionModal#correctionModal textarea,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal h3,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal select,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal textarea,
     html[data-ink="dark"] #holidayModal#holidayModal h3,
     html[data-ink="dark"] #holidayModal#holidayModal input,
     html[data-ink="dark"] #holidayModal#holidayModal select,
@@ -8873,6 +9617,8 @@
     html[data-ink="dark"] #daySheetModal#daySheetModal textarea::placeholder,
     html[data-ink="dark"] #correctionModal#correctionModal input::placeholder,
     html[data-ink="dark"] #correctionModal#correctionModal textarea::placeholder,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input::placeholder,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal textarea::placeholder,
     html[data-ink="dark"] #holidayModal#holidayModal input::placeholder,
     html[data-ink="dark"] #holidayModal#holidayModal textarea::placeholder,
     html[data-ink="dark"] #overrideModal#overrideModal input::placeholder,
@@ -8899,10 +9645,13 @@
     html[data-ink="dark"] #enrollModal#enrollModal #scanCancelBtn:hover,
     html[data-ink="dark"] #correctionModal#correctionModal #corrSave:hover,
     html[data-ink="dark"] #correctionModal#correctionModal #corrCancel:hover,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal button:hover,
     html[data-ink="dark"] #holidayModal#holidayModal #holidaySave:hover,
     html[data-ink="dark"] #holidayModal#holidayModal #holidayCancel:hover,
     html[data-ink="dark"] #overrideModal#overrideModal #overrideSave:hover,
     html[data-ink="dark"] #overrideModal#overrideModal #overrideCancel:hover,
+    html[data-ink="dark"] #holidayViewModal#holidayViewModal button:hover,
+    html[data-ink="dark"] #overrideViewModal#overrideViewModal button:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #newStudentToolbarBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #attApplyBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #backupNowBtn:hover,
@@ -8910,7 +9659,7 @@
     html[data-ink="dark"] #adminLayer#adminLayer #backupSchedSaveBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #addClassBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #addBatchBtn:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #settingsSaveBtn:hover,
+    html[data-ink="dark"] #schoolInfoModal #settingsSaveBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #importStudentsBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #exportStudentsBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer .icon-del:hover {
@@ -8945,6 +9694,7 @@
     html[data-ink="dark"] #enrollModal#enrollModal [data-action]:hover,
     html[data-ink="dark"] #daySheetModal#daySheetModal button:hover,
     html[data-ink="dark"] #correctionModal#correctionModal button:hover,
+    html[data-ink="dark"] #schoolInfoModal#schoolInfoModal button:hover,
     html[data-ink="dark"] #holidayModal#holidayModal button:hover,
     html[data-ink="dark"] #overrideModal#overrideModal button:hover,
     html[data-ink="dark"] #classDetail#classDetail .sched-solid button:hover,
@@ -8977,6 +9727,8 @@
     #holidayModal input[type="date"]::-webkit-calendar-picker-indicator,
     #overrideModal input[type="time"]::-webkit-calendar-picker-indicator,
     #overrideModal input[type="date"]::-webkit-calendar-picker-indicator,
+    #schoolInfoModal input[type="time"]::-webkit-calendar-picker-indicator,
+    #schoolInfoModal input[type="date"]::-webkit-calendar-picker-indicator,
     #classDetail .sched-solid input[type="time"]::-webkit-calendar-picker-indicator,
     #schedModal .sched-solid input[type="time"]::-webkit-calendar-picker-indicator {
       display: none !important;
@@ -8995,6 +9747,8 @@
     #daySheetModal#daySheetModal input[type="date"],
     #correctionModal#correctionModal input[type="time"],
     #correctionModal#correctionModal input[type="date"],
+    #schoolInfoModal#schoolInfoModal input[type="time"],
+    #schoolInfoModal#schoolInfoModal input[type="date"],
     #holidayModal#holidayModal input[type="time"],
     #holidayModal#holidayModal input[type="date"],
     #overrideModal#overrideModal input[type="time"],
@@ -9425,6 +10179,8 @@
     html[data-ink="dark"] #correctionModal#correctionModal#correctionModal :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open),
     html[data-ink="dark"] #holidayModal#holidayModal#holidayModal :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open),
     html[data-ink="dark"] #overrideModal#overrideModal#overrideModal :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open),
+    html[data-ink="dark"] #holidayViewModal#holidayViewModal#holidayViewModal :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open),
+    html[data-ink="dark"] #overrideViewModal#overrideViewModal#overrideViewModal :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open),
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov.gconfirm-ov :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open),
     html[data-ink="dark"] .gsel-pop.gsel-pop.gsel-pop :is(div,table,thead,tbody,tfoot,tr,th,td,h1,h2,h3,h4,hr,ul,li,section,nav):not(.active):not(.sel):not(.selected):not(.open) {
       border-color: rgba(24, 26, 32, 0.14) !important;
@@ -9876,6 +10632,7 @@
             <div class="setup-toolbar-left">
               <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
               <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
+              <button class="cube-tab" id="toolbarSetupWheelBtn" title="Open Setup Action Wheel" style="display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>Wheel</button>
             </div>
             <div class="setup-monthview-legend">
               <span class="setup-monthview-title">Month View</span>
@@ -9941,146 +10698,10 @@
               </div>
             </div>
 
-            <div class="setup-monthview-section">
-              <!-- Row 3: Holidays & Special Date Overrides (2 columns, below the grid) -->
-              <div style="display:flex;gap:12px;margin:12px 0 0;flex-wrap:wrap">
-                <!-- Holidays & Vacations -->
-                <div class="detail-card" style="flex:1 1 360px;padding:14px 16px">
-                  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-                    <div>
-                      <div style="display:flex;align-items:center;gap:6px">
-                        <span
-                          style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">Holidays &
-                          Vacations</span>
-                        <span id="holidayCountBadge" class="pill" style="font-size:9px;padding:1px 6px">0</span>
-                      </div>
-                      <div style="font-size:10px;color:var(--ink-2);margin-top:2px">Multi-day breaks & exams · No absences
-                        marked</div>
-                    </div>
-                    <button class="btn" id="addHolidayBtn"
-                      style="font-size:10px;font-weight:700;letter-spacing:0.08em;padding:4px 10px">+ Add Holiday</button>
-                  </div>
-                  <div class="table-wrap" style="margin-top:6px;max-height:160px;overflow-y:auto">
-                    <table style="width:100%;font-size:11px">
-                      <thead>
-                        <tr style="background:var(--paper)">
-                          <th style="text-align:left;padding:6px 8px;font-size:9px">NAME</th>
-                          <th style="padding:6px 8px;font-size:9px">START</th>
-                          <th style="padding:6px 8px;font-size:9px">END</th>
-                          <th style="padding:6px 8px;font-size:9px">TYPE</th>
-                          <th style="text-align:right;padding:6px 8px;font-size:9px">ACTION</th>
-                        </tr>
-                      </thead>
-                      <tbody id="holidayBody"></tbody>
-                    </table>
-                  </div>
-                </div>
+            <!-- Record tables live in the Holiday/Override view popups. -->
 
-                <!-- Special Date Overrides -->
-                <div class="detail-card" style="flex:1 1 360px;padding:14px 16px">
-                  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-                    <div>
-                      <div style="display:flex;align-items:center;gap:6px">
-                        <span
-                          style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">Special
-                          Date Overrides</span>
-                        <span id="overrideCountBadge" class="pill" style="font-size:9px;padding:1px 6px">0</span>
-                      </div>
-                      <div style="font-size:10px;color:var(--ink-2);margin-top:2px">Single-day exceptions to the weekly
-                        schedule</div>
-                    </div>
-                    <button class="btn" id="addOverrideBtn"
-                      style="font-size:10px;font-weight:700;letter-spacing:0.08em;padding:4px 10px">+ Add
-                      Override</button>
-                  </div>
-                  <div class="table-wrap" style="margin-top:6px;max-height:160px;overflow-y:auto">
-                    <table style="width:100%;font-size:11px">
-                      <thead>
-                        <tr style="background:var(--paper)">
-                          <th style="text-align:left;padding:6px 8px;font-size:9px">DATE</th>
-                          <th style="padding:6px 8px;font-size:9px">BECOMES</th>
-                          <th style="padding:6px 8px;font-size:9px">NOTE</th>
-                          <th style="text-align:right;padding:6px 8px;font-size:9px">ACTION</th>
-                        </tr>
-                      </thead>
-                      <tbody id="overrideBody"></tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- School Information + Attendance Rules (bottom of Setup, below tables) -->
-            <div class="detail-card setup-card setup-card-school">
-                <div class="setup-panel-header">
-                  <div class="setup-panel-title">School Information</div>
-                  <div class="setup-panel-sub">Campus profile & academic term</div>
-                </div>
-
-                <div class="setup-form-body">
-                  <div class="setup-field-group">
-                    <label class="setup-label" for="setSchoolName">School Name</label>
-                    <input id="setSchoolName" value="ATL Public School" class="setup-input" placeholder="Enter school name">
-                  </div>
-
-                  <div class="setup-field-group">
-                    <label class="setup-label" for="setSchoolAddress">Address</label>
-                    <input id="setSchoolAddress" value="Shikrapur, Pune, Maharashtra" class="setup-input" placeholder="Campus address">
-                  </div>
-
-                  <div class="setup-field-row">
-                    <div class="setup-field-group">
-                      <label class="setup-label" for="setAcademicYear">Academic Year</label>
-                      <select id="setAcademicYear" class="setup-select">
-                        <option>2026-27</option>
-                        <option>2027-28</option>
-                      </select>
-                    </div>
-                    <div class="setup-field-group">
-                      <label class="setup-label" for="setAttendanceStart">Attendance Start Date</label>
-                      <input type="date" id="setAttendanceStart" class="setup-input">
-                    </div>
-                  </div>
-                </div>
-
-                <div class="setup-subcard-section rules">
-                  <div class="setup-panel-header compact">
-                    <div class="setup-panel-title">Attendance Rules</div>
-                    <div class="setup-panel-sub">Daily arrival thresholds & reconciliation logic</div>
-                  </div>
-
-                  <div class="setup-rules-body">
-                    <!-- Present + Late Cutoff Rule Blocks (side-by-side) -->
-                    <div class="setup-field-row">
-                    <!-- Present Cutoff Rule Block -->
-                    <div class="setup-rule-block">
-                      <div class="setup-rule-header">
-                        <label class="setup-label" for="setPresentCutoff">Present Cutoff</label>
-                        <span class="setup-rule-tag present">On-Time</span>
-                      </div>
-                      <input type="time" id="setPresentCutoff" value="08:00" class="setup-time-input">
-                      <div class="setup-rule-desc">Scans at or before this time are marked Present.</div>
-                    </div>
-
-                    <!-- Late Cutoff Rule Block -->
-                    <div class="setup-rule-block">
-                      <div class="setup-rule-header">
-                        <label class="setup-label" for="setLateThreshold">Late Cutoff</label>
-                        <span class="setup-rule-tag late">Threshold</span>
-                      </div>
-                      <input type="time" id="setLateThreshold" value="08:30" class="setup-time-input">
-                      <div class="setup-rule-desc">Absence reconciliation starts automatically after this time.</div>
-                    </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="setup-card-footer">
-                  <button class="btn primary" id="settingsSaveBtn">Save Settings</button>
-                  <button class="btn" id="settingsExportBtn">Export School Info CSV</button>
-                </div>
-              </div>
           </div>
+          <!-- Record tables and School Information live in the Setup popups below. -->
         </div>
         <!-- Hidden compatibility aliases for pane-calendar and pane-settings -->
         <div id="pane-calendar" class="admin-pane hidden" style="display:none"></div>
@@ -10415,6 +11036,27 @@
             <input type="date" id="attToDate" style="display:none">
             <button class="btn primary" id="attApplyBtn" style="display:none">Apply</button>
           </div>
+          <div class="side-ctx" id="sideCtx-setup" data-side="setup" hidden>
+            <div class="side-sep" aria-hidden="true"></div>
+            <div class="side-label">Setup actions</div>
+            <button class="btn" id="openSetupWheelBtn" style="font-weight:600;display:flex;align-items:center;gap:6px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>
+              Action Wheel
+            </button>
+            <button class="btn" id="openSchoolInfoBtn">School Information</button>
+            <div class="side-act-row">
+              <button class="btn" id="addHolidayBtn">Add Holiday</button>
+              <button type="button" class="side-eye" id="eyeHolidaysBtn" aria-label="View holidays" title="View holidays">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="side-act-row">
+              <button class="btn" id="addOverrideBtn">Add Override</button>
+              <button type="button" class="side-eye" id="eyeOverrideBtn" aria-label="View overrides" title="View overrides">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
         </aside>
       </div>
     </div>
@@ -10448,11 +11090,107 @@
       <div id="overrideModalBody"></div>
     </div>
   </div>
+  <div class="modal" id="schoolInfoModal">
+    <div class="modal-card">
+      <h3>School information &amp; attendance rules</h3>
+      <p>Campus profile, academic term, and arrival cutoff thresholds.</p>
+      <div class="form-grid">
+        <div class="form-field full">
+          <label>School Name</label>
+          <input id="setSchoolName" placeholder="ATL Public School">
+        </div>
+        <div class="form-field full">
+          <label>Address</label>
+          <input id="setSchoolAddress" placeholder="Campus address">
+        </div>
+        <div class="form-field">
+          <label>Academic Year</label>
+          <select id="setAcademicYear">
+            <option value="2025-26">2025-26</option>
+            <option value="2026-27">2026-27</option>
+            <option value="2027-28">2027-28</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Attendance Start Date</label>
+          <input type="date" id="setAttendanceStart">
+        </div>
+        <div class="form-field">
+          <label>Present Cutoff</label>
+          <input type="time" id="setPresentCutoff">
+          <span style="font-size:10px;color:rgba(242,243,246,0.5);margin-top:2px">Scans at or before this are Present</span>
+        </div>
+        <div class="form-field">
+          <label>Late Cutoff</label>
+          <input type="time" id="setLateThreshold">
+          <span style="font-size:10px;color:rgba(242,243,246,0.5);margin-top:2px">Absence reconciliation after this</span>
+        </div>
+        <div class="form-field full" style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:8px">
+          <button class="btn" id="settingsExportBtn" type="button">Export CSV</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="schoolInfoCancel" type="button">Cancel</button>
+            <button class="btn primary" id="settingsSaveBtn" type="button">Save settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="holidayViewModal">
+    <div class="modal-card">
+      <h3>Holidays &amp; vacations</h3>
+      <p>Multi-day breaks and exam schedules. Students are not marked absent on holidays.</p>
+      <div class="exc-table-wrap">
+        <table class="exc-table">
+          <thead>
+            <tr>
+              <th class="exc-col-name">Name</th>
+              <th class="exc-col-date">Start</th>
+              <th class="exc-col-date">End</th>
+              <th class="exc-col-type">Type</th>
+              <th class="exc-col-act">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="holidayBody"></tbody>
+        </table>
+      </div>
+      <div class="form-field full" style="display:flex;justify-content:flex-end;margin-top:14px">
+        <button type="button" class="btn" id="holidayViewClose">Close</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="overrideViewModal">
+    <div class="modal-card">
+      <h3>Date overrides</h3>
+      <p>Single-day schedule exceptions. Overrides take precedence over weekly schedules.</p>
+      <div class="exc-table-wrap">
+        <table class="exc-table">
+          <thead>
+            <tr>
+              <th class="exc-col-date">Date</th>
+              <th class="exc-col-type">Becomes</th>
+              <th class="exc-col-note">Note</th>
+              <th class="exc-col-act">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="overrideBody"></tbody>
+        </table>
+      </div>
+      <div class="form-field full" style="display:flex;justify-content:flex-end;margin-top:14px">
+        <button type="button" class="btn" id="overrideViewClose">Close</button>
+      </div>
+    </div>
+  </div>
   <div class="modal" id="correctionModal">
     <div class="modal-card">
       <h3>Correct attendance</h3>
       <p>Original status preserved in audit. Reason required.</p>
       <div id="correctionModalBody"></div>
+    </div>
+  </div>
+  <div class="modal" id="setupWheelModal">
+    <div class="setup-wheel-wrap">
+      <svg class="setup-wheel-svg" id="setupWheelSvg" viewBox="-240 -240 480 480"></svg>
+      <div class="setup-wheel-hint">Hover category to fan actions · Click action to open · Esc to close</div>
     </div>
   </div>
   <div class="print-root" id="printRoot"></div>

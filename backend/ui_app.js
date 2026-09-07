@@ -331,8 +331,10 @@ const promptText=$("promptText"),
   calendarGrid=$("calendarGrid"), calMonthLabel=$("calMonthLabel"),
   classCubes=$("classCubes"), auditBody=$("auditBody"),
   enrollModal=$("enrollModal"), holidayModal=$("holidayModal"),
-  overrideModal=$("overrideModal"), correctionModal=$("correctionModal"),
+  overrideModal=$("overrideModal"), holidayViewModal=$("holidayViewModal"),
+  overrideViewModal=$("overrideViewModal"), correctionModal=$("correctionModal"),
   daySheetModal=$("daySheetModal"), daySheetTitle=$("daySheetTitle"), daySheetBody=$("daySheetBody"),
+  schoolInfoModal=$("schoolInfoModal"), setupWheelModal=$("setupWheelModal"),
   enrollTitle=$("enrollTitle"), enrollSub=$("enrollSub"), enrollBody=$("enrollBody");
 
 const Timers={ _ids:{}, set(n,id){ this.clear(n); this._ids[n]=id; },
@@ -344,7 +346,7 @@ let attAcadFrom=null, attAcadTo=null;
 
 function openModal(m){ m.classList.add("open"); }
 function closeModal(m){ m.classList.remove("open"); }
-[enrollModal, holidayModal, overrideModal, correctionModal, daySheetModal].forEach(m=>{
+[enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, daySheetModal, schoolInfoModal, setupWheelModal].forEach(m=>{
   if(!m) return;
   /* Veil dismiss needs press AND release on the veil: a drag that
      starts inside (e.g. finishing a text selection outside the card)
@@ -1360,19 +1362,47 @@ function renderHolidays(){
   const hBadge = $("holidayCountBadge"); if(hBadge) hBadge.textContent = Holidays.length;
   if(!holidayBody) return;
   if(!Holidays.length){
-    holidayBody.innerHTML=`<tr><td colspan="5"><div class="empty" style="padding:14px;border:1px dashed var(--line);background:var(--paper);border-radius:2px;font-size:11px;color:var(--ink-2)"><b>No holidays or vacations configured.</b>Click + Add holiday to schedule.</div></td></tr>`;
+    holidayBody.innerHTML=`<tr><td colspan="5"><div class="exc-empty"><div class="exc-empty-title">No holidays or vacations configured</div><div class="exc-empty-sub">Use ADD HOLIDAY in the sidebar to schedule school-wide breaks and exam days.</div></div></td></tr>`;
     return;
   }
-  holidayBody.innerHTML=Holidays.map(h=>`<tr><td>${esc(h.name)}</td><td>${esc(h.start)}</td><td>${esc(h.end)}</td><td><span class="badge">${esc(h.type)}</span></td><td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn" data-edit-holiday="${esc(h.start)}" style="padding:2px 6px;font-size:9px">Edit</button><button class="btn danger" data-del-holiday="${esc(h.start)}" style="padding:2px 6px;font-size:9px">Remove</button></div></td></tr>`).join("");
+  holidayBody.innerHTML=Holidays.map(h=>{
+    const typeCls = h.type === "exam" ? "exc-badge exam" : "exc-badge";
+    return `<tr>
+      <td class="exc-col-name">${esc(h.name)}</td>
+      <td class="exc-col-date exc-date">${esc(h.start)}</td>
+      <td class="exc-col-date exc-date">${esc(h.end)}</td>
+      <td class="exc-col-type"><span class="${typeCls}">${esc(h.type)}</span></td>
+      <td class="exc-col-act">
+        <div class="exc-act-group">
+          <button type="button" class="exc-act-btn btn" data-edit-holiday="${esc(h.start)}">Edit</button>
+          <button type="button" class="exc-act-btn danger btn" data-del-holiday="${esc(h.start)}">Remove</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
 }
 function renderOverrides(){
   const oBadge = $("overrideCountBadge"); if(oBadge) oBadge.textContent = Overrides.length;
   if(!overrideBody) return;
   if(!Overrides.length){
-    overrideBody.innerHTML=`<tr><td colspan="4"><div class="empty" style="padding:14px;border:1px dashed var(--line);background:var(--paper);border-radius:2px;font-size:11px;color:var(--ink-2)"><b>⚡ No date overrides configured.</b>Click + Add override for single-day exceptions.</div></td></tr>`;
+    overrideBody.innerHTML=`<tr><td colspan="4"><div class="exc-empty"><div class="exc-empty-title">No date overrides configured</div><div class="exc-empty-sub">Use ADD OVERRIDE in the sidebar for single-day schedule exceptions.</div></div></td></tr>`;
     return;
   }
-  overrideBody.innerHTML=Overrides.map(o=>`<tr><td>${esc(o.date)}</td><td>${o.isWorking?"Working":"Holiday"}</td><td>${esc(o.note)}</td><td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn" data-edit-override="${esc(o.date)}" style="padding:2px 6px;font-size:9px">Edit</button><button class="btn danger" data-del-override="${esc(o.date)}" style="padding:2px 6px;font-size:9px">Remove</button></div></td></tr>`).join("");
+  overrideBody.innerHTML=Overrides.map(o=>{
+    const statusCls = o.isWorking ? "exc-badge working" : "exc-badge";
+    const statusText = o.isWorking ? "Working" : "Holiday";
+    return `<tr>
+      <td class="exc-col-date exc-date">${esc(o.date)}</td>
+      <td class="exc-col-type"><span class="${statusCls}">${statusText}</span></td>
+      <td class="exc-col-note">${esc(o.note || "—")}</td>
+      <td class="exc-col-act">
+        <div class="exc-act-group">
+          <button type="button" class="exc-act-btn btn" data-edit-override="${esc(o.date)}">Edit</button>
+          <button type="button" class="exc-act-btn danger btn" data-del-override="${esc(o.date)}">Remove</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
 }
 function renderWeekly(){
   populateScheduleSelector();
@@ -1393,7 +1423,9 @@ function renderCalendarMonth(){
   const meKey = selName ? selKind+":"+selName : null;
   if(meKey && pendingDays[meKey]) tplWd = pendingDays[meKey];
   const tplNames=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  let html=tplNames.map((d,idx)=>{
+  /* Weekday header sits BELOW the date grid (still inside #calendarGrid
+     so both delegated editors keep working); cells resolve above it. */
+  let headHtml=tplNames.map((d,idx)=>{
     const on = asBool(tplWd[idx] ?? tplWd[String(idx)]);
     const cls = on ? "weekly-day-card working" : "weekly-day-card off";
     const status = on ? "WORKING" : "OFF";
@@ -1406,7 +1438,8 @@ function renderCalendarMonth(){
     tplLegend.style.cssText="font-size:10px;letter-spacing:0.04em;color:var(--ink-2);margin:0 0 6px;";
     calendarGrid.parentNode.insertBefore(tplLegend, calendarGrid);
   }
-  if(tplLegend) tplLegend.textContent="Headers are the editable weekly template \u2014 click a day to toggle \u00B7 cells show resolved days including overrides and holidays.";
+  if(tplLegend) tplLegend.textContent="Headers below are the editable weekly template \u2014 click a day to toggle \u00B7 cells show resolved days including overrides and holidays.";
+  let html="";
   for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
   for(let d=1;d<=last;d++){
     const iso=toLocalISO(new Date(y,m,d));
@@ -1416,7 +1449,12 @@ function renderCalendarMonth(){
     const tag = ov ? esc(ov.note) : (hol ? esc(hol.name) : (working ? "WORKING" : "NON-WORKING"));
     html+=`<div class="calendar-cell ${typeCls}${todayCls}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
   }
-  calendarGrid.innerHTML=html;
+  /* Trailing fillers close the final week so the weekday header below
+     always starts a fresh 7-column row with SUN under Sunday's column
+     (without them the header flowed into the partial last week). */
+  const trail=(7-((first+last)%7))%7;
+  for(let i=0;i<trail;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
+  calendarGrid.innerHTML=html+headHtml;
 }
 /* Class cubes: display regroup only — batches stay one flat global
    list, zero data change. Batch B nests under class C iff ≥1 student
@@ -1627,6 +1665,7 @@ function renderAll(){
   renderCalendarMonth();
   renderClasses();
   renderAudit();
+  if(setupWheelModal && setupWheelModal.classList.contains("open")) renderSetupWheel();
   if(currentTab==="attendance" || currentTab==="today" || currentTab==="reports") renderAttendance();
 }
 // ---- ENROLL: information + real fingerprint scan ----
@@ -2683,6 +2722,484 @@ $("addOverrideBtn").onclick=()=>{
     if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
   };
 };
+/* Sidebar eyes open the record popups (same .modal species as the
+   creation forms); Close buttons dismiss them. */
+(function(){
+  const osib=$("openSchoolInfoBtn"); if(osib) osib.onclick=()=>openModal(schoolInfoModal);
+  const sic=$("schoolInfoCancel"); if(sic) sic.onclick=()=>closeModal(schoolInfoModal);
+  const eh=$("eyeHolidaysBtn"); if(eh) eh.onclick=()=>openModal($("holidayViewModal"));
+  const eo=$("eyeOverrideBtn"); if(eo) eo.onclick=()=>openModal($("overrideViewModal"));
+  const hc=$("holidayViewClose"); if(hc) hc.onclick=()=>closeModal($("holidayViewModal"));
+  const oc=$("overrideViewClose"); if(oc) oc.onclick=()=>closeModal($("overrideViewModal"));
+  const hct=$("holidayViewCloseTop"); if(hct) hct.onclick=()=>closeModal($("holidayViewModal"));
+  const oct=$("overrideViewCloseTop"); if(oct) oct.onclick=()=>closeModal($("overrideViewModal"));
+  const tsw=$("toolbarSetupWheelBtn"); if(tsw) tsw.onclick=()=>openSetupWheel();
+  const osw=$("openSetupWheelBtn"); if(osw) osw.onclick=()=>openSetupWheel();
+})();
+
+/* ============================================================
+   SETUP RADIAL ACTION WHEEL — Tactical HUD Radial Action System
+   Translates tactical wheel pattern to monochrome frosted UI.
+   2-tier architecture: Center Hub + 5 Category Sectors + Dynamic Outer Action Arc.
+   ============================================================ */
+let wheelActiveCategory = "classes";
+
+function polarToCartesian(cx, cy, r, angleInDegrees) {
+  const rad = (angleInDegrees - 90) * Math.PI / 180.0;
+  return {
+    x: cx + (r * Math.cos(rad)),
+    y: cy + (r * Math.sin(rad))
+  };
+}
+
+function describeSector(cx, cy, r1, r2, startAngle, endAngle) {
+  const angleDiff = (endAngle - startAngle + 360) % 360;
+  const largeArcFlag = angleDiff > 180 ? 1 : 0;
+  const p1 = polarToCartesian(cx, cy, r2, startAngle);
+  const p2 = polarToCartesian(cx, cy, r2, endAngle);
+  const p3 = polarToCartesian(cx, cy, r1, endAngle);
+  const p4 = polarToCartesian(cx, cy, r1, startAngle);
+
+  return [
+    "M", p1.x.toFixed(2), p1.y.toFixed(2),
+    "A", r2, r2, 0, largeArcFlag, 1, p2.x.toFixed(2), p2.y.toFixed(2),
+    "L", p3.x.toFixed(2), p3.y.toFixed(2),
+    "A", r1, r1, 0, largeArcFlag, 0, p4.x.toFixed(2), p4.y.toFixed(2),
+    "Z"
+  ].join(" ");
+}
+
+function getWheelCategories() {
+  return [
+    {
+      id: "classes",
+      title: "CLASSES",
+      sub: `${Classes.length} Configured`,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+      actions: [
+        {
+          id: "addClass",
+          title: "+ NEW CLASS",
+          sub: "Add grade/div",
+          run: async () => {
+            closeModal(setupWheelModal);
+            const name = await glassPrompt("Enter new class name (e.g. Grade 10-A):", "", { title: "Add New Class", okText: "Add Class" });
+            if (!name) return;
+            if (Classes.some(c => c.toLowerCase() === name.toLowerCase())) { await glassAlert("That class already exists."); return; }
+            try {
+              await api("/api/settings", { method: "POST", body: JSON.stringify({ classes: Classes.concat(name) }) });
+              await loadClassesHolidaysSettings();
+              setCubeView("class");
+              renderAll();
+              await glassAlert(`Class "${name}" added successfully.`);
+            } catch (e) { await glassAlert("Failed to add class: " + e.message); }
+          }
+        },
+        {
+          id: "viewClasses",
+          title: "VIEW CLASSES",
+          sub: "Open roster list",
+          run: () => {
+            closeModal(setupWheelModal);
+            setCubeView("class");
+            const el = $("pane-setup");
+            if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth" });
+          }
+        },
+        {
+          id: "classSched",
+          title: "SCHEDULES",
+          sub: "Weekly template",
+          run: () => {
+            closeModal(setupWheelModal);
+            setCubeView("class");
+            const sel = $("calClassSelect");
+            if (sel && sel.options.length > 1) {
+              sel.selectedIndex = 1;
+              sel.dispatchEvent(new Event("change"));
+            }
+          }
+        }
+      ]
+    },
+    {
+      id: "batches",
+      title: "BATCHES",
+      sub: `${(Batches || []).length} Groups`,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+      actions: [
+        {
+          id: "addBatch",
+          title: "+ NEW BATCH",
+          sub: "Add group/stream",
+          run: async () => {
+            closeModal(setupWheelModal);
+            const name = await glassPrompt("Enter new batch name (e.g. Morning Batch):", "", { title: "Add New Batch", okText: "Add Batch" });
+            if (!name) return;
+            await submitBatchName(name);
+            setCubeView("batch");
+          }
+        },
+        {
+          id: "viewBatches",
+          title: "VIEW BATCHES",
+          sub: "Open batch stack",
+          run: () => {
+            closeModal(setupWheelModal);
+            setCubeView("batch");
+          }
+        },
+        {
+          id: "batchSched",
+          title: "SCHEDULES",
+          sub: "Batch timings",
+          run: () => {
+            closeModal(setupWheelModal);
+            setCubeView("batch");
+            const sel = $("calClassSelect");
+            if (sel) {
+              for (let i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value.startsWith("batch:")) {
+                  sel.selectedIndex = i;
+                  sel.dispatchEvent(new Event("change"));
+                  break;
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      id: "cutoffs",
+      title: "CUTOFFS",
+      sub: `${Settings.presentCutoff || '08:00'} / ${Settings.lateCutoff || '08:30'}`,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+      actions: [
+        {
+          id: "timingModal",
+          title: "TIMINGS WINDOW",
+          sub: "Edit cutoff rules",
+          run: () => {
+            closeModal(setupWheelModal);
+            openModal(schoolInfoModal);
+            const f = $("setPresentCutoff");
+            if (f) setTimeout(() => f.focus(), 80);
+          }
+        },
+        {
+          id: "editPresentCutoff",
+          title: "PRESENT CUTOFF",
+          sub: `Now: ${Settings.presentCutoff || '08:00'}`,
+          run: async () => {
+            closeModal(setupWheelModal);
+            const val = await glassPrompt("Enter present cutoff time (24h HH:MM):", Settings.presentCutoff || "08:00", { title: "Present Cutoff Time", okText: "Save Cutoff" });
+            if (!val) return;
+            if (!/^\d{2}:\d{2}$/.test(val)) { await glassAlert("Time must be in HH:MM format (e.g. 08:00)."); return; }
+            try {
+              await api("/api/settings", { method: "POST", body: JSON.stringify({ presentCutoff: val }) });
+              Settings.presentCutoff = val;
+              if ($("setPresentCutoff")) $("setPresentCutoff").value = val;
+              if ($("csPresentCutoff")) $("csPresentCutoff").value = val;
+              await loadClassesHolidaysSettings();
+              renderAll();
+              await glassAlert(`Present cutoff updated to ${val}.`);
+            } catch (e) { await glassAlert("Failed to update cutoff: " + e.message); }
+          }
+        },
+        {
+          id: "editLateCutoff",
+          title: "LATE CUTOFF",
+          sub: `Now: ${Settings.lateCutoff || '08:30'}`,
+          run: async () => {
+            closeModal(setupWheelModal);
+            const val = await glassPrompt("Enter late cutoff time (24h HH:MM):", Settings.lateCutoff || "08:30", { title: "Late Cutoff Time", okText: "Save Cutoff" });
+            if (!val) return;
+            if (!/^\d{2}:\d{2}$/.test(val)) { await glassAlert("Time must be in HH:MM format (e.g. 08:30)."); return; }
+            try {
+              await api("/api/settings", { method: "POST", body: JSON.stringify({ lateCutoff: val, lateAfter: val }) });
+              Settings.lateCutoff = val;
+              Settings.lateAfter = val;
+              if ($("setLateThreshold")) $("setLateThreshold").value = val;
+              if ($("csLateCutoff")) $("csLateCutoff").value = val;
+              await loadClassesHolidaysSettings();
+              renderAll();
+              await glassAlert(`Late cutoff updated to ${val}.`);
+            } catch (e) { await glassAlert("Failed to update cutoff: " + e.message); }
+          }
+        }
+      ]
+    },
+    {
+      id: "exceptions",
+      title: "EXCEPTIONS",
+      sub: `${Holidays.length} Hol · ${Overrides.length} Ovr`,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      actions: [
+        {
+          id: "addHoliday",
+          title: "+ ADD HOLIDAY",
+          sub: "Vacation / exam",
+          run: () => {
+            closeModal(setupWheelModal);
+            const btn = $("addHolidayBtn");
+            if (btn) btn.click();
+          }
+        },
+        {
+          id: "addOverride",
+          title: "+ ADD OVERRIDE",
+          sub: "Single day rule",
+          run: () => {
+            closeModal(setupWheelModal);
+            const btn = $("addOverrideBtn");
+            if (btn) btn.click();
+          }
+        },
+        {
+          id: "viewHolidays",
+          title: "ALL HOLIDAYS",
+          sub: "Open registry list",
+          run: () => {
+            closeModal(setupWheelModal);
+            openModal($("holidayViewModal"));
+          }
+        },
+        {
+          id: "viewOverrides",
+          title: "ALL OVERRIDES",
+          sub: "Open registry list",
+          run: () => {
+            closeModal(setupWheelModal);
+            openModal($("overrideViewModal"));
+          }
+        }
+      ]
+    },
+    {
+      id: "school",
+      title: "SCHOOL INFO",
+      sub: "Rules & Settings",
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+      actions: [
+        {
+          id: "openRules",
+          title: "SCHOOL RULES",
+          sub: "Open rules window",
+          run: () => {
+            closeModal(setupWheelModal);
+            openModal(schoolInfoModal);
+          }
+        },
+        {
+          id: "academicYear",
+          title: "ACADEMIC YEAR",
+          sub: Settings.academicYear || "Configure dates",
+          run: () => {
+            closeModal(setupWheelModal);
+            openModal(schoolInfoModal);
+            const f = $("setAttendanceStart");
+            if (f) setTimeout(() => f.focus(), 80);
+          }
+        },
+        {
+          id: "adminPin",
+          title: "ADMIN PIN",
+          sub: "Security pin",
+          run: () => {
+            closeModal(setupWheelModal);
+            openModal(schoolInfoModal);
+            const f = $("setAdminPin");
+            if (f) setTimeout(() => f.focus(), 80);
+          }
+        }
+      ]
+    }
+  ];
+}
+
+function renderSetupWheel() {
+  const svg = $("setupWheelSvg");
+  if (!svg) return;
+  svg.innerHTML = "";
+
+  const categories = getWheelCategories();
+  if (!categories.some(c => c.id === wheelActiveCategory)) {
+    wheelActiveCategory = categories[0].id;
+  }
+  const activeCat = categories.find(c => c.id === wheelActiveCategory) || categories[0];
+
+  const cx = 0, cy = 0;
+  const hubRadius = 50;
+  const innerR1 = 56, innerR2 = 134;
+  const outerR1 = 142, outerR2 = 216;
+
+  // 1. Defs / Filter
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  svg.appendChild(defs);
+
+  // 2. Outer Action Arc (dynamic fan based on active inner category)
+  const numCats = categories.length;
+  const catSectorAngle = 360 / numCats;
+  const catGap = 2.5;
+  const startOffset = -90;
+
+  const catIndex = categories.findIndex(c => c.id === activeCat.id);
+  const catStartAngle = startOffset + catIndex * catSectorAngle + catGap / 2;
+  const catEndAngle = startOffset + (catIndex + 1) * catSectorAngle - catGap / 2;
+  const catMidAngle = (catStartAngle + catEndAngle) / 2;
+
+  const actions = activeCat.actions || [];
+  if (actions.length > 0) {
+    const actSpanPerItem = 34;
+    const totalActSpan = actions.length * actSpanPerItem;
+    const actStartBase = catMidAngle - totalActSpan / 2;
+    const actGap = 2;
+
+    const actionGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    actionGroup.setAttribute("class", "wheel-actions-layer");
+
+    actions.forEach((act, i) => {
+      const aStart = actStartBase + i * actSpanPerItem + actGap / 2;
+      const aEnd = actStartBase + (i + 1) * actSpanPerItem - actGap / 2;
+      const aMid = (aStart + aEnd) / 2;
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "wheel-slice action-slice");
+      g.setAttribute("data-action-id", act.id);
+
+      const pathD = describeSector(cx, cy, outerR1, outerR2, aStart, aEnd);
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", pathD);
+      path.setAttribute("class", "slice-arc");
+      g.appendChild(path);
+
+      const labelPos = polarToCartesian(cx, cy, (outerR1 + outerR2) / 2, aMid);
+      const textTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textTitle.setAttribute("x", labelPos.x.toFixed(1));
+      textTitle.setAttribute("y", (labelPos.y - 6).toFixed(1));
+      textTitle.setAttribute("class", "slice-title");
+      textTitle.textContent = act.title;
+      g.appendChild(textTitle);
+
+      const textSub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textSub.setAttribute("x", labelPos.x.toFixed(1));
+      textSub.setAttribute("y", (labelPos.y + 7).toFixed(1));
+      textSub.setAttribute("class", "slice-sub");
+      textSub.textContent = act.sub;
+      g.appendChild(textSub);
+
+      g.onclick = (e) => {
+        e.stopPropagation();
+        if (act.run) act.run();
+      };
+
+      actionGroup.appendChild(g);
+    });
+
+    svg.appendChild(actionGroup);
+  }
+
+  // 3. Inner Category Ring (5 sectors)
+  const catGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  catGroup.setAttribute("class", "wheel-categories-layer");
+
+  categories.forEach((cat, idx) => {
+    const sAngle = startOffset + idx * catSectorAngle + catGap / 2;
+    const eAngle = startOffset + (idx + 1) * catSectorAngle - catGap / 2;
+    const mAngle = (sAngle + eAngle) / 2;
+    const isActive = cat.id === activeCat.id;
+
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "wheel-slice cat-slice" + (isActive ? " active" : ""));
+    g.setAttribute("data-cat-id", cat.id);
+
+    const pathD = describeSector(cx, cy, innerR1, innerR2, sAngle, eAngle);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", pathD);
+    path.setAttribute("class", "slice-arc");
+    g.appendChild(path);
+
+    const iconPos = polarToCartesian(cx, cy, innerR1 + 22, mAngle);
+    const iconG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    iconG.setAttribute("class", "slice-icon-wrap");
+    iconG.setAttribute("transform", `translate(${(iconPos.x - 9).toFixed(1)}, ${(iconPos.y - 9).toFixed(1)})`);
+    iconG.innerHTML = cat.iconSvg;
+    g.appendChild(iconG);
+
+    const titlePos = polarToCartesian(cx, cy, innerR1 + 46, mAngle);
+    const textTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    textTitle.setAttribute("x", titlePos.x.toFixed(1));
+    textTitle.setAttribute("y", titlePos.y.toFixed(1));
+    textTitle.setAttribute("class", "slice-title");
+    textTitle.textContent = cat.title;
+    g.appendChild(textTitle);
+
+    const subPos = polarToCartesian(cx, cy, innerR1 + 60, mAngle);
+    const textSub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    textSub.setAttribute("x", subPos.x.toFixed(1));
+    textSub.setAttribute("y", subPos.y.toFixed(1));
+    textSub.setAttribute("class", "slice-sub");
+    textSub.textContent = cat.sub;
+    g.appendChild(textSub);
+
+    g.onmouseenter = () => {
+      if (wheelActiveCategory !== cat.id) {
+        wheelActiveCategory = cat.id;
+        renderSetupWheel();
+      }
+    };
+
+    g.onclick = (e) => {
+      e.stopPropagation();
+      wheelActiveCategory = cat.id;
+      renderSetupWheel();
+    };
+
+    catGroup.appendChild(g);
+  });
+
+  svg.appendChild(catGroup);
+
+  // 4. Center Hub
+  const hubGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  hubGroup.setAttribute("class", "wheel-hub");
+
+  const hubCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  hubCircle.setAttribute("cx", "0");
+  hubCircle.setAttribute("cy", "0");
+  hubCircle.setAttribute("r", hubRadius);
+  hubCircle.setAttribute("class", "wheel-hub-circle");
+  hubGroup.appendChild(hubCircle);
+
+  const hubTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  hubTitle.setAttribute("x", "0");
+  hubTitle.setAttribute("y", "-7");
+  hubTitle.setAttribute("class", "hub-title");
+  hubTitle.textContent = "SETUP";
+  hubGroup.appendChild(hubTitle);
+
+  const hubSub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  hubSub.setAttribute("x", "0");
+  hubSub.setAttribute("y", "9");
+  hubSub.setAttribute("class", "hub-sub");
+  hubSub.textContent = "ACTIONS";
+  hubGroup.appendChild(hubSub);
+
+  hubGroup.onclick = (e) => {
+    e.stopPropagation();
+    closeModal(setupWheelModal);
+  };
+
+  svg.appendChild(hubGroup);
+}
+
+function openSetupWheel(defaultCategory) {
+  if (defaultCategory) wheelActiveCategory = defaultCategory;
+  renderSetupWheel();
+  openModal(setupWheelModal);
+}
+window.openSetupWheel = openSetupWheel;
 /* Solid timing save: lifted verbatim from the popup — same
    validators, same 3 branches, same global double-POST, same mirror
    sync, same confirmations. Only the tail changed: refresh the
@@ -2740,6 +3257,7 @@ $("holidayBody").addEventListener("click",async(e)=>{
   const edit=e.target.closest("[data-edit-holiday]");
   if(edit){
     const h=Holidays.find(x=>x.start===edit.dataset.editHoliday); if(!h) return;
+    try{ closeModal($("holidayViewModal")); }catch(e){}
     $("holidayModalBody").innerHTML=`<div class="form-grid">
       <div class="form-field full"><label>Name</label><input id="holidayName" value="${esc(h.name)}"></div>
       <div class="form-field"><label>Start date</label><input type="date" id="holidayStart" value="${esc(h.start)}"></div>
@@ -2767,6 +3285,7 @@ $("overrideBody").addEventListener("click",async(e)=>{
   const edit=e.target.closest("[data-edit-override]");
   if(edit){
     const o=Overrides.find(x=>x.date===edit.dataset.editOverride); if(!o) return;
+    try{ closeModal($("overrideViewModal")); }catch(e){}
     $("overrideModalBody").innerHTML=`<div class="form-grid">
       <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(o.date)}"></div>
       <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1" ${o.isWorking?"selected":""}>Working day</option><option value="0" ${!o.isWorking?"selected":""}>Holiday</option></select></div>
@@ -2850,11 +3369,11 @@ $("addClassBtn").onclick=async()=>{
   try{ await api("/api/settings",{method:"POST",body:JSON.stringify({classes:Classes.concat(name)})}); input.value=""; await loadClassesHolidaysSettings(); renderAll(); }
   catch(e){ await glassAlert("Failed to add class: "+e.message); }
 };
-/* Left-list view tabs + left-bar batch add. Static nodes — wire once. */
+/* Left-list view tabs + left-bar batch add. Static nodes â€” wire once. */
 if($("cubeTabClasses")) $("cubeTabClasses").onclick=()=>setCubeView("class");
 if($("cubeTabBatches")) $("cubeTabBatches").onclick=()=>setCubeView("batch");
 if($("addBatchBtn")) $("addBatchBtn").onclick=()=>submitBatchName($("newBatchName")?$("newBatchName").value:"", $("newBatchName"));
-/* Left-bar batch add: single persist path — same validators,
+/* Left-bar batch add: single persist path â€” same validators,
    same POST, same refresh. New names surface in the BATCHES tab
    until a student carries them into a class. */
 async function submitBatchName(name, inputEl){
@@ -2887,6 +3406,7 @@ $("settingsSaveBtn").onclick=async()=>{
     Settings.lateCutoff = lVal;
     Settings.lateAfter = lVal;
     await glassAlert("Settings saved to database.");
+    closeModal(schoolInfoModal);
     await loadClassesHolidaysSettings(); renderAll();
   }catch(e){ await glassAlert("Failed: "+e.message); }
 };
@@ -2901,12 +3421,12 @@ $("backupDownloadBtn").onclick=async()=>{
 };
 $("backupFileInput").onchange=async(e)=>{
   const file=e.target.files&&e.target.files[0]; if(!file) return;
-  const status=$("backupStatus"); status.textContent="Restoring…";
+  const status=$("backupStatus"); status.textContent="Restoring...";
   pauseSensorScan();
   try{
     const form=new FormData(); form.append("file",file);
     const body = await api("/api/restore", {method:"POST", body:form});
-    status.textContent="Restore complete. Reloading data…"; await loadAll();
+    status.textContent="Restore complete. Reloading data..."; await loadAll();
   }catch(err){
     const msg = err.message || (err.body && err.body.error) || err.status;
     status.textContent="Restore failed: "+msg;
@@ -3680,8 +4200,12 @@ document.addEventListener("keydown",(e)=>{
       if(adminLayer && adminLayer.classList.contains("open")) return;
       resumeSensorScan();
     }
+    else if(holidayViewModal && holidayViewModal.classList.contains("open")) closeModal(holidayViewModal);
+    else if(overrideViewModal && overrideViewModal.classList.contains("open")) closeModal(overrideViewModal);
     else if(holidayModal && holidayModal.classList.contains("open")) closeModal(holidayModal);
     else if(overrideModal && overrideModal.classList.contains("open")) closeModal(overrideModal);
+    else if(schoolInfoModal && schoolInfoModal.classList.contains("open")) closeModal(schoolInfoModal);
+    else if(setupWheelModal && setupWheelModal.classList.contains("open")) closeModal(setupWheelModal);
     else if(correctionModal && correctionModal.classList.contains("open")) closeModal(correctionModal);
     else if(adminLayer && adminLayer.classList.contains("open")){
       finishEnrollUi();
@@ -3734,6 +4258,36 @@ function glassDialog(opts){
 }
 function glassConfirm(message,opts){ opts=opts||{}; opts.message=message; if(opts.cancelText===undefined) opts.cancelText='Cancel'; if(!opts.okText) opts.okText='Confirm'; return glassDialog(opts); }
 function glassAlert(message,okText){ return glassDialog({title:'Notice',message:message,okText:okText||'OK',cancelText:null}); }
+function glassPrompt(message,defaultValue,opts){
+  opts=opts||{};
+  return new Promise((resolve)=>{
+    const prevFocus=(typeof document!=='undefined'&&document.activeElement)||null;
+    const ov=document.createElement('div'); ov.className='gconfirm-ov';
+    const card=document.createElement('div'); card.className='gconfirm'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+    const h=document.createElement('h3'); h.textContent=opts.title||'Enter Value'; card.appendChild(h);
+    if(message){ const p=document.createElement('p'); p.textContent=message; card.appendChild(p); }
+    const inp=document.createElement('input'); inp.type='text'; inp.className='setup-input-compact';
+    inp.style.cssText='width:100%;margin:12px 0 16px;background:rgba(242,243,246,0.06);border:1px solid var(--frost-line);color:inherit;padding:8px 10px;border-radius:6px;font-size:13px;outline:none;box-sizing:border-box;';
+    inp.value=defaultValue||'';
+    if(opts.placeholder) inp.placeholder=opts.placeholder;
+    card.appendChild(inp);
+    const row=document.createElement('div'); row.className='gconfirm-row';
+    let done=false;
+    const cleanup=()=>{ ov.remove(); document.removeEventListener('keydown',onKey,true); if(prevFocus&&prevFocus.focus){ try{ prevFocus.focus(); }catch(e){} } };
+    const finish=(v)=>{ if(done) return; done=true; cleanup(); resolve(v); };
+    const c=document.createElement('button'); c.type='button'; c.className='gconfirm-cancel'; c.textContent=opts.cancelText||'Cancel';
+    c.addEventListener('click',()=>finish(null)); row.appendChild(c);
+    const ok=document.createElement('button'); ok.type='button'; ok.className='gconfirm-ok'; ok.textContent=opts.okText||'Confirm';
+    ok.addEventListener('click',()=>finish(inp.value.trim())); row.appendChild(ok);
+    card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+    const onKey=(e)=>{
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); finish(null); }
+      else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); finish(inp.value.trim()); }
+    };
+    document.addEventListener('keydown',onKey,true);
+    setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 40);
+  });
+}
 /* Photo dropzone — re-skins native file input, preserves files[0] read path + validation */
 function enhancePhotoField(input){
   if(!input||input.tagName!=='INPUT'||input.type!=='file'||input.dataset.ph) return;
@@ -3781,10 +4335,85 @@ function enhancePhotoField(input){
   });
   refresh();
 }
+/* Rail Reveal — the popup emerges from the sidebar edge toward the
+   left, fades in over the same window, then settles. Inline
+   transition keeps the change self-contained (no CSS edit). The rAF
+   split forces the start state to commit before the end state runs;
+   otherwise the browser collapses the two into one frame and the
+   popup pops in instead of sliding. `dx` is a fixed small distance
+   toward the rail (the popup right edge is already 8px from the rail
+   left; starting at +12px reads as "emerge from the rail"). */
+const RAIL_REVEAL_DX=12;
+const RAIL_REVEAL_MS=160;
+function _revealFromRail(el){
+  if(!el) return;
+  try{
+    el.style.transition="none";
+    el.style.opacity="0";
+    el.style.transform="translateX("+RAIL_REVEAL_DX+"px)";
+    void el.offsetWidth;
+    el.style.transition="transform "+RAIL_REVEAL_MS+"ms cubic-bezier(0.16,1,0.3,1), opacity 140ms ease";
+    el.style.opacity="1";
+    el.style.transform="translateX(0px)";
+    _railBridge(el);
+  }catch(e){
+    try{ el.style.opacity="1"; el.style.transform=""; }catch(_){}
+  }
+}
+/* 1px hairline stub bridging the 8px rail gap at trigger height, so the
+   popup reads as emerging from the owning row. Child of the popup, so
+   it travels with the reveal and dies with the surface (reuse path
+   clears it via innerHTML; _bridge ref is re-created each reveal).
+   pointer-events:none: hover/leave math uses the popup border box,
+   which excludes this overflow stub. Color is the global hairline
+   token (ink-aware via the existing D10 flip); no new paint. */
+function _railBridge(popEl){
+  if(!popEl) return;
+  try{
+    if(popEl._bridge){ try{popEl._bridge.remove();}catch(e){} popEl._bridge=null; }
+    const top=parseFloat(popEl.style.top)||0;
+    const h=popEl.offsetHeight||0;
+    const ty=(typeof popEl._triggerY==="number")?popEl._triggerY:top+h/2;
+    let y=Math.round(ty-top);
+    y=Math.max(5,Math.min(Math.max(5,h-5),y));
+    const b=document.createElement("div");
+    b.setAttribute("aria-hidden","true");
+    b.style.cssText="position:absolute;right:-8px;top:"+y+"px;width:8px;height:1px;background:var(--hairline);pointer-events:none;";
+    popEl.appendChild(b);
+    popEl._bridge=b;
+  }catch(e){}
+}
 /* Glass dropdowns — custom translucent popups for native <select> (native stays truth, fires change) */
 (function(){
   if(window.__glassSelectInit) return; window.__glassSelectInit=true;
   let openWrap=null, popEl=null, hiIdx=-1;
+  /* Lifecycle: single rAF-deferred close gated on real pointer state.
+     Old :hover polling raced the 1-2px gap between sibling controls and
+     could close the *next* popup just as it opened (the "stuck hover"
+     bug). Pointermove/mouseleave on document tell us when the cursor
+     has truly left BOTH the trigger and the list. */
+  const CLOSE_DELAY=160;
+  let closeTimer=null, lastPointerX=-1, lastPointerY=-1;
+  function cancelClose(){ if(closeTimer){ clearTimeout(closeTimer); closeTimer=null; } }
+  function inWrapOrPop(x,y){
+    if(!openWrap || !popEl) return false;
+    const wr=openWrap.getBoundingClientRect();
+    if(x>=wr.left-1 && x<=wr.right+1 && y>=wr.top-1 && y<=wr.bottom+1) return true;
+    const pr=popEl.getBoundingClientRect();
+    if(x>=pr.left-1 && x<=pr.right+1 && y>=pr.top-1 && y<=pr.bottom+1) return true;
+    return false;
+  }
+  function maybeCloseSoon(){
+    cancelClose();
+    if(!openWrap || !popEl) return;
+    closeTimer=setTimeout(()=>{
+      closeTimer=null;
+      if(inWrapOrPop(lastPointerX,lastPointerY)) return;
+      closePop(false);
+    },CLOSE_DELAY);
+  }
+  function onDocMove(e){ lastPointerX=e.clientX; lastPointerY=e.clientY; }
+  function onDocLeave(e){ if(e && e.relatedTarget===null){ lastPointerX=lastPointerY=-1; } }
   function rows(){ return popEl ? Array.from(popEl.querySelectorAll('.gsel-opt:not([aria-disabled="true"])')) : []; }
   function setHi(i){
     const rs=rows(); if(!rs.length) return;
@@ -3793,6 +4422,7 @@ function enhancePhotoField(input){
     try{ rs[hiIdx].scrollIntoView({block:'nearest'}); }catch(e){}
   }
   function closePop(refocus){
+    cancelClose();
     if(popEl){ popEl.remove(); popEl=null; }
     const w=openWrap; openWrap=null; hiIdx=-1;
     if(w){ w.classList.remove('open'); const b=w.querySelector('.gsel-btn'); if(b){ b.setAttribute('aria-expanded','false'); if(refocus) b.focus(); } }
@@ -3800,22 +4430,16 @@ function enhancePhotoField(input){
     document.removeEventListener('keydown',onKeyDown,true);
     window.removeEventListener('resize',onCloseOnly,true);
     window.removeEventListener('scroll',onScrollClose,true);
+    document.removeEventListener('pointermove',onDocMove,true);
+    document.removeEventListener('mouseleave',onDocLeave,true);
   }
   function onCloseOnly(){ closePop(false); }
   /* Inner list scrolls bubble to window: only an OUTER scroll closes */
   function onScrollClose(e){ if(popEl && e.target && !popEl.contains(e.target)) closePop(false); }
-  /* Hover closes only once the cursor has left BOTH the control and the list */
-  let hoverT=null;
-  function schedHoverClose(){
-    clearTimeout(hoverT);
-    hoverT=setTimeout(()=>{
-      try{
-        const hw=openWrap&&openWrap.matches&&openWrap.matches(':hover');
-        const hp=popEl&&popEl.matches&&popEl.matches(':hover');
-        if(!hw&&!hp) closePop(false);
-      }catch(e){ closePop(false); }
-    },140);
-  }
+  /* Hover closes only once the cursor has truly left BOTH the control
+     and the list (pointermove-based check, with a small grace period).
+     Replaces the old :hover polling that raced sibling-control gaps. */
+  function schedHoverClose(){ maybeCloseSoon(); }
   function onDocDown(e){
     if(!openWrap) return;
     if(openWrap.contains(e.target)) return;
@@ -3843,47 +4467,96 @@ function enhancePhotoField(input){
     btn.disabled=!!sel.disabled;
   }
   function openPop(wrap,sel,btn){
+    /* Sibling-switch reuse: if a sidebar gsel popup is already open
+       and the new control is also in the sidebar, reuse the same
+       surface (no destroy/recreate) so the rail-reveal animation can
+       run a fresh transition without a flicker. Falls back to a
+       full close+reopen otherwise. */
+    const newInRail=!!(wrap.closest&&wrap.closest('#adminSide'));
+    const oldInRail=!!(openWrap&&openWrap.closest&&openWrap.closest('#adminSide'));
+    if(popEl && openWrap && newInRail && oldInRail && popEl.parentNode===document.body){
+      /* Tear down the old open state without removing popEl, rebuild
+         options, re-place, re-reveal. */
+      openWrap.classList.remove('open');
+      const oldBtn=openWrap.querySelector('.gsel-btn');
+      if(oldBtn) oldBtn.setAttribute('aria-expanded','false');
+      openWrap=wrap; wrap.classList.add('open'); btn.setAttribute('aria-expanded','true');
+      popEl.innerHTML="";
+      buildGselOptions(popEl, sel, btn);
+      placeGsel(popEl, wrap);
+      scrollSelIntoView(popEl);
+      if(newInRail) _revealFromRail(popEl);
+      return;
+    }
     closePop(false);
     openWrap=wrap; wrap.classList.add('open'); btn.setAttribute('aria-expanded','true');
     popEl=document.createElement('div'); popEl.className='gsel-pop'; popEl.setAttribute('role','listbox');
-    const map=[];
-    const addOpt=(o)=>{
-      const r=document.createElement('div'); r.className='gsel-opt'; r.setAttribute('role','option');
-      r.textContent=o.textContent; r.dataset.v=o.value;
-      if(o.disabled){ r.setAttribute('aria-disabled','true'); }
-      else{
-        if(o.value===sel.value){ r.classList.add('sel'); r.setAttribute('aria-selected','true'); }
-        r.addEventListener('click',()=>pick(sel,btn,o.value));
-        map.push(r);
-      }
-      popEl.appendChild(r);
-    };
+    buildGselOptions(popEl, sel, btn);
+    document.body.appendChild(popEl);
+    popEl.addEventListener('mouseleave',schedHoverClose);
+    popEl.addEventListener('mouseenter',cancelClose);
+    placeGsel(popEl, wrap);
+    scrollSelIntoView(popEl);
+    if(newInRail) _revealFromRail(popEl);
+    document.addEventListener('pointerdown',onDocDown,true);
+    document.addEventListener('keydown',onKeyDown,true);
+    document.addEventListener('pointermove',onDocMove,true);
+    document.addEventListener('mouseleave',onDocLeave,true);
+    window.addEventListener('resize',onCloseOnly,true);
+    window.addEventListener('scroll',onScrollClose,true);
+  }
+  function buildGselOptions(popEl, sel, btn){
     Array.from(sel.children).forEach(ch=>{
       if(ch.tagName==='OPTGROUP'){
         const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; popEl.appendChild(g);
-        Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addOpt(o); });
-      }else if(ch.tagName==='OPTION'){ addOpt(ch); }
+        Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(popEl,o,sel,btn); });
+      }else if(ch.tagName==='OPTION'){ addGselOpt(popEl,ch,sel,btn); }
     });
-    document.body.appendChild(popEl);
-    popEl.addEventListener('mouseleave',schedHoverClose);
+  }
+  function addGselOpt(popEl, o, sel, btn){
+    const r=document.createElement('div'); r.className='gsel-opt'; r.setAttribute('role','option');
+    r.textContent=o.textContent; r.dataset.v=o.value;
+    if(o.disabled){ r.setAttribute('aria-disabled','true'); return; }
+    if(o.value===sel.value){ r.classList.add('sel'); r.setAttribute('aria-selected','true'); }
+    r.addEventListener('click',()=>pick(sel,btn,o.value));
+    popEl.appendChild(r);
+  }
+  function placeGsel(popEl, wrap){
     const rc=wrap.getBoundingClientRect();
     popEl.style.minWidth=Math.max(rc.width,140)+'px';
     popEl.style.maxWidth=Math.max(140,window.innerWidth-16)+'px';
     const h=Math.min(260,popEl.offsetHeight||260);
-    let top=rc.bottom+4;
-    if(top+h>window.innerHeight-8) top=Math.max(8,rc.top-4-h);
-    /* Left-align to the control; if the popup would spill past the
-       viewport's right edge, right-align to the control instead */
+    const railEl=(wrap.closest&&wrap.closest('#adminSide'))||null;
     let left=rc.left;
-    if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,rc.right-popEl.offsetWidth);
+    let inRail=false;
+    if(railEl){
+      const rr=railEl.getBoundingClientRect();
+      const railLeft=Math.max(0,rr.left);
+      const gap=8;
+      inRail=true;
+      left=Math.max(8,railLeft-gap-popEl.offsetWidth);
+      if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,window.innerWidth-popEl.offsetWidth-8);
+      popEl._triggerY=rc.top+rc.height/2;
+    }else{
+      if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,rc.right-popEl.offsetWidth);
+      try{ delete popEl._triggerY; }catch(e){ try{ popEl._triggerY=null; }catch(_){} }
+    }
+    let top=rc.bottom+4;
+    if(inRail){
+      const desired=Math.round(rc.top+(rc.height-h)/2);
+      top=Math.max(8,Math.min(desired,window.innerHeight-h-8));
+    }else if(top+h>window.innerHeight-8){
+      top=Math.max(8,rc.top-4-h);
+    }
     popEl.style.top=top+'px'; popEl.style.left=Math.max(8,left)+'px';
-    hiIdx=map.findIndex(r=>r.classList.contains('sel')); if(hiIdx<0) hiIdx=0;
-    map.forEach((r,j)=>r.classList.toggle('hi',j===hiIdx));
-    const cur=map[hiIdx]; if(cur){ try{cur.scrollIntoView({block:'nearest'});}catch(e){} }
-    document.addEventListener('pointerdown',onDocDown,true);
-    document.addEventListener('keydown',onKeyDown,true);
-    window.addEventListener('resize',onCloseOnly,true);
-    window.addEventListener('scroll',onScrollClose,true);
+  }
+  function scrollSelIntoView(popEl){
+    hiIdx=Array.from(popEl.querySelectorAll('.gsel-opt:not([aria-disabled="true"])'))
+      .findIndex(r=>r.classList.contains('sel'));
+    if(hiIdx<0) hiIdx=0;
+    const rs=Array.from(popEl.querySelectorAll('.gsel-opt'));
+    rs.forEach((r,j)=>r.classList.toggle('hi',j===hiIdx));
+    const cur=rs[hiIdx]; if(cur){ try{cur.scrollIntoView({block:'nearest'});}catch(e){} }
   }
   function enhance(sel){
     if(!sel||sel.tagName!=='SELECT'||sel.dataset.gsel) return;
@@ -3907,8 +4580,10 @@ function enhancePhotoField(input){
     try{ new MutationObserver(sync).observe(sel,{childList:true}); }catch(e){}
     /* Hover owns open/close (click toggle retired — it fought the hover);
        keyboard Enter/Space/Arrows still open for accessibility. */
-    wrap.addEventListener('mouseenter',()=>{ if(sel.disabled) return; if(openWrap!==wrap) openPop(wrap,sel,btn); });
+    wrap.addEventListener('mouseenter',()=>{ if(sel.disabled) return; cancelClose(); if(openWrap!==wrap) openPop(wrap,sel,btn); });
     wrap.addEventListener('mouseleave',schedHoverClose);
+    btn.addEventListener('mouseenter',cancelClose);
+    btn.addEventListener('focus',cancelClose);
     btn.addEventListener('keydown',(e)=>{
       if(sel.disabled) return;
       if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Enter'||e.key===' '){ e.preventDefault(); if(openWrap!==wrap) openPop(wrap,sel,btn); }
@@ -3993,13 +4668,52 @@ function _dtShell(){
   return box;
 }
 let _dtOpenFor=null;
+let _dtCloseT=null, _dtLastX=-1, _dtLastY=-1;
+function _dtCancelClose(){ if(_dtCloseT){ clearTimeout(_dtCloseT); _dtCloseT=null; } }
+function _dtInAnchorOrBox(x,y){
+  const box=document.getElementById("dtRangeAcadPop");
+  if(!box) return false;
+  const a=box._dtAnchor;
+  if(a){
+    const ar=a.getBoundingClientRect();
+    if(x>=ar.left-1 && x<=ar.right+1 && y>=ar.top-1 && y<=ar.bottom+1) return true;
+  }
+  const br=box.getBoundingClientRect();
+  return (x>=br.left-1 && x<=br.right+1 && y>=br.top-1 && y<=br.bottom+1);
+}
+function _dtMaybeCloseSoon(){
+  _dtCancelClose();
+  _dtCloseT=setTimeout(()=>{
+    _dtCloseT=null;
+    if(_dtInAnchorOrBox(_dtLastX,_dtLastY)) return;
+    closeDtPops();
+  },180);
+}
+function _dtDocMove(e){ _dtLastX=e.clientX; _dtLastY=e.clientY; }
+/* Restore the seg-strip's natural .active state (mirrors the strip's
+   own sync(): active = selected preset). Called when an owned popup
+   closes so the opener row releases its reveal marker. */
+function _clearRevealingSegs(){
+  try{
+    const sel=document.getElementById("attDatePreset");
+    const cur=sel?sel.value:"";
+    document.querySelectorAll(".seg-strip .seg-btn[data-v]").forEach(b=>{
+      const on=(b.dataset.v===cur);
+      b.classList.toggle("active",on);
+      b.setAttribute("aria-pressed",on?"true":"false");
+    });
+  }catch(e){}
+}
 function closeDtPops(){
+  _dtCancelClose();
   _dtOpenFor=null;
+  _clearRevealingSegs();
   const old=document.getElementById("dtRangeAcadPop"); if(old){ try{old.remove();}catch(e){} }
   document.removeEventListener("pointerdown",_dtDocDown,true);
   document.removeEventListener("keydown",_dtKey,true);
   window.removeEventListener("scroll",_dtScroll,true);
   window.removeEventListener("resize",closeDtPops);
+  document.removeEventListener("pointermove",_dtDocMove,true);
 }
 function _dtDocDown(e){ const box=document.getElementById("dtRangeAcadPop"); if(box&&!box.contains(e.target)&&!(box._dtAnchor&&box._dtAnchor.contains&&box._dtAnchor.contains(e.target))) closeDtPops(); }
 function _dtKey(e){ if(e.key==="Escape"){ e.preventDefault(); closeDtPops(); } }
@@ -4008,20 +4722,73 @@ function _dtPlace(box,anchor){
   const r=anchor.getBoundingClientRect();
   box.style.visibility="hidden"; box.style.left="0px"; box.style.top="0px";
   const w=box.offsetWidth,h=box.offsetHeight,vw=window.innerWidth,vh=window.innerHeight;
-  let left=Math.min(Math.max(8,r.left),Math.max(8,vw-w-8));
-  let top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
+  /* Sidebar-anchored Academic Year / Custom Range: dock the popup's
+     right edge to the rail's left edge (8px gap) so it opens LEFT
+     into the workspace. Center vertically on the trigger so the
+     picker feels anchored to its control, not dropped from above. */
+  let railLeft=0;
+  try{ const rail=document.getElementById("adminSide"); if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0) railLeft=Math.max(0,rr.left); } }catch(e){}
+  const inRail=(r&&r.width>0&&r.left>=railLeft-1&&r.right<=railLeft+260);
+  let left;
+  if(inRail){
+    /* Modestly larger surface so the calendar reads easier; restrained
+       bump only — does not dominate the workspace. */
+    if(box.classList.contains("dt-pop") && !box.dataset.sized){
+      box.style.minWidth="296px";
+      box.dataset.sized="1";
+    }
+    left=Math.max(8,railLeft-8-w);
+    if(left+w>vw-8) left=Math.max(8,vw-w);
+    box._triggerY=r.top+r.height/2;
+  }else{
+    left=Math.min(Math.max(8,r.left),Math.max(8,vw-w-8));
+    try{ delete box._triggerY; }catch(e){ try{ box._triggerY=null; }catch(_){} }
+  }
+  let top;
+  if(inRail){
+    const desired=Math.round(r.top+(r.height-h)/2);
+    top=Math.max(8,Math.min(desired,vh-h-8));
+  }else{
+    top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
+  }
   box.style.left=left+"px"; box.style.top=top+"px"; box.style.visibility="";
+  if(inRail) _revealFromRail(box);
 }
 function _dtWire(box,anchor){
   _dtPlace(box,anchor);
   document.addEventListener("pointerdown",_dtDocDown,true);
   document.addEventListener("keydown",_dtKey,true);
+  document.addEventListener("pointermove",_dtDocMove,true);
   window.addEventListener("scroll",_dtScroll,true);
   window.addEventListener("resize",closeDtPops);
-  /* No auto-close timer: hover OPENS, explicit acts CLOSE (Apply /
-     Clear / Done / year pick / outside press / Esc / scroll / resize /
-     anchor re-click). A grace timer can never tell "reading the calendar"
-     from "walked away" — so it kept murdering slow picks mid-flow. */
+  /* Cursor is the answer: if it leaves both the trigger and the
+     popup, close (after a small grace window so the calendar survives
+     slow cross-overs). The "no auto-close" comment is the prior
+     policy; replaced with a single tracked-pointer close to kill the
+     stuck-popup residue. */
+  try{
+    box.addEventListener("mouseleave",_dtMaybeCloseSoon);
+    box.addEventListener("mouseenter",_dtCancelClose);
+    if(anchor && anchor.addEventListener){
+      anchor.addEventListener("mouseleave",_dtMaybeCloseSoon);
+      anchor.addEventListener("mouseenter",_dtCancelClose);
+      /* Reveal marker: the owning row borrows the strip's existing
+         .active treatment (opposite-pole 500) so trigger and popup
+         read as one unit. Siblings release theirs, so exactly one
+         row reads as the source. closeDtPops restores sync state. */
+      if(anchor.classList && anchor.classList.contains("seg-btn")){
+        _clearRevealingSegs();
+        try{
+          const strip=anchor.closest?anchor.closest(".seg-strip"):null;
+          if(strip) strip.querySelectorAll(".seg-btn[data-v]").forEach(b=>{
+            if(b!==anchor){ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); }
+          });
+        }catch(e){}
+        anchor.classList.add("active");
+        anchor.setAttribute("aria-pressed","true");
+      }
+    }
+  }catch(e){}
 }
 function _dtCommitPreset(v){
   /* Arm the hidden preset select so renderAttendance honors the pick,
@@ -4158,11 +4925,13 @@ function openRangePop(anchor){
   const pad=n=>(n<10?"0":"")+n;
   const viewKey={};
   function closePop(){
+    _dtCancelClose();
     if(popEl){ try{ popEl.remove(); }catch(e){} popEl=null; popInput=null; popType=null; }
     document.removeEventListener("pointerdown",onDocDown,true);
     document.removeEventListener("keydown",onKey,true);
     window.removeEventListener("scroll",onScroll,true);
     window.removeEventListener("resize",closePop);
+    document.removeEventListener("pointermove",_dtDocMove,true);
   }
   function onDocDown(e){ if(popEl && !popEl.contains(e.target) && !(popInput&&popInput._dtTrig&&popInput._dtTrig.contains(e.target))) closePop(); }
   /* Column scrolls bubble to window: only a scroll OUTSIDE the popup closes */
@@ -4178,9 +4947,33 @@ function openRangePop(anchor){
     const r=input.getBoundingClientRect();
     popEl.style.visibility="hidden"; popEl.style.left="0px"; popEl.style.top="0px";
     const w=popEl.offsetWidth, h=popEl.offsetHeight, vw=window.innerWidth, vh=window.innerHeight;
-    let left=Math.min(Math.max(8,r.left),Math.max(8,vw-w-8));
-    let top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
+    /* Rail-dock only for sidebar-anchored fields: dock right edge of
+       the popup to the rail's left edge (8px gap) so the picker opens
+       LEFT into the workspace. Center vertically on the trigger. */
+    let inRail=false, railLeft=0;
+    try{
+      const rail=document.getElementById("adminSide");
+      if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0){ railLeft=Math.max(0,rr.left); inRail=(r&&r.width>0&&r.left>=railLeft-1&&r.right<=railLeft+260); } }
+    }catch(e){}
+    let left;
+    if(inRail){
+      if(!popEl.dataset.sized){ popEl.style.minWidth="296px"; popEl.dataset.sized="1"; }
+      left=Math.max(8,railLeft-8-w);
+      if(left+w>vw-8) left=Math.max(8,vw-w);
+      popEl._triggerY=r.top+r.height/2;
+    }else{
+      left=Math.min(Math.max(8,r.left),Math.max(8,vw-w-8));
+      try{ delete popEl._triggerY; }catch(e){ try{ popEl._triggerY=null; }catch(_){} }
+    }
+    let top;
+    if(inRail){
+      const desired=Math.round(r.top+(r.height-h)/2);
+      top=Math.max(8,Math.min(desired,vh-h-8));
+    }else{
+      top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
+    }
     popEl.style.left=left+"px"; popEl.style.top=top+"px"; popEl.style.visibility="";
+    if(inRail) _revealFromRail(popEl);
   }
   function openPop(input,type){
     if(popEl && popInput===input && popType===type){ closePop(); return; }
@@ -4193,6 +4986,18 @@ function openRangePop(anchor){
     document.addEventListener("keydown",onKey,true);
     window.addEventListener("scroll",onScroll,true);
     window.addEventListener("resize",closePop);
+    /* Tracked-pointer close: if the cursor leaves the popup AND the
+       trigger for a moment, close. Prevents the stuck-popup residue
+       when the user moves from the input to a sibling control. */
+    try{
+      const wrap=input.closest&&input.closest(".dt-wrap");
+      const trig=input._dtTrig;
+      popEl.addEventListener("mouseenter",_dtCancelClose);
+      popEl.addEventListener("mouseleave",_dtMaybeCloseSoon);
+      if(wrap){ wrap.addEventListener("mouseenter",_dtCancelClose); wrap.addEventListener("mouseleave",_dtMaybeCloseSoon); }
+      if(trig){ trig.addEventListener("mouseenter",_dtCancelClose); trig.addEventListener("mouseleave",_dtMaybeCloseSoon); }
+      document.addEventListener("pointermove",_dtDocMove,true);
+    }catch(e){}
   }
   function parseDate(v){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||""); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(d)?null:d; }
   function buildDate(box,input){
