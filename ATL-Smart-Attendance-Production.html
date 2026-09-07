@@ -652,53 +652,10 @@
       pointer-events: none;
     }
 
-    .tab-toolbar {
-      height: 48px;
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 0 16px;
-      overflow: hidden;
-      background: #F2F3F6;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      scrollbar-width: none
-    }
-
-    .tab-toolbar::-webkit-scrollbar {
-      display: none
-    }
-
-    .tab-toolbar input,
-    .tab-toolbar select {
-      flex-shrink: 0
-    }
-
-    .tab-toolbar .btn {
-      flex-shrink: 0;
-      min-width: 88px
-    }
-
-    .tab-toolbar input,
-    .tab-toolbar select {
-      height: 30px;
-      border: 1px solid var(--line);
-      background: #F2F3F6;
-      padding: 0 10px;
-      font-size: 11px;
-      letter-spacing: 0.04em;
-      min-width: 0;
-      max-width: 220px;
-      outline: 0;
-      transition: border-color 180ms
-    }
-
-    .tab-toolbar input:focus,
-    .tab-toolbar select:focus {
-      border-color: var(--ink)
-    }
+    /* NOTE: retired .tab-toolbar paint lived here (base bar + inputs +
+       selects). Both bars render nothing (Students display:none,
+       Attendance [hidden] + guard), so their paint was deleted in the
+       dead-code pass — the nodes stay as hidden logic truth. */
 
     .btn {
       height: 30px;
@@ -1639,10 +1596,6 @@
       border-left: 0
     }
 
-    .admin-nav button:last-child {
-      border-right: 0
-    }
-
     .admin-nav button:hover {
       color: var(--on-img)
     }
@@ -1707,49 +1660,14 @@
       color: #181A20 !important;
     }
 
-    html[data-ink="dark"] #adminLayer#adminLayer .admin-top .admin-nav button:focus-visible {
-      color: #F2F3F6 !important;
-    }
-
     .btn:focus-visible {
       outline: 2px solid var(--ink);
       outline-offset: 2px
     }
 
-    /* Bottom-half glass unification — melt toolbar + list into frost */
-    .tab-toolbar {
-      background: transparent;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.15)
-    }
-
-    .tab-toolbar input,
-    .tab-toolbar select {
-      background: transparent;
-      border: 0;
-      border-bottom: 1px solid transparent;
-      color: #F2F3F6;
-      padding: 0 4px;
-      height: 30px;
-      outline: 0
-    }
-
-    .tab-toolbar input::placeholder {
-      color: rgba(242, 243, 246, 0.55)
-    }
-
-    .tab-toolbar select {
-      cursor: pointer
-    }
-
-    .tab-toolbar input:hover,
-    .tab-toolbar select:hover {
-      border-bottom-color: rgba(242, 243, 246, 0.75)
-    }
-
-    .tab-toolbar input:focus,
-    .tab-toolbar select:focus {
-      border-bottom-color: #F2F3F6
-    }
+    /* Bottom-half glass unification (retired with the toolbars — the bars
+       render nothing; rail rows carry the current paint). Dead rules removed;
+       native option popups below stay (browser chrome, always live). */
 
     option {
       background: #25201C;
@@ -1811,10 +1729,6 @@
       min-width: 0
     }
 
-    .tab-toolbar .gsel {
-      flex-shrink: 0
-    }
-
     .gsel>select {
       position: absolute !important;
       inset: 0 !important;
@@ -1843,20 +1757,6 @@
       outline: 0
     }
 
-    .tab-toolbar .gsel-btn {
-      background: transparent !important;
-      border: 0 !important;
-      border-bottom: 1px solid transparent !important;
-      padding: 0 4px !important;
-      color: rgba(242, 243, 246, 0.88) !important
-    }
-
-    .tab-toolbar .gsel-btn:hover,
-    .tab-toolbar .gsel.open .gsel-btn {
-      border-bottom-color: rgba(242, 243, 246, 0.75) !important;
-      color: #F2F3F6 !important
-    }
-
     .gsel-btn:hover {
       border-bottom-color: rgba(242, 243, 246, 0.75)
     }
@@ -1874,24 +1774,10 @@
       min-width: 0 !important;
     }
 
-    /* FIXED SLOTS — full-UI shift-proofing. Every toolbar dropdown owns
-       an exact width; longer values clip with … (full text lives in the
-       popup), so picking Grade/Batch/Status can never slide siblings.
-       Checklist: students class/batch/status · attendance
-       class/batch/student/status/sort · month-bar calClassSelect. Stable by
-       construction (no fix needed): search inputs (flex), seg strip
-       (uniform weight), stat rows + date row + fixed tables (done),
-       full-width form selects, roster rows, detail fields. */
-    #pane-students .tab-toolbar .gsel:has(> select#classFilter) > .gsel-btn { width: 128px !important; }
-    #pane-students .tab-toolbar .gsel:has(> select#batchFilter) > .gsel-btn { width: 128px !important; }
-    #pane-students .tab-toolbar .gsel:has(> select#studentStatusFilter) > .gsel-btn { width: 112px !important; }
-    #pane-attendance .tab-toolbar .gsel:has(> select#attClassFilter) > .gsel-btn { width: 120px !important; }
-    #pane-attendance .tab-toolbar .gsel:has(> select#attBatchFilter) > .gsel-btn { width: 120px !important; }
-    #pane-attendance .tab-toolbar .gsel:has(> select#attStudentFilter) > .gsel-btn { width: 150px !important; }
-    #pane-attendance .tab-toolbar .gsel:has(> select#attStatusFilter) > .gsel-btn { width: 112px !important; }
-    #pane-attendance .tab-toolbar .gsel:has(> select#attSort) > .gsel-btn { width: 96px !important; }
+    /* FIXED SLOTS — shift-proofing survivors. The toolbar slots were
+       retired with the hidden bars (sidebar rows are full-width by
+       construction); only the month-legend slot below stays live. */
     .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn { width: 160px !important; }
-    .tab-toolbar .gsel-btn .gsel-lab,
     .setup-monthview-legend .gsel-btn .gsel-lab {
       text-align: left !important;
     }
@@ -2548,20 +2434,13 @@
 
     /* Selection dot retired — active text color alone marks position */
 
-    html[data-ink="dark"] #adminLayer#adminLayer .admin-top .admin-nav button:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer .admin-top .admin-nav button.active {
-      color: #F2F3F6 !important;
-    }
-
     /* Hover preview: hovering a tab lends it the emphasis and dims
        the current section until click commits the switch */
     .admin-nav:hover button.active:not(:hover) {
       color: rgba(242, 243, 246, 0.75) !important;
     }
 
-    html[data-ink="dark"] #adminLayer#adminLayer .admin-top .admin-nav:hover button.active:not(:hover) {
-      color: rgba(24, 26, 32, 0.8) !important;
-    }
+    /* (dark twin lives with the sidebar nav rules below) */
 
     /* Global preview law: hovering any option lends it the emphasis
        and dims the current selection until click commits */
@@ -2604,53 +2483,19 @@
       color: rgba(24, 26, 32, 0.7) !important;
     }
 
-    /* (range-day dim retired with its default-mode twin above) */
-
     html[data-ink="dark"] .dt-pop:hover .dt-col button.sel:not(:hover) {
       background: transparent !important;
       color: rgba(24, 26, 32, 0.7) !important;
     }
 
-    /* Admin nav merged into the top header bar: tabs centered, left of close.
-       Absolutely centered so per-tab title-length changes ("Students" vs
-       "Setup — School Configuration & Schedule") can never push the tabs. */
-    .admin-top {
-      position: relative !important;
-    }
-
-    .admin-top .admin-nav {
-      position: absolute !important;
-      left: 50% !important;
-      transform: translateX(-50%) !important;
-      max-width: 55% !important;
-      overflow-x: auto !important;
-      display: flex !important;
-      justify-content: center !important;
-      background: transparent !important;
-      border: none !important;
-    }
-
-    .admin-top .admin-nav button {
-      flex: 0 0 auto !important;
-    }
-
-    /* Same weight active/inactive: active already reads via full-white +
-       underline indicator; this stops sibling tabs nudging on each switch */
-    .admin-top .admin-nav button.active {
-      font-weight: 400 !important;
-    }
-
-    /* Narrow/vertical guard: long titles truncate, tabs keep a
-       scrollable centered slot — they can never collide */
+    /* Narrow/vertical guard: long titles truncate (tabs live in the
+       sidebar rail now — the old top-bar centering rules were deleted
+       as inert in the dead-code pass). */
     @media (max-width: 1200px) {
       .admin-top .admin-title {
         max-width: 30vw !important;
         min-width: 0 !important;
         flex-shrink: 1 !important;
-      }
-
-      .admin-top .admin-nav {
-        max-width: 46% !important;
       }
     }
 
@@ -2658,8 +2503,7 @@
        large main workspace + narrow right rail). Panes live in
        .admin-main; #adminNav moves into .admin-side verbatim (same
        node, same IDs) so the data-tab delegation in ui_app.js is
-       untouched. The old .admin-top .admin-nav centering rules go
-       inert (no match). */
+       untouched. */
     #adminLayer .admin-body {
       flex-direction: row !important;
     }
@@ -3383,20 +3227,8 @@
        Text-first, hairline editorial layout
        ============================================================ */
 
-    #pane-students .tab-toolbar {
-      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
-      padding: 10px clamp(16px, 3vw, 32px) !important;
-      margin-bottom: 20px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 10px 18px !important;
-      flex-wrap: wrap !important;
-      background: transparent !important;
-      height: auto !important;
-      min-height: 48px !important;
-      overflow: visible !important;
-    }
+    /* (Students toolbar shell deleted as dead — the bar is display:none;
+       rail .side-ctx rows are the live controls.) */
 
     /* Search magnifier: static text glyph, never interactive.
        Wrapper keeps the full-width search row so icon + field
@@ -5966,11 +5798,6 @@
       opacity: 1 !important;
     }
 
-    /* 4. Attendance Workspace (#pane-attendance) */
-    #pane-attendance {
-      opacity: 1 !important;
-    }
-
     #pane-attendance,
     #pane-attendance th,
     #pane-attendance td,
@@ -5990,70 +5817,10 @@
       background: transparent !important;
     }
 
-    #pane-attendance .tab-toolbar {
-      display: flex !important;
-      flex-wrap: wrap !important;
-      align-items: center !important;
-      gap: 20px !important;
-      padding: 10px clamp(16px, 3vw, 32px) !important;
-      background: transparent !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
-      min-height: 44px !important;
-      font-family: var(--sans) !important;
-      text-transform: none !important;
-      letter-spacing: normal !important;
-      font-size: 11px !important;
-      font-weight: 400 !important;
-      color: #F2F3F6 !important;
-      white-space: nowrap !important;
-    }
-
-    #pane-attendance .tab-toolbar select,
-    #pane-attendance .tab-toolbar .gsel,
-    #pane-attendance .tab-toolbar .gsel-btn,
-    #pane-attendance .tab-toolbar button,
-    #pane-attendance .tab-toolbar a,
-    #pane-attendance .tab-toolbar input {
-      font-family: var(--sans) !important;
-      letter-spacing: normal !important;
-      font-size: 11.5px !important;
-      font-weight: 400 !important;
-      color: #F2F3F6 !important;
-      white-space: nowrap !important;
-      margin: 0 !important;
-      cursor: pointer !important;
-    }
-
-    #pane-attendance .tab-toolbar select,
-    #pane-attendance .tab-toolbar .gsel-btn {
-      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='none' stroke='%23F2F3F6' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round' d='M1 1l3 3 3-3'/%3E%3C/svg%3E") no-repeat right 2px center !important;
-      appearance: none !important;
-      -webkit-appearance: none !important;
-      border: 0 !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 0 !important;
-      height: 28px !important;
-      padding: 0 16px 0 2px !important;
-      outline: none !important;
-      transition: border-color 140ms ease, color 140ms ease !important;
-    }
-
-    /* Single chevron: the custom button already carries the system's text
-       chevron, so the painted SVG arrow would double it (SVG stays on the
-       native select as the no-JS fallback) */
-    #pane-attendance .tab-toolbar .gsel-btn {
-      background-image: none !important;
-    }
-
-    #pane-attendance .tab-toolbar #attRefreshBtn {
-      order: 99 !important;
-      margin-left: auto !important;
-      font-size: 14px !important;
-      letter-spacing: normal !important;
-    }
-
-    /* (Retired toolbar date-field paint removed with the sidebar move:
-       the rail twin above is the single truth. The bar stays hidden.) */
+    /* (Attendance toolbar paint deleted as dead in the dead-code pass:
+       the bar is [hidden] + guard; the rail owns all visible controls.
+       Live rules kept below: #attDatePreset hide, dark .seg-btn voice,
+       #attDateLabel / #attModeBadge, #attApplyBtn default-hide.) */
 
     /* Date preset segmented strip: the Today→Academic Year options
        render as an inline left→right strip instead of a popup window.
@@ -6063,39 +5830,8 @@
       display: none !important;
     }
 
-    #pane-attendance .tab-toolbar .seg-strip {
-      display: inline-flex !important;
-      align-items: center !important;
-      flex-wrap: wrap !important;
-      gap: 4px 16px !important;
-      background: transparent !important;
-      border: none !important;
-    }
-
-    #pane-attendance .tab-toolbar .seg-btn {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      font-family: var(--sans) !important;
-      font-size: 11.5px !important;
-      font-weight: 500 !important;
-      letter-spacing: normal !important;
-      cursor: pointer !important;
-      padding: 4px 2px !important;
-      transition: none !important;
-      position: relative !important;
-    }
-
-    #pane-attendance .tab-toolbar .seg-btn:hover {
-      color: #181A20 !important;
-    }
-
-    #pane-attendance .tab-toolbar .seg-btn.active {
-      color: #181A20 !important;
-      box-shadow: none !important;
-    }
+    /* (Toolbar seg-strip paint deleted as dead — the strip is built in
+       the sidebar rail; rail .seg-* rules below are the live ones.) */
 
     html[data-ink="dark"] #adminLayer#adminLayer .seg-btn:hover {
       color: #F2F3F6 !important;
@@ -6105,107 +5841,21 @@
       color: #F2F3F6 !important;
     }
 
-    /* Section Clear lives inside the preset bar as its last item —
-       same voice as the presets; a 1px hairline parts it from the spans */
-    #pane-attendance .tab-toolbar .seg-btn.seg-clear {
-      text-decoration: none !important;
-      margin-left: 0 !important;
-    }
+    /* (Toolbar seg-clear paint deleted as dead with the strip rules —
+       the Clear button lives in the sidebar rail strip.) */
 
-    #pane-attendance .tab-toolbar .seg-sep {
-      width: 1px !important;
-      height: 14px !important;
-      background: currentColor !important;
-      opacity: 0.3 !important;
-      align-self: center !important;
-      pointer-events: none !important;
-    }
-
-    /* Students toolbar: one quiet row — no underlines anywhere, one
-       thin voice (11/400/0.04em, 28px) across filters + actions */
-    #pane-students .tab-toolbar select,
-    #pane-students .tab-toolbar .gsel-btn,
-    #pane-students .tab-toolbar .btn {
-      border-bottom: none !important;
-      font-size: 11px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      height: 28px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      text-decoration: none !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      margin-left: 0 !important;
-    }
-
-    #pane-students .tab-toolbar select:hover,
-    #pane-students .tab-toolbar .gsel-btn:hover,
-    #pane-students .tab-toolbar .btn:not(.primary):hover {
-      color: #181A20 !important;
-    }
-
-    /* Contained primary keeps its brightening hover (quiet-row resting
-       outranks the old Lattice rule, so the text goes explicit here) */
-    #pane-students .tab-toolbar .btn.primary:hover {
-      color: #F2F3F6 !important;
-    }
-
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .tab-toolbar select:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .tab-toolbar .gsel-btn:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .tab-toolbar .btn:not(.primary):hover {
-      color: #F2F3F6 !important;
-    }
-
-    #pane-attendance .tab-toolbar select:hover,
-    #pane-attendance .tab-toolbar select:focus,
-    #pane-attendance .tab-toolbar .gsel-btn:hover {
-      border-bottom-color: #F2F3F6 !important;
-      color: #F2F3F6 !important;
-    }
-
-    /* Action links: REFRESH, PRINT, EXPORT CSV */
-    #pane-attendance .tab-toolbar .btn,
-    #pane-attendance .tab-toolbar button.btn,
-    #attRefreshBtn,
-    #attPrintBtn,
-    #attExportCsvBtn {
-      background: transparent !important;
-      border: 0 !important;
-      border-radius: 0 !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      font-family: var(--sans) !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      font-weight: 500 !important;
-      text-transform: uppercase !important;
-      text-decoration: underline !important;
-      height: auto !important;
-      padding: 2px 4px !important;
-      cursor: pointer !important;
-      outline: none !important;
-      transition: color 140ms ease !important;
-    }
-
-    #pane-attendance .tab-toolbar .btn:hover,
-    #pane-attendance .tab-toolbar button.btn:hover,
-    #attRefreshBtn:hover,
-    #attPrintBtn:hover,
-    #attExportCsvBtn:hover {
-      color: #F2F3F6 !important;
-    }
+    /* (Toolbar seg-sep, students quiet-row voice, attendance hover voice,
+       and action-link paint deleted as dead — all scoped to the hidden
+       bars. Rail rows carry the live voice.) */
 
     /* Hide Stray APPLY Button until custom date/range input is active */
     #attApplyBtn {
       display: none !important;
     }
 
-    /* (Retired toolbar contained Apply box removed: the rail twin is
-       the single truth. The bar stays hidden.) */
-
     /* Metadata label above KPIs (#attDateLabel, #attDatePreset) */
     #attDateLabel,
-    #attDatePreset,
-    #pane-attendance .tab-toolbar .gsel-btn {
+    #attDatePreset {
       color: #F2F3F6 !important;
       font-family: var(--sans) !important;
       font-weight: 400 !important;
@@ -10204,30 +9854,8 @@
       border-bottom-color: rgba(24, 26, 32, 0.35) !important;
     }
 
-    /* D12 — attendance filter underlines (native select + visible
-       custom button share the same 0.2/FFF values as setup/search) */
-    html[data-ink="dark"] #adminLayer #pane-attendance .tab-toolbar select,
-    html[data-ink="dark"] #adminLayer #pane-attendance .tab-toolbar .gsel-btn {
-      border-bottom-color: rgba(24, 26, 32, 0.35) !important;
-    }
-
-    html[data-ink="dark"] #adminLayer #pane-attendance .tab-toolbar select:hover,
-    html[data-ink="dark"] #adminLayer #pane-attendance .tab-toolbar select:focus,
-    html[data-ink="dark"] #adminLayer #pane-attendance .tab-toolbar .gsel-btn:hover {
-      border-bottom-color: #181A20 !important;
-    }
-
-    /* D13 — students filter underlines (same 0.2/FFF family) */
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar select,
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar .gsel-btn {
-      border-bottom-color: rgba(24, 26, 32, 0.35) !important;
-    }
-
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar select:hover,
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar select:focus,
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar .gsel-btn:hover {
-      border-bottom-color: #181A20 !important;
-    }
+    /* (D12/D13 toolbar underline twins deleted as dead — both bars are
+       hidden; rail rows carry the live underline voice.) */
 
     /* D14 — custom-dropdown buttons: the visible Academic-Year line is the
        .gsel-btn (JS wraps EVERY select), not the hidden native select.
@@ -10620,9 +10248,6 @@
             </div>
           </div>
         </div>
-        <!-- Backward compatibility anchors for legacy tab/pane references -->
-        <div id="pane-today" class="admin-pane hidden" style="display:none"></div>
-        <div id="pane-reports" class="admin-pane hidden" style="display:none"></div>
         <!-- Setup: School Configuration & Schedule (Unified) -->
         <div class="admin-pane hidden" id="pane-setup">
           <!-- Setup secondary bar: same two-bar geometry as Students /
@@ -10703,9 +10328,6 @@
           </div>
           <!-- Record tables and School Information live in the Setup popups below. -->
         </div>
-        <!-- Hidden compatibility aliases for pane-calendar and pane-settings -->
-        <div id="pane-calendar" class="admin-pane hidden" style="display:none"></div>
-        <div id="pane-settings" class="admin-pane hidden" style="display:none"></div>
         <!-- Backup -->
         <div class="admin-pane hidden" id="pane-backup">
           <div class="detail-scroll">
@@ -10996,10 +10618,6 @@
             <button data-tab="attendance">Attendance</button>
             <button data-tab="setup">Setup</button>
             <button data-tab="backup">Backup</button>
-            <button data-tab="today" style="display:none"></button>
-            <button data-tab="reports" style="display:none"></button>
-            <button data-tab="calendar" style="display:none"></button>
-            <button data-tab="settings" style="display:none"></button>
           </div>
           <div class="side-ctx" id="sideCtx-students" data-side="students">
             <div class="side-sep" aria-hidden="true"></div>

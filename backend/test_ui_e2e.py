@@ -1119,6 +1119,66 @@ class UiE2eTest(unittest.TestCase):
         self.page.click("#adminClose")
         self.page.wait_for_function("!document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
 
+    def test_16_dead_code_guard_no_resurrected_selectors(self):
+        """Dead-code pass guard: removed selectors match nothing; keepers still live; all 4 tabs switch."""
+        self.page.goto(f"{_BASE_URL}/", wait_until="networkidle")
+
+        self.page.once("dialog", lambda dialog: dialog.accept("1234"))
+        self.page.click("#openAdminBtn")
+        self.page.wait_for_function("document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
+
+        # 1. Removed selectors match zero nodes (inert nav, compat panes/buttons, toolbar-scoped paint hooks)
+        dead = [
+            ".admin-top .admin-nav",
+            ".admin-top .admin-nav button",
+            "#pane-today",
+            "#pane-reports",
+            "#pane-calendar",
+            "#pane-settings",
+            "#adminNav button[data-tab='today']",
+            "#adminNav button[data-tab='reports']",
+            "#adminNav button[data-tab='calendar']",
+            "#adminNav button[data-tab='settings']",
+            "#pane-attendance .tab-toolbar .seg-strip",
+            "#pane-attendance .tab-toolbar .seg-btn",
+            "#pane-students .tab-toolbar .gsel-btn",
+            "#todayRefreshBtn",
+            "#reportApplyBtn",
+            "#classScheduleModal",
+        ]
+        for sel in dead:
+            self.assertEqual(self.page.locator(sel).count(), 0, f"resurrected selector: {sel}")
+
+        # 2. Keepers: hidden truth nodes stay; rail owns the visible controls
+        self.assertEqual(self.page.locator("#pane-attendance .tab-toolbar").count(), 1)
+        self.assertFalse(self.page.locator("#pane-attendance .tab-toolbar").is_visible())
+        self.assertEqual(self.page.locator("#adminSide #adminNav button:visible").count(), 4)
+        self.assertTrue(self.page.locator("#sideCtx-students").is_visible())
+        self.assertEqual(self.page.locator("#attDatePreset").count(), 1)
+
+        # 3. All four tabs switch panes + titles with the simplified updateTabs
+        tabs = [
+            ("students", "pane-students", "Students"),
+            ("attendance", "pane-attendance", "Today — Attendance"),
+            ("setup", "pane-setup", "Setup — School Configuration & Schedule"),
+            ("backup", "pane-backup", "Backup — Audit"),
+        ]
+        for tab_id, pane_id, expected_title in tabs:
+            self.page.click(f"#adminNav button[data-tab='{tab_id}']")
+            self.page.wait_for_function(f"!document.getElementById('{pane_id}').classList.contains('hidden')")
+            title_el = self.page.locator("#adminTitle")
+            self.assertEqual(title_el.inner_text().strip().upper(), expected_title.upper())
+
+        # 4. Sidebar seg-strip owns the preset (hidden native select stays truth)
+        self.page.click("#adminNav button[data-tab='attendance']")
+        self.page.wait_for_function("!document.getElementById('pane-attendance').classList.contains('hidden')")
+        self.assertTrue(self.page.locator("#sideCtx-attendance .seg-strip").is_visible())
+        self.assertFalse(self.page.locator("#attDatePreset").is_visible())
+
+        # Close Admin
+        self.page.click("#adminClose")
+        self.page.wait_for_function("!document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

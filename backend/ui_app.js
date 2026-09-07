@@ -2167,28 +2167,19 @@ async function openAdmin(){
   const titles={
     students: "Students",
     attendance: "Today — Attendance",
-    today: "Today — Attendance",
-    reports: "Attendance",
     setup: "Setup — School Configuration & Schedule",
-    calendar: "Setup — School Configuration & Schedule",
-    settings: "Setup — School Configuration & Schedule",
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
   // show loading briefly while data refreshes
-  let activeTabName = currentTab;
-  if(activeTabName === "calendar" || activeTabName === "settings") activeTabName = "setup";
-  if(activeTabName === "today" || activeTabName === "reports") activeTabName = "attendance";
-  const pane=document.getElementById("pane-"+activeTabName);
+  const pane=document.getElementById("pane-"+currentTab);
   if(pane) pane.style.opacity="0.6";
   adminLayer.classList.add("open"); renderAll();
   setTimeout(()=>{ if(pane) pane.style.opacity=""; updateTabs(); }, 80);
 }
 function updateTabs(){
   document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
-  let tab = currentTab;
-  if(tab === "calendar" || tab === "settings") tab = "setup";
-  if(tab === "today" || tab === "reports") tab = "attendance";
+  const tab = currentTab;
   const pane = document.getElementById("pane-" + tab);
   if(pane){ pane.classList.remove("hidden"); pane.style.opacity = ""; }
   /* Sidebar context follows the tab: only the active page's secondary
@@ -2199,30 +2190,14 @@ function updateTabs(){
      The opened section starts at top (nav stays fixed above it; the
      section scrolls internally, never the rail or the workspace). */
   try{ document.querySelectorAll('#adminSide [data-side]').forEach(s=>{ const on=(s.dataset.side===tab); s.hidden=!on; if(on){ try{ s.scrollTop=0; }catch(_){} } }); }catch(e){}
-  const pToday = document.getElementById("pane-today");
-  const pReports = document.getElementById("pane-reports");
-  if(tab === "attendance"){
-    if(pToday) pToday.classList.remove("hidden");
-    if(pReports) pReports.classList.remove("hidden");
-  }
-  const pCal = document.getElementById("pane-calendar");
-  const pSet = document.getElementById("pane-settings");
-  if(tab === "setup"){
-    if(pCal) pCal.classList.remove("hidden");
-    if(pSet) pSet.classList.remove("hidden");
-  }
   const titles = {
     students: "Students",
     attendance: "Today — Attendance",
-    today: "Today — Attendance",
-    reports: "Attendance",
     setup: "Setup — School Configuration & Schedule",
-    calendar: "Setup — School Configuration & Schedule",
-    settings: "Setup — School Configuration & Schedule",
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent = titles[currentTab] || "Admin";
-  if(tab === "attendance" || tab === "today" || tab === "reports"){
+  if(tab === "attendance"){
     if(currentTab === "attendance" && attDatePreset && !attDatePreset.value) attDatePreset.value = "today";
     renderAttendance();
   }
@@ -2258,15 +2233,7 @@ adminNav.onclick=(e)=>{
   [...adminNav.children].forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
   currentTab = btn.dataset.tab;
-  if(currentTab === "calendar" || currentTab === "settings"){
-    const setupBtn = adminNav.querySelector("button[data-tab='setup']");
-    if(setupBtn) setupBtn.classList.add("active");
-  }
-  if(currentTab === "today" || currentTab === "reports"){
-    const attBtn = adminNav.querySelector("button[data-tab='attendance']");
-    if(attBtn) attBtn.classList.add("active");
-  }
-  if(currentTab === "attendance" || currentTab === "today"){
+  if(currentTab === "attendance"){
     if(attDatePreset) attDatePreset.value = "today";
   }
   updateTabs();
@@ -2358,7 +2325,7 @@ const handleAttendancePrint = () => {
     </div>`;
 
   const stats = (attStats && attStats.children.length) ? `<div class="stats-row">${attStats.innerHTML}</div>` : "";
-  const mainTbl = document.querySelector('#pane-attendance .table-wrap:first-of-type') || document.querySelector('#pane-today .table-wrap:first-of-type');
+  const mainTbl = document.querySelector('#pane-attendance .table-wrap:first-of-type');
   const tblHtml = mainTbl ? mainTbl.outerHTML : "";
 
   let unknownsHtml = "";
@@ -2458,7 +2425,7 @@ const handleAttendanceExport = async () => {
 };
 
 const handleAttendanceRefresh = async () => {
-  const btn = attRefreshBtn || $("todayRefreshBtn");
+  const btn = attRefreshBtn;
   if(btn){ btn.disabled = true; }
   try {
     await loadTodayAttendance();
@@ -2472,14 +2439,6 @@ if(attRefreshBtn) attRefreshBtn.onclick = handleAttendanceRefresh;
 if(attPrintBtn) attPrintBtn.onclick = handleAttendancePrint;
 if(attExportBtn) attExportBtn.onclick = handleAttendanceExport;
 if(attApplyBtn) attApplyBtn.onclick = renderAttendance;
-
-// Connect legacy button aliases
-if($("todayRefreshBtn")) $("todayRefreshBtn").onclick = handleAttendanceRefresh;
-if($("todayPrintBtn")) $("todayPrintBtn").onclick = handleAttendancePrint;
-if($("todayExportBtn")) $("todayExportBtn").onclick = handleAttendanceExport;
-if($("reportApplyBtn")) $("reportApplyBtn").onclick = renderAttendance;
-if($("reportPrintBtn")) $("reportPrintBtn").onclick = handleAttendancePrint;
-if($("reportCsvBtn")) $("reportCsvBtn").onclick = handleAttendanceExport;
 
 if(attDatePreset) attDatePreset.addEventListener("change", () => {
   const v = attDatePreset.value;

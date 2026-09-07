@@ -172,12 +172,9 @@ trust the code, then fix this file.
   nothing. Students' bar is `display:none` (still anchors the CSV-import
   fallback); Attendance's bar is `[hidden]` + a `display:none !important`
   override. Never delete these nodes — E2E and the gsel/seg builders
-  address them by ID.
-- **Compatibility aliases** (dead tabs, never remove): hidden
-  `#pane-today` / `#pane-reports` (unhidden with Attendance),
-  `#pane-calendar` / `#pane-settings` (unhidden with Setup), hidden nav
-  buttons `today|reports|calendar|settings` (mapped back to their parent
-  tab + active state on click).
+  address them by ID. Their *paint* was deleted as dead (dead-code pass):
+  only live-group members, the `[hidden]` guard, and pointer comments
+  remain — never re-add bar paint, surface controls in the rail instead.
 
 ## 5. Students pane
 
