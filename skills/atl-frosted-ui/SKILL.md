@@ -54,20 +54,36 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
 
 ## Component treatments (approved direction — preserve)
 
-- **Students toolbar:** centered two-row editorial group. Row 1: search alone
-  (`flex: 1 1 100%`, `max-width: 560px`, transparent + bottom hairline only).
-  Row 2: filters + actions centered with gap spacing (no containers). Search
-  220–560px comfort range; wrap gracefully on narrow, never clip, never touch
-  viewport edge.
+- **Sidebar shell (current):** admin = top bar (title + ink/esc/close)
+  + main workspace + fixed 248px right rail (`#adminSide`: vertical
+  `#adminNav` stack, then exactly one visible `.side-ctx` per tab —
+  Students filters/actions · Attendance presets · Setup wheel/school/
+  holiday/override/eyes · Backup none). Retired `.tab-toolbar` nodes stay
+  in the DOM as hidden logic truth (never delete). `updateTabs` toggles
+  `[hidden]` sections only.
+- **Students controls:** filters + New Enrollment / Import / Export live in
+  the rail as full-width quiet rows; search lives pinned at the roster
+  list bottom (`.list-search` fade wash, icon + field one line). No
+  toolbar rows anywhere.
+- **Header nav:** the tab stack lives in the RIGHT RAIL, left-aligned
+  44px rows, uniform weight 400 (active reads via opposite-pole color +
+  500, no bar, no dot) — per-tab title-length swings can never push it.
+  The old top-bar-centered-nav rules are dead.
 - **Filters/selects:** transparent, no box/pill, bottom hairline only,
   `11.5px/400` sans. Custom dropdown (`gsel`) rule: the native `<select>` is
   invisible truth (`opacity: 0`, `pointer-events: none`) and `.gsel-btn` shows
   the value — NEVER set `opacity: 1` on a select or the value renders twice.
-- **Header nav:** tabs live INSIDE `.admin-top`, absolutely centered
-  (`left: 50% + translateX(-50%)`, `max-width: 55%`, scrollable) so per-tab
-  title-length swings ("Students" vs "Setup — School Configuration &
-  Schedule") can never push them. Uniform weight 400 active+inactive (active
-  reads via full-white + underline); weight swaps cause layout shift.
+- **Header nav:** see Sidebar shell above — tabs are a vertical rail
+  stack, uniform weight 400 active+inactive (active reads via full ink +
+  500); weight swaps cause layout shift, bars/dots are retired.
+- **Attendance presets:** a `seg-strip` built from the hidden
+  `attDatePreset` truth (buttons write value + fire change); Academic /
+  Range fan hover frost pops. Never a dropdown here.
+- **Setup shortcuts:** the Action Wheel (hub + 5 sectors, hover fans,
+  click lands on the real rail/pane destination) and the sidebar eye
+  icons (record tables live in `#holidayViewModal`/`#overrideViewModal`;
+  creation uses `#holidayModal`/`#overrideModal`). One path per action —
+  wheel/eyes open the same destinations, never duplicate logic.
 - **Profile placeholder:** no card, no border, transparent, ambient visible
   through; initials in serif `22px/400`, soft white `0.85`. Same size/position,
   text and function unchanged.
