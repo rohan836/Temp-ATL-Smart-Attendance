@@ -236,56 +236,56 @@ trust the code, then fix this file.
   (header, metadata, KPIs, table, unknowns); Export streams backend CSV
   for the current range + filters.
 
-## 7. Setup pane
+## 7. Setup pane (wheel + Month View)
 
-- **Workspace toolbar** (`#setupToolbar`, kept — this bar was never
-  retired): left CLASSES|BATCHES tabs + Wheel button; center Month View
-  legend (WORKING / NON-WORKING / OVERRIDE filter chips) + schedule
-  context selector (`#calClassSelect`); right Prev / month label / Next /
-  Today. Priority footer always visible: *Override → Holiday/Vacation →
-  Weekly*.
-- **Classes & Batches** (`#cubeGrid` + add rows): one list, one add per
-  view; `setCubeView` swaps kind and follows selection to the first item
-  so the right side never disagrees. Class tiles nest their batches by
-  display regroup only (batch nests under a class iff ≥1 student carries
-  both; zero-student batches collect in an Ungrouped tile last — zero data
-  change). Adds POST to `/api/settings` (`classes` / `batches`, duplicate
-  names rejected case-insensitively) and re-render. Batch creation lives
-  only in the BATCHES tab via the single `submitBatchName` path; new names
-  surface there until a student carries them into a class.
+- **Workspace toolbar** (`#setupToolbar`): center Month View legend
+  (WORKING / NON-WORKING / OVERRIDE filter chips) + schedule context
+  selector (`#calClassSelect`); right Prev / month label / Next / Today.
+  No left section — registry tabs and the Wheel button moved out (the
+  rail `Action Wheel` is the single wheel door). Priority footer always
+  visible: *Override → Holiday/Vacation → Weekly*.
+- **Month grid** (`#calendarGrid`, `renderCalendarMonth`): leading blanks +
+  date cells + trailing fillers (fillers keep the last week full so the
+  state row below always starts SUN under Sunday). Each cell resolves its
+  state for the active context — `override` (note as tag) · `working` ·
+  `non-working` (holiday name as tag) — plus a `today` ring. Cells are
+  text-first, never cards, never clickable; fixed 7 columns; 5-row vs
+  6-row months reserve identical geometry.
+- **Weekday state row sits BELOW the date grid**, inside the same
+  `#calendarGrid` so the 7-column alignment holds. Display-only `div`s
+  (staged `pendingDays` overlay still previews here); editing lives in
+  the Schedule window. Legend line above the grid says so.
+- **Schedule window** (`openScheduleModal` → `#schedModal`): the ONE
+  schedule editor — scope select (mirrors `#calClassSelect`, writes
+  through it), registry (`#classCubes`: CLASSES|BATCHES tabs, `#cubeGrid`
+  tiles with counts + delete bins, inline add rows), 7 staged weekday
+  toggles (`#schedWeekRow`, `pendingDays`, never persisted until Save),
+  per-scope Present/Late cutoffs + inherit notice
+  (`#schedTimingNotice`), one Save/Cancel. Save composes staged days,
+  runs the timing save (global-capable), closes the window; the Month
+  View re-renders behind it. First class is default-selected; global
+  scope shows saved days as display with timing editable.
+- **Classes & Batches** (registry inside the window): one list, one add
+  per view; `setCubeView` swaps kind and follows selection to the first
+  item. Class tiles nest their batches by display regroup only (zero
+  data change). Adds POST to `/api/settings` (`classes` / `batches`,
+  duplicate names rejected case-insensitively) and re-render. Batch
+  creation lives only in the BATCHES tab via the single
+  `submitBatchName` path; new names surface there until a student
+  carries them into a class.
 - **Context selector values**: `""` = Global (all classes & batches),
   `class:Name`, `batch:Name` (bare legacy names and `Grade|Batch`
   composite keys still parse). It retargets editor + month + roster
-  together — toolbar, month, list and editor can never disagree.
-- **Month grid** (`#calendarGrid`, `renderCalendarMonth`): leading blanks +
-  date cells + trailing fillers (fillers keep the last week full so the
-  header row below always starts SUN under Sunday). Each cell resolves its
-  state for the active context — `override` (note as tag) · `working` ·
-  `non-working` (holiday name as tag) — plus a `today` ring. Cells are
-  text-first, never cards; fixed 7 columns; 5-row vs 6-row months reserve
-  identical geometry.
-- **Weekday template header sits BELOW the date grid**, inside the same
-  `#calendarGrid` so both delegated editors keep working. The
-  `SUN–SAT` buttons stage into `pendingDays` (never persisted); the
-  `#monthEditor` strip (per-context Present/Late cutoffs + Save/Cancel)
-  composes staged days + cutoffs in one persist. Cancel drops the stage.
-  The solid per-context editor (`#classDetail .sched-solid`, `data-cs-day`
-  toggles + timing + inherit notice, same single persist) edits the
-  saved template directly.
-- **Day window** (`openDaySheet` → `#daySheetModal`): clicking any date
-  cell opens the read-only sheet — resolved badge + source line
-  (global-vs-template) + `Close` + `Add override for this date…`, which
-  swaps to the override form with the date prefilled (door only — the eye
-  tables stay the single editor).
+  together — month bar, window, list and editor can never disagree.
 - **Action Wheel** (`openSetupWheel`, `#setupWheelModal`): center SETUP hub
-  (click closes) + 5 SVG sectors — CLASSES (`+ New`, View, Schedules) ·
-  BATCHES (same trio) · CUTOFFS (timings window, present/late quick-edit
-  via `glassPrompt` + `HH:MM` validation) · EXCEPTIONS (add/view holidays
-  + overrides) · SCHOOL INFO (rules window, academic-year focus, admin
-  PIN focus). Hovering a sector fans its outer action arc; clicking an
-  action closes the wheel and opens the real destination (wheel shortcuts
-  click the same sidebar buttons — one path, no duplicate logic).
-  Openers: rail `Action Wheel` button + toolbar `Wheel` button.
+  (click closes) + 6 SVG sectors — CLASSES (Manage, + New) · BATCHES
+  (Manage, + New) · SCHEDULES (Configure, Global) · CUTOFFS (Global
+  cutoffs, Class/Batch) · EXCEPTIONS (add/view holidays + overrides) ·
+  SCHOOL INFO (rules window, academic-year focus, admin PIN focus).
+  Hovering a sector fans its outer action arc; clicking an action closes
+  the wheel and opens the single destination with scope/tab/focus preset
+  (doors, never duplicate logic). Opener: rail `Action Wheel` button.
+  Titles 500 (never 600), no drop shadows — the frosted language.
 - **Sidebar actions + eyes**: `ADD HOLIDAY` / `ADD OVERRIDE` build the
   creation forms into `#holidayModal` / `#overrideModal` (inline
   validation errors, no red boxes); the eye icons open the *record*
@@ -347,13 +347,13 @@ trust the code, then fix this file.
 | Modal | Opened by | Closes by | Purpose |
 |---|---|---|---|
 | `#enrollModal` | kiosk enroll btn, rail New Enrollment, student Re-enroll | veil¹, `Esc` (aborts + re-arms scan), success | profile + 1 Start + 3 captures |
-| `#daySheetModal` | any month date cell | Close btn, veil¹ | read-only day + override shortcut |
-| `#holidayModal` | rail Add Holiday, wheel, day-sheet shortcut | Cancel, veil¹, `Esc`, save | create/edit holiday range |
-| `#overrideModal` | rail Add Override, wheel, day-sheet shortcut (prefilled) | Cancel, veil¹, `Esc`, save | create/edit single-date override |
+| `#holidayModal` | rail Add Holiday, wheel Exceptions | Cancel, veil¹, `Esc`, save | create/edit holiday range |
+| `#overrideModal` | rail Add Override, wheel Exceptions | Cancel, veil¹, `Esc`, save | create/edit single-date override |
 | `#holidayViewModal` | rail eye, wheel All Holidays | Close, veil¹, `Esc` | holiday record table (Edit/Remove) |
 | `#overrideViewModal` | rail eye, wheel All Overrides | Close, veil¹, `Esc` | override record table (Edit/Remove) |
 | `#schoolInfoModal` | rail School Information, wheel (3 actions, focus field) | Cancel, veil¹, `Esc`, save | school profile + rules |
-| `#setupWheelModal` | rail Action Wheel, toolbar Wheel | hub click, veil¹, `Esc`, any action | 5-sector shortcut wheel |
+| `#setupWheelModal` | rail Action Wheel | hub click, veil¹, `Esc`, any action | 6-sector command center |
+| `#schedModal` | wheel (all schedule doors, scope/tab/focus preset) | Cancel, veil¹, `Esc`, save (closes) | the ONE schedule editor |
 | `#correctionModal` | row Correct buttons | veil¹, `Esc` | fix a record (reason required) |
 | `.gconfirm` | any `glassConfirm/Alert/Prompt` | verbs, `Esc`/`Enter`/`Tab` | confirm / notice / input |
 
@@ -363,7 +363,8 @@ finishing a text selection, must never close the window. Enrollment veil
 also aborts the capture loop.
 
 **Esc order** (topmost first): enroll → holiday-view → override-view →
-holiday → override → school-info → wheel → correction → close Admin.
+holiday → override → school-info → wheel → schedule → correction →
+close Admin.
 Enrollment `Esc` while Admin is open aborts capture but keeps Admin.
 
 ## 11. Values & formats (single list — no other copy)
@@ -391,9 +392,13 @@ Enrollment `Esc` while Admin is open aborts capture but keeps Admin.
 - Attendance class / batch / student / status / sort filters are hidden
   truth (value + `change` driven). Surface them in the rail when this
   pane is redesigned — do not build a second filter system.
-- `#daySheetModal` is missing from the `Esc` chain: with only the day
-  sheet open, `Esc` falls through and closes Admin. Add it at the top of
-  the chain (below enroll) when touching overlays.
+- Global-scope weekday toggles stage nothing (same as the old header:
+  staging needs a class/batch selection); global timing saves normally.
+- `glassPrompt` has no callers left (wheel prompts moved inline) but stays
+  as the third glass-dialog primitive beside `glassConfirm`/`glassAlert`.
+- `csCtx`/`syncCsCtx`/`snapshotSchedule`/`paintMonthEditor` remain as inert
+  selection state (guarded no-ops) — remove only with a browser-verified
+  pass.
 - Screenshots trail fixes by a turn: hard-reload (`Ctrl+Shift+R`) +
   Flask restart before judging; Pi needs `tools/deploy.ps1`.
 - Calendar tiles use `12px` (not 24px) blur deliberately for Pi perf.

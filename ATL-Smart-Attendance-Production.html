@@ -4555,120 +4555,10 @@
       text-transform: none !important;
     }
 
-    /* ============================================================
-       DAY-EDITOR WINDOW — same locked treatment as enrollment.
-       Scoped to its shell only. Zero JS/DOM change.
-       ============================================================ */
-    #daySheetModal.modal {
-      background: transparent !important;
-    }
-
-    #daySheetModal .modal-card {
-      background: var(--frost-bg) !important;
-      backdrop-filter: var(--frost-blur) !important;
-      -webkit-backdrop-filter: var(--frost-blur) !important;
-      border: none !important;
-      border-radius: 3px !important;
-      box-shadow: none !important;
-    }
-
-    #daySheetModal .modal-card {
-      max-width: 640px !important;
-    }
-
-    #daySheetModal .modal-card,
-    #daySheetModal .modal-card * {
-      font-family: var(--sans) !important;
-      text-shadow: none !important;
-    }
-
-    #daySheetModal h3 {
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.01em !important;
-      text-transform: none !important;
-      color: #F2F3F6 !important;
-    }
-
-    #daySheetModal label {
-      color: rgba(242, 243, 246, 0.7) !important;
-      opacity: 1 !important;
-      font-size: 9.5px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-    }
-
-    #daySheetModal input:not([type=file]):not([type=checkbox]),
-    #daySheetModal select,
-    #daySheetModal textarea {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 0 !important;
-      color: #F2F3F6 !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      letter-spacing: normal !important;
-      box-shadow: none !important;
-      color-scheme: dark !important;
-    }
-
-    #daySheetModal input:focus,
-    #daySheetModal select:focus,
-    #daySheetModal textarea:focus {
-      border-bottom-color: #F2F3F6 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    #daySheetModal input::placeholder,
-    #daySheetModal textarea::placeholder {
-      color: rgba(242, 243, 246, 0.4) !important;
-      font-weight: 400 !important;
-    }
-
-    /* Native select stays invisible truth under the custom button */
-    #daySheetModal .gsel > select {
-      opacity: 0 !important;
-    }
-
-    #daySheetModal .gsel-btn,
-    #daySheetModal .form-field .gsel-btn {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      color: #F2F3F6 !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      letter-spacing: normal !important;
-    }
-
-    #daySheetModal .gsel-btn:hover,
-    #daySheetModal .gsel.open .gsel-btn {
-      border-bottom-color: #F2F3F6 !important;
-      color: #F2F3F6 !important;
-    }
-
-    /* Holiday/override dropdown underlines join the ink (0.2 family) */
-    html[data-ink="dark"] #daySheetModal#daySheetModal .gsel-btn,
-    html[data-ink="dark"] #daySheetModal#daySheetModal .form-field .gsel-btn {
-      border-bottom-color: rgba(24, 26, 32, 0.35) !important;
-    }
-
-    html[data-ink="dark"] #daySheetModal#daySheetModal .gsel-btn:hover,
-    html[data-ink="dark"] #daySheetModal#daySheetModal .gsel.open .gsel-btn {
-      border-bottom-color: #181A20 !important;
-    }
-
+    /* (Day-sheet window deleted with the view-only Month View — its solo
+       paint went with it; shared modal groups below keep their live
+       members. The ghost .sched-solid members were dead too and go here.) */
     /* Modal field underlines (same 0.2/FFF family as setup D11) */
-    html[data-ink="dark"] #daySheetModal#daySheetModal input:not([type="file"]):not([type="checkbox"]),
-    html[data-ink="dark"] #daySheetModal#daySheetModal select,
-    html[data-ink="dark"] #daySheetModal#daySheetModal textarea,
     html[data-ink="dark"] #correctionModal#correctionModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #correctionModal#correctionModal select,
     html[data-ink="dark"] #correctionModal#correctionModal textarea,
@@ -4677,14 +4567,10 @@
     html[data-ink="dark"] #holidayModal#holidayModal textarea,
     html[data-ink="dark"] #overrideModal#overrideModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #overrideModal#overrideModal select,
-    html[data-ink="dark"] #overrideModal#overrideModal textarea,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid input:not([type="file"]):not([type="checkbox"]) {
+    html[data-ink="dark"] #overrideModal#overrideModal textarea {
       border-bottom: none !important;
     }
 
-    html[data-ink="dark"] #daySheetModal#daySheetModal input:focus,
-    html[data-ink="dark"] #daySheetModal#daySheetModal select:focus,
-    html[data-ink="dark"] #daySheetModal#daySheetModal textarea:focus,
     html[data-ink="dark"] #correctionModal#correctionModal input:focus,
     html[data-ink="dark"] #correctionModal#correctionModal select:focus,
     html[data-ink="dark"] #correctionModal#correctionModal textarea:focus,
@@ -4693,39 +4579,8 @@
     html[data-ink="dark"] #holidayModal#holidayModal textarea:focus,
     html[data-ink="dark"] #overrideModal#overrideModal input:focus,
     html[data-ink="dark"] #overrideModal#overrideModal select:focus,
-    html[data-ink="dark"] #overrideModal#overrideModal textarea:focus,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid input:focus {
+    html[data-ink="dark"] #overrideModal#overrideModal textarea:focus {
       border-bottom: none !important;
-    }
-
-    #daySheetModal .gsel-chev {
-      color: rgba(242, 243, 246, 0.6) !important;
-    }
-
-
-    #daySheetModal .btn.primary {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      font-weight: 500 !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      text-decoration: none !important;
-      height: auto !important;
-      padding: 4px 6px !important;
-      cursor: pointer !important;
-      white-space: nowrap !important;
-      transition: none !important;
-    }
-
-    #daySheetModal .btn.primary:hover {
-      background: transparent !important;
-      border: none !important;
-      color: #181A20 !important;
-      text-decoration: none !important;
     }
 
     /* ============================================================
@@ -5451,7 +5306,6 @@
       max-width: 90vw;
       max-height: 82vh;
       overflow: visible;
-      filter: drop-shadow(0 18px 48px rgba(0, 0, 0, 0.4));
     }
 
     .wheel-slice {
@@ -5499,7 +5353,7 @@
 
     .wheel-slice .slice-title {
       font-size: 10px;
-      font-weight: 600;
+      font-weight: 500;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       fill: #F2F3F6;
@@ -5539,7 +5393,7 @@
     .wheel-hub text.hub-title {
       font-family: var(--sans);
       font-size: 10px;
-      font-weight: 600;
+      font-weight: 500;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       fill: #F2F3F6;
@@ -5629,167 +5483,24 @@
       color: rgba(24, 26, 32, 0.55) !important;
     }
 
-    /* ============================================================
-       CLASS/BATCH SCHEDULE EDITOR — the single solid schedule editor.
-       Same locked dialog treatment (veil, card, type, actions);
-       weekday buttons reuse .weekly-day-card both inks, so only
-       the row grid is scoped here. Zero persist change.
-       ============================================================ */
-    #classDetail .sched-solid h3 {
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.01em !important;
-      text-transform: none !important;
-      color: #F2F3F6 !important;
-    }
-
-    #csDays {
-      display: grid !important;
-      grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-      gap: 6px !important;
-      margin: 12px 0 14px !important;
-    }
-
-    #csDays .weekly-day-card {
-      cursor: pointer !important;
-    }
-
-    #classDetail .sched-solid label {
-      color: rgba(242, 243, 246, 0.7) !important;
-      opacity: 1 !important;
-      font-size: 9.5px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-    }
-
-    #classDetail .sched-solid input:not([type=file]):not([type=checkbox]) {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: none !important;
-      border-radius: 0 !important;
-      color: #F2F3F6 !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      letter-spacing: normal !important;
-      box-shadow: none !important;
-      outline: none !important;
-      color-scheme: dark !important;
-    }
-
-    #classDetail .sched-solid input:focus {
-      border-bottom: none !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      outline: none !important;
-    }
-
-    /* Button row sits alone — pin row layout explicitly */
-    #classDetail .sched-solid .form-field:has(#csSaveTiming) {
-      flex-direction: row !important;
-      align-items: center !important;
-      justify-content: flex-end !important;
-      gap: 12px !important;
-    }
-
-    /* Both actions plain clickable text (no split-brain) */
-    #classDetail .sched-solid #csSaveTiming,
-    #classDetail .sched-solid .btn.primary,
-    #classDetail .sched-solid .btn:not(.primary) {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      font-weight: 500 !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      text-decoration: none !important;
-      height: auto !important;
-      padding: 4px 6px !important;
-      cursor: pointer !important;
-      white-space: nowrap !important;
-      transition: none !important;
-    }
-
-    /* Save answers hover with the pointer cursor only — no color
-       flip, no motion (schedule is read-solid). */
-    #classDetail .sched-solid #csSaveTiming:hover,
-    #classDetail .sched-solid .btn.primary:hover,
-    #classDetail .sched-solid .btn:not(.primary):hover {
-      background: transparent !important;
-      border: none !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      text-decoration: none !important;
-    }
-
-    #classDetail .sched-solid #csTimingNotice {
-      background: transparent !important;
-      border: none !important;
-      color: rgba(242, 243, 246, 0.45) !important;
-      font-family: var(--sans) !important;
-      font-size: 10.5px !important;
-      font-weight: 400 !important;
-      padding: 0 !important;
-      text-transform: none !important;
-    }
+    /* (Ghost schedule-editor paint deleted: the .sched-solid / #csDays
+       editor was never built — the Schedule window below is the one
+       editor. Shared selection groups keep their live schoolInfo members.) */
 
     /* (1) Clock glyph: the boxed native indicator is retired by D5
        below — the custom frost trigger left standing already wears
        the text language (small, ink-2, no box), both inks. */
     /* (2) No OS blue: drag-select across time numbers gets an
        ink-tone wash inside the popup, both inks */
-    #classDetail .sched-solid input[type="time"]::selection,
     #schoolInfoModal input[type="time"]::selection,
     #schoolInfoModal input[type="date"]::selection {
       background: rgba(242, 243, 246, 0.15) !important;
       color: #F2F3F6 !important;
     }
 
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid input[type="time"]::selection,
     html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input[type="time"]::selection,
     html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input[type="date"]::selection {
       background: rgba(24, 26, 32, 0.15) !important;
-      color: #181A20 !important;
-    }
-
-    /* (3) Day buttons are solid text only: no fill, border,
-       radius, shadow, transform, motion — and no hover/focus
-       response at all. Working = full ink, off = dim; the only
-       hover answer is the pointer cursor. */
-    #csDays .weekly-day-card,
-    #csDays .weekly-day-card.working,
-    #csDays .weekly-day-card.off,
-    #csDays .weekly-day-card:hover,
-    #csDays .weekly-day-card:focus,
-    #csDays .weekly-day-card.working:hover,
-    #csDays .weekly-day-card.off:hover {
-      background: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      outline: none !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      transform: none !important;
-      transition: none !important;
-    }
-
-    /* Day toggles: name and status one solid color in both states —
-       only the WORKING/OFF word swaps on click. No fade, no hover
-       shift, no motion (cursor pointer is the whole answer). */
-    #csDays .weekly-day-card.working .w-name,
-    #csDays .weekly-day-card.working .w-status,
-    #csDays .weekly-day-card.off .w-name,
-    #csDays .weekly-day-card.off .w-status {
-      color: #F2F3F6 !important;
-    }
-
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card.working .w-name,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card.working .w-status,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card.off .w-name,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card.off .w-status {
       color: #181A20 !important;
     }
 
@@ -6870,139 +6581,8 @@
       box-sizing: border-box !important;
     }
 
-    /* Fluid 3-Column Editorial Grid separated only by thin translucent hairlines */
-    /* Single column: Classes & Batches only (school block lives at the
-       bottom of Setup, below the tables) */
-    #pane-setup .setup-grid {
-      display: grid !important;
-      grid-template-columns: minmax(0, 1fr) !important;
-      gap: 0 !important;
-      align-items: stretch !important;
-      border-bottom: none !important;
-      padding-bottom: 28px !important;
-      margin-bottom: 28px !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
-    }
-
-    /* Responsive wrap on zoom or narrower viewports */
-    @media (max-width: 1160px) {
-      #pane-setup .setup-grid {
-        grid-template-columns: 1fr !important;
-        gap: 28px !important;
-      }
-    }
-
-    /* Strip all card/window boxes: pure transparent flow */
-    #pane-setup .setup-card,
-    #pane-setup .detail-card.setup-card {
-      display: flex !important;
-      flex-direction: column !important;
-      background: transparent !important;
-      background-color: transparent !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      padding: 0 clamp(14px, 2vw, 28px) !important;
-      box-sizing: border-box !important;
-      min-width: 0 !important;
-      height: auto !important;
-    }
-
-    #pane-setup .setup-card:first-child {
-      padding-left: 0 !important;
-    }
-
-    #pane-setup .setup-card:not(:first-child) {
-      border-left: 1px solid rgba(242, 243, 246, 0.12) !important;
-    }
-
-    #pane-setup .setup-card:last-child {
-      padding-right: 0 !important;
-    }
-
-    /* Bottom school card: full-width section below the tables, never a
-       grid column — drop the column divider + side insets so it spans
-       edge to edge (layout-only, both inks inherit) */
-    #pane-setup .setup-card.setup-card-school {
-      border-left: none !important;
-      padding-left: 0 !important;
-      padding-right: 0 !important;
-    }
-
-    @media (max-width: 1160px) {
-      #pane-setup .setup-card {
-        padding: 0 0 28px 0 !important;
-        border-left: none !important;
-        border-bottom: 1px solid rgba(242, 243, 246, 0.1) !important;
-      }
-
-      #pane-setup .setup-card:last-child {
-        border-bottom: none !important;
-        padding-bottom: 0 !important;
-      }
-    }
-
-    /* Section Headers */
-    .setup-panel-header {
-      margin-bottom: 18px !important;
-    }
-
-    .setup-panel-header.compact {
-      margin-bottom: 10px !important;
-    }
-
-    .setup-panel-title {
-      font-family: var(--sans) !important;
-      font-size: 11px !important;
-      letter-spacing: 0.06em !important;
-      text-transform: uppercase !important;
-      font-weight: 500 !important;
-      color: #F2F3F6 !important;
-      text-shadow: none !important;
-      margin-bottom: 3px !important;
-    }
-
-    .setup-panel-sub {
-      font-size: 11.5px !important;
-      font-weight: 400 !important;
-      color: rgba(242, 243, 246, 0.65) !important;
-      line-height: 1.4 !important;
-    }
-
-    /* Form Fields Hierarchy */
-    .setup-form-body {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 16px !important;
-      flex: 1 !important;
-      min-width: 0 !important;
-    }
-
-    .setup-field-group {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 4px !important;
-      min-width: 0 !important;
-    }
-
-    .setup-field-row {
-      display: grid !important;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
-      gap: 14px !important;
-      min-width: 0 !important;
-    }
-
-    .setup-label {
-      font-size: 10px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.06em !important;
-      text-transform: uppercase !important;
-      color: rgba(242, 243, 246, 0.8) !important;
-      display: block !important;
-    }
+    /* (Setup layout shells deleted — grid/cards/panels lived around the
+       removed registry; the month + modal carry their own layout now.) */
 
     /* Clean Underline-Only Inputs */
     .setup-input,
@@ -7074,15 +6654,6 @@
     }
 
     /* Card Footer & Action Buttons */
-    .setup-card-footer {
-      display: flex !important;
-      gap: 10px !important;
-      align-items: center !important;
-      flex-wrap: wrap !important;
-      margin-top: auto !important;
-      padding-top: 18px !important;
-      border-top: 1px solid rgba(242, 243, 246, 0.1) !important;
-    }
 
     #settingsSaveBtn {
       background: rgba(242, 243, 246, 0.14) !important;
@@ -7135,12 +6706,7 @@
     /* -------------------------------------------------------------
        Classes & Batches Section: Clean Rows with Minimal Separators
        ------------------------------------------------------------- */
-    .setup-subcard-section {
-      display: flex !important;
-      flex-direction: column !important;
-      flex: 1 !important;
-      min-width: 0 !important;
-    }
+    /* (setup-subcard-section deleted — card shells removed.) */
 
     /* Minimal Tables */
 
@@ -7282,12 +6848,7 @@
       background: rgba(242, 243, 246, 0.06) !important;
     }
 
-    .setup-caption {
-      margin-top: 6px !important;
-      font-size: 10px !important;
-      color: rgba(242, 243, 246, 0.45) !important;
-      line-height: 1.4 !important;
-    }
+    /* (setup-caption node deleted with the workspace cards.) */
 
     /* -------------------------------------------------------------
        Attendance Rules: Clean Editorial Blocks (Neutral Translucent)
@@ -7377,9 +6938,6 @@
     #adminLayer input[type="date"]:focus::-webkit-datetime-edit-day-field,
     #adminLayer input[type="date"]:focus::-webkit-datetime-edit-month-field,
     #adminLayer input[type="date"]:focus::-webkit-datetime-edit-year-field,
-    #daySheetModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
-    #daySheetModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
-    #daySheetModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
     #correctionModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
     #correctionModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
     #correctionModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
@@ -7418,13 +6976,7 @@
     .modal input::-webkit-datetime-edit-day-field:focus,
     .modal input::-webkit-datetime-edit-month-field:focus,
     .modal input::-webkit-datetime-edit-year-field:focus,
-    .modal input::-webkit-datetime-edit-fields-wrapper:focus,
-    #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
-    #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
-    #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
-    #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
-    #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
-    #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
+    .modal input::-webkit-datetime-edit-fields-wrapper:focus {
       background: transparent !important;
       color: #F2F3F6 !important;
     }
@@ -7436,9 +6988,6 @@
     html[data-ink="dark"] #adminLayer input[type="date"]:focus::-webkit-datetime-edit-day-field,
     html[data-ink="dark"] #adminLayer input[type="date"]:focus::-webkit-datetime-edit-month-field,
     html[data-ink="dark"] #adminLayer input[type="date"]:focus::-webkit-datetime-edit-year-field,
-    html[data-ink="dark"] #daySheetModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
-    html[data-ink="dark"] #daySheetModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
-    html[data-ink="dark"] #daySheetModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
     html[data-ink="dark"] #correctionModal input[type="date"]:focus::-webkit-datetime-edit-day-field,
     html[data-ink="dark"] #correctionModal input[type="date"]:focus::-webkit-datetime-edit-month-field,
     html[data-ink="dark"] #correctionModal input[type="date"]:focus::-webkit-datetime-edit-year-field,
@@ -7477,167 +7026,20 @@
     html[data-ink="dark"] .modal input::-webkit-datetime-edit-day-field:focus,
     html[data-ink="dark"] .modal input::-webkit-datetime-edit-month-field:focus,
     html[data-ink="dark"] .modal input::-webkit-datetime-edit-year-field:focus,
-    html[data-ink="dark"] .modal input::-webkit-datetime-edit-fields-wrapper:focus,
-    html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
-    html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
-    html[data-ink="dark"] #classDetail .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field,
-    html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-hour-field,
-    html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-minute-field,
-    html[data-ink="dark"] #schedModal .sched-solid input[type="time"]:focus::-webkit-datetime-edit-ampm-field {
+    html[data-ink="dark"] .modal input::-webkit-datetime-edit-fields-wrapper:focus {
       background: transparent !important;
       color: #181A20 !important;
     }
 
-    .setup-rule-desc {
-      font-size: 11px !important;
-      color: rgba(242, 243, 246, 0.6) !important;
-      margin-top: 6px !important;
-      line-height: 1.4 !important;
-    }
+    /* (Dead rules-era shells deleted — subcard/rules/caption/verb shells
+       for removed Setup cards. The live underline-input + button paint
+       stays with the unscoped ID rules.) */
 
-    .setup-rules-footer {
-      margin-top: auto !important;
-      padding-top: 18px !important;
-      border-top: 1px solid rgba(242, 243, 246, 0.1) !important;
-    }
+    /* Setup secondary bar: month context + month nav (the registry tabs
+       moved into the Schedule window). */
 
-    .setup-policy-note {
-      font-size: 10.5px !important;
-      font-weight: 400 !important;
-      color: rgba(242, 243, 246, 0.45) !important;
-      line-height: 1.5 !important;
-      display: block !important;
-    }
-
-    /* ============================================================
-       SETUP ROW 1 COMPRESSION — minimal editorial density.
-       Scoped to the top 3-column grid only. No behavior/DOM change:
-       columns top-align, redundant copy/tags go away, rhythm tightens.
-       ============================================================ */
-    /* A. Top-align columns so short cards hug their content */
-    #pane-setup .setup-grid {
-      align-items: start !important;
-    }
-
-    /* B. School info: tighter rhythm, footer docked under fields */
-    #pane-setup .setup-panel-header {
-      margin-bottom: 12px !important;
-    }
-
-    #pane-setup .setup-form-body {
-      gap: 10px !important;
-    }
-
-    #pane-setup .setup-card-footer {
-      margin-top: 12px !important;
-      padding-top: 12px !important;
-    }
-
-    /* Footer actions are plain clickable text: no boxes, no underline bars */
-    #pane-setup #settingsSaveBtn {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      font-family: var(--sans) !important;
-      font-size: 10.5px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      text-decoration: none !important;
-      height: auto !important;
-      padding: 4px 6px !important;
-      cursor: pointer !important;
-      flex-shrink: 0 !important;
-      white-space: nowrap !important;
-      transition: none !important;
-    }
-
-    #pane-setup #settingsSaveBtn:hover {
-      background: transparent !important;
-      border: none !important;
-      color: #F2F3F6 !important;
-      text-decoration: none !important;
-    }
-
-    #pane-setup #settingsExportBtn {
-      text-decoration: none !important;
-      transition: none !important;
-    }
-
-    #pane-setup #settingsExportBtn:hover {
-      text-decoration: none !important;
-    }
-
-    /* Merged profile card: rules sit under school info, hairline apart */
-    #pane-setup .setup-subcard-section.rules {
-      margin-top: 14px !important;
-      padding-top: 12px !important;
-      border-top: 1px solid rgba(242, 243, 246, 0.12) !important;
-    }
-
-    #pane-setup .setup-caption {
-      display: none !important;
-    }
-
-    /* D. Attendance rules: quiet one-line blocks, no chips, no
-       duplicated priority footer (Weekly footer already states it) */
-    #pane-setup .setup-rule-tag {
-      display: none !important;
-    }
-
-    #pane-setup .setup-rule-block:not(:first-child) {
-      margin-top: 14px !important;
-      padding-top: 14px !important;
-    }
-
-    #pane-setup .setup-rule-header {
-      margin-bottom: 4px !important;
-    }
-
-    #pane-setup .setup-rule-desc {
-      font-size: 10.5px !important;
-      color: rgba(242, 243, 246, 0.5) !important;
-      margin-top: 4px !important;
-    }
-
-    /* Cutoff pair side-by-side: blocks drop their stacked divider
-       inside the row (layout-only, so both inks inherit it) */
-    #pane-setup .setup-rules-body > .setup-field-row {
-      align-items: start !important;
-    }
-
-    #pane-setup .setup-rules-body .setup-field-row .setup-rule-block:not(:first-child) {
-      border-top: none !important;
-      margin-top: 0 !important;
-      padding-top: 0 !important;
-    }
-
-    #pane-setup .setup-rules-footer {
-      display: none !important;
-    }
-
-    #pane-setup .setup-panel-header.compact {
-      margin-bottom: 8px !important;
-    }
-
-    /* Left rail add row lives in its own fixed grid row below the
-       secondary bar (display + edit only). Both views share one
-       geometry — no width/height shift on switch. Narrow stacking
-       re-establishes column flow at 1160px. */
-
-    #pane-setup .setup-card-classes #newClassName,
-    #pane-setup .setup-card-classes #newBatchName {
-      flex: 1 1 auto !important;
-      width: auto !important;
-      min-width: 0 !important;
-    }
-
-    /* Setup secondary bar: same two-bar geometry as the Students /
-       Attendance toolbars — one thin control row under TOP NAV
-       (left tabs, center month context, right month nav), hairline
-       below, then content, then the global footer. */
+    /* (Dead left-rail/add scoping deleted — inputs live in the Schedule
+       window under generic setup-input-compact voice.) */
     #pane-setup .setup-toolbar {
       display: flex !important;
       align-items: center !important;
@@ -7651,20 +7053,7 @@
       box-sizing: border-box !important;
     }
 
-    #pane-setup .setup-toolbar-left {
-      display: flex !important;
-      align-items: baseline !important;
-      gap: 16px !important;
-      flex: none !important;
-    }
-
-    /* Fixed equal tab slots: switching tabs never resizes the bar;
-       the 400↔500 weight swap happens inside the fixed width. */
-    #pane-setup .setup-toolbar-left .cube-tab {
-      width: 72px !important;
-      text-align: center !important;
-      flex: none !important;
-    }
+    /* (Dead toolbar-left geometry deleted with the moved tabs.) */
 
     /* Fixed regions: center absorbs viewport width so the legend
        stays centered while left/right hold their geometry —
@@ -7691,9 +7080,20 @@
       max-width: 132px !important;
     }
 
-    /* CLASSES|BATCHES view tabs: text-first, active anchors 500 —
-       admin-nav language, zero motion. */
-    #pane-setup .setup-toolbar .cube-tab {
+    /* (Toolbar cube-tab voice deleted — tabs moved into the Schedule
+       window; their voice is re-declared in the schedModal block below.) */
+
+    /* (Workspace registry paint deleted — the list moved into the
+       Schedule window; its voice is re-declared there. See schedModal
+       registry block.) */
+
+    /* (Workspace tile-type rules deleted with the registry paint —
+       re-declared for the Schedule window below.) */
+
+    /* Schedule window registry — the moved Classes/Batches home.
+       Same tile voice the workspace list had: transparent rows, active
+       wash + 500 type, mono counts, both inks. */
+    #schedModal #classCubes .cube-tab {
       background: transparent !important;
       border: none !important;
       border-radius: 0 !important;
@@ -7710,166 +7110,84 @@
       transition: none !important;
     }
 
-    #pane-setup .setup-toolbar .cube-tab:hover {
+    #schedModal #classCubes .cube-tab:hover {
       color: #181A20 !important;
     }
 
-    #pane-setup .setup-toolbar .cube-tab.active {
+    #schedModal #classCubes .cube-tab.active {
       font-weight: 500 !important;
       color: #F2F3F6 !important;
     }
 
-    html[data-ink="dark"] #pane-setup .setup-toolbar .cube-tab {
+    html[data-ink="dark"] #schedModal#schedModal #classCubes .cube-tab {
       color: rgba(24, 26, 32, 0.5) !important;
     }
 
-    html[data-ink="dark"] #pane-setup .setup-toolbar .cube-tab:hover {
+    html[data-ink="dark"] #schedModal#schedModal #classCubes .cube-tab:hover {
       color: #F2F3F6 !important;
     }
 
-    html[data-ink="dark"] #pane-setup .setup-toolbar .cube-tab.active {
+    html[data-ink="dark"] #schedModal#schedModal #classCubes .cube-tab.active {
       color: #181A20 !important;
     }
 
-    /* Hidden add row stays hidden against the flex !important base */
-    #pane-setup .setup-card-classes .setup-add-row[hidden] {
-      display: none !important;
-    }
-
-    /* (Left-head rules above own the header add rows.) */
-
-    #pane-setup .setup-add-row {
-      margin-top: 8px !important;
-    }
-
-    /* F. Classes/Batches visual hierarchy: subtitles out (titles suffice),
-       headers recede, names anchor, counts go quiet mono */
-    #pane-setup .setup-card-classes .setup-panel-sub {
-      display: none !important;
-    }
-
-    /* Cube names anchor, counts go quiet mono */
-    #pane-setup .cube-name {
-      font-weight: 500 !important;
-    }
-
-    #pane-setup .cube-count {
-      font-family: var(--mono) !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-    }
-
-    /* Wide layout geometry lives in the workspace grid below
-       (#classCubes/#classDetail are display:contents there);
-       narrow stacking re-establishes column flow at 1160px. */
-    #pane-setup #cubeGrid {
-      min-width: 0 !important;
-      max-width: none !important;
-      padding-right: 0 !important;
-      box-sizing: border-box !important;
+    #schedModal #cubeGrid {
       display: flex !important;
       flex-direction: column !important;
-      align-content: start !important;
       align-items: stretch !important;
-      /* Seven rows visible, then inner scroll: 7×56px = 392px, an
-         exact multiple so the viewport always ends on a row
-         boundary — never a clipped sliver. Roster and calendar
-         share row 1 at 392px each, so tops and bottoms align;
-         the fixed add footer sits in row 2 beside the cutoff
-         strip. Extra rows scroll inside the rail; the page never
-         stretches no matter how many classes or batches exist. */
-      max-height: 392px !important;
+      background: transparent !important;
+      max-height: 210px !important;
       min-height: 0 !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
-      /* Contain roster scrolling (Students pattern): wheel/touch at
-         the list ends must not chain into page scroll, so the
-         calendar, strip, toolbar, and footer never move. */
       overscroll-behavior: contain !important;
-      /* Barless scroll: wheel / touch / trackpad keep working, no
-         visible scrollbar — zero layout shift, minimal look. */
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
+      margin-top: 8px !important;
     }
 
-    #pane-setup #cubeGrid::-webkit-scrollbar {
+    #schedModal #cubeGrid::-webkit-scrollbar {
       display: none !important;
       width: 0 !important;
     }
 
-    /* (Wide layout: #classDetail is display:contents in the
-       workspace grid, so it takes no box of its own.) */
-
-    /* Narrow screens: list stacks over the month (same 1160px
-       breakpoint as the setup grid). Roster, add footer, then
-       month flow in DOM order. */
-    @media (max-width: 1160px) {
-      #pane-setup #classCubes {
-        flex-direction: column !important;
-      }
-
-      #pane-setup .setup-card-classes .cube-add-head,
-      #pane-setup #cubeGrid {
-        flex: none !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        padding-right: 0 !important;
-      }
-
-      #pane-setup #classDetail {
-        padding-left: 0 !important;
-      }
-    }
-
-    /* Rail follows the Students roster exactly: the list itself is
-       fully transparent (no container wash — a full-box wash keeps
-       hard left/top/bottom edges and reads as a panel). Only the
-       selected row carries a soft single wash + 1px marker + 500
-       type. NAME | COUNT | DELETE grid unchanged. */
-    #pane-setup #cubeGrid {
+    html[data-ink="dark"] #schedModal#schedModal #cubeGrid {
       background: transparent !important;
     }
 
-    html[data-ink="dark"] #pane-setup #cubeGrid {
-      background: transparent !important;
-    }
-    #pane-setup .class-cube {
-      min-height: 56px !important;
+    #schedModal .class-cube {
+      min-height: 52px !important;
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) 36px 28px !important;
       align-items: center !important;
       column-gap: 12px !important;
       padding: 0 14px !important;
-      margin-bottom: 0 !important;
       background: transparent !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
       border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      outline: none !important;
-      min-width: 0 !important;
-      box-sizing: border-box !important;
       cursor: pointer !important;
       overflow: hidden !important;
-      transform: none !important;
       transition: none !important;
     }
 
-    #pane-setup .class-cube:hover {
+    #schedModal .class-cube:hover {
       background: transparent !important;
     }
 
-    html[data-ink="dark"] #pane-setup .class-cube:hover {
+    html[data-ink="dark"] #schedModal#schedModal .class-cube:hover {
       background: transparent !important;
     }
 
-    #pane-setup .class-cube.active,
-    #pane-setup .class-cube.active:hover {
+    #schedModal .class-cube.active,
+    #schedModal .class-cube.active:hover {
       background: linear-gradient(90deg, rgba(242, 243, 246, 0.14), rgba(242, 243, 246, 0) 80%) !important;
-      transform: none !important;
     }
 
-    #pane-setup #cubeGrid .cube-name {
+    html[data-ink="dark"] #schedModal#schedModal .class-cube.active,
+    html[data-ink="dark"] #schedModal#schedModal .class-cube.active:hover {
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.18), rgba(24, 26, 32, 0) 80%) !important;
+    }
+
+    #schedModal .cube-name {
       font-size: 12px !important;
       font-weight: 400 !important;
       letter-spacing: 0.06em !important;
@@ -7881,100 +7199,108 @@
       white-space: nowrap !important;
     }
 
-    #pane-setup #cubeGrid .class-cube.active .cube-name,
-    #pane-setup #cubeGrid .class-cube.active .cube-count {
+    #schedModal .class-cube.active .cube-name,
+    #schedModal .class-cube.active .cube-count {
       color: #F2F3F6 !important;
       font-weight: 500 !important;
     }
 
-    html[data-ink="dark"] #pane-setup #cubeGrid .cube-name {
+    html[data-ink="dark"] #schedModal#schedModal .cube-name {
       color: rgba(24, 26, 32, 0.9) !important;
     }
 
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .class-cube.active,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .class-cube.active:hover {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.18), rgba(24, 26, 32, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #cubeGrid .class-cube.active .cube-name,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #cubeGrid .class-cube.active .cube-count {
+    html[data-ink="dark"] #schedModal#schedModal .class-cube.active .cube-name,
+    html[data-ink="dark"] #schedModal#schedModal .class-cube.active .cube-count {
       color: #181A20 !important;
     }
 
-    #pane-setup #cubeGrid .cube-count {
+    #schedModal .cube-count {
+      font-family: var(--mono) !important;
       font-size: 10.5px !important;
       text-align: right !important;
+      color: rgba(242, 243, 246, 0.75) !important;
     }
 
-    /* Dark resting count goes graphite — silver-on-silver frost
-       would wash out (names already pin dark above). */
-    html[data-ink="dark"] #pane-setup #cubeGrid .cube-count {
+    html[data-ink="dark"] #schedModal#schedModal .cube-count {
       color: rgba(24, 26, 32, 0.6) !important;
     }
 
-    /* Dark pole uses stronger tile selectors — the same reset at
-       doubled strength so no wash survives in either ink. */
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card.working,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card.off,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card:hover,
-    html[data-ink="dark"] #csDays#csDays .weekly-day-card:focus {
-      background: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      outline: none !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      transform: none !important;
-      transition: none !important;
-    }
-
-    /* Solid schedule editor: same pane, hairline apart, no box */
-    #pane-setup .sched-solid {
-      margin-top: 12px !important;
-      padding-top: 12px !important;
-      border-top: 1px solid var(--hairline) !important;
-    }
-
-    /* Detail head: locked height so class (bin) and batch (no
-       bin) cards share one geometry — schedule never shifts. */
-    #pane-setup .cube-head {
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-      min-width: 0 !important;
-      min-height: 28px !important;
-    }
-
-    #pane-setup .cube-name {
-      font-size: 12px !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-      white-space: nowrap !important;
-    }
-
-    #pane-setup .cube-count {
-      font-size: 11px !important;
-    }
-
-    #pane-setup .cube-actions {
+    #schedModal .cube-actions {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
       gap: 4px !important;
     }
 
-    /* Month View Calendar Grid: Seamless Hairline Grid */
-    #calMonthTitle {
-      font-family: var(--sans) !important;
-      font-size: 11px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.06em !important;
-      color: #F2F3F6 !important;
-      text-transform: uppercase !important;
+    #schedModal .cube-add-head {
+      border-top: 1px solid var(--hairline) !important;
+      margin-top: 10px !important;
+      padding-top: 10px !important;
     }
 
+    /* Hidden add row stays hidden against the flex !important base */
+    #schedModal .setup-add-row[hidden] {
+      display: none !important;
+    }
+
+    /* Schedule editor weekday toggles: one even row, staged until Save */
+    #schedWeekRow {
+      display: flex !important;
+      gap: 8px !important;
+      flex-wrap: wrap !important;
+    }
+
+    #schedWeekRow .weekly-day-card {
+      flex: 1 1 0 !important;
+      min-width: 62px !important;
+      min-height: 56px !important;
+    }
+
+    #schedTimingNotice {
+      font-size: 10.5px !important;
+      color: rgba(242, 243, 246, 0.45) !important;
+      line-height: 1.5 !important;
+      margin-top: 10px !important;
+    }
+
+    html[data-ink="dark"] #schedModal#schedModal #schedTimingNotice {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+
+    #schedModal .cube-add-head .setup-add-row {
+      width: 100% !important;
+      margin-top: 0 !important;
+      background: linear-gradient(90deg, rgba(242, 243, 246, 0.10), rgba(242, 243, 246, 0) 80%) !important;
+      border: none !important;
+      border-radius: 4px !important;
+      box-shadow: none !important;
+      padding: 4px 12px !important;
+    }
+
+    #schedModal .cube-add-head .setup-add-row:focus-within {
+      background: linear-gradient(90deg, rgba(242, 243, 246, 0.16), rgba(242, 243, 246, 0) 80%) !important;
+    }
+
+    html[data-ink="dark"] #schedModal#schedModal .cube-add-head .setup-add-row {
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.10), rgba(24, 26, 32, 0) 80%) !important;
+    }
+
+    html[data-ink="dark"] #schedModal#schedModal .cube-add-head .setup-add-row:focus-within {
+      background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0) 80%) !important;
+    }
+
+    #schedModal .cube-add-head .setup-input-compact,
+    #schedModal .cube-add-head .setup-input-compact:focus {
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    html[data-ink="dark"] #schedModal#schedModal .cube-add-head .setup-input-compact,
+    html[data-ink="dark"] #schedModal#schedModal .cube-add-head .setup-input-compact:focus {
+      border: none !important;
+    }
+
+    /* Month View Calendar Grid: Seamless Hairline Grid */
     .calendar-grid {
       background: transparent !important;
       border: none !important;
@@ -7984,100 +7310,11 @@
       gap: 8px !important;
     }
 
-    /* GEOMETRY RESTORE — reference month-view proportions (CSS-only,
-       no DOM/JS change): compact top offset, narrow left column,
-       shared toolbar row + row-for-row cube/cell alignment via grid,
-       caption below grid, 160px truncated context slot. */
-    #pane-setup .setup-grid {
-      margin-top: 12px !important;
-    }
-
-    /* One workspace geometry: fixed 240px left rail, remaining
-       width for the month. Tops share row 1; roster and calendar
-       bottoms land on one datum; add footer aligns with the
-       cutoff strip. */
-    #pane-setup .setup-card-classes .setup-subcard-section {
-      display: grid !important;
-      grid-template-columns: 240px minmax(0, 1fr) !important;
-      column-gap: 20px !important;
-      row-gap: 8px !important;
-      align-items: start !important;
-    }
-
-    #pane-setup #classCubes,
-    #pane-setup #classDetail {
-      display: contents !important;
-    }
-
-    /* Roster owns grid row 1 (7 rows = 392 = calendar height);
-       the fixed add footer owns row 2 beside the cutoff strip. */
-    #pane-setup .setup-card-classes .cube-add-head {
-      grid-column: 1 !important;
-      grid-row: 2 !important;
-      min-width: 0 !important;
-      display: flex !important;
-      align-items: center !important;
-      box-sizing: border-box !important;
-      /* Same top rhythm as the cutoff strip: one shared datum. */
-      border-top: 1px solid var(--hairline) !important;
-      margin-top: 10px !important;
-      padding-top: 10px !important;
-    }
-
-    #pane-setup .setup-card-classes .cube-add-head .setup-add-row {
-      width: 100% !important;
-      flex: none !important;
-      margin-top: 0 !important;
-      margin-left: 0 !important;
-    }
-
-    /* Add row borrows the Students search wash verbatim (same stops,
-       both inks): bare text input + text action on a directional
-       fade — the underline bar is retired. Focus deepens the wash
-       head, never draws a line. */
-    #pane-setup .cube-add-head .setup-add-row {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.10), rgba(242, 243, 246, 0) 80%) !important;
-      border: none !important;
-      border-radius: 4px !important;
-      box-shadow: none !important;
-      padding: 4px 12px !important;
-    }
-
-    #pane-setup .cube-add-head .setup-add-row:focus-within {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.16), rgba(242, 243, 246, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #pane-setup .cube-add-head .setup-add-row {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.10), rgba(24, 26, 32, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #pane-setup .cube-add-head .setup-add-row:focus-within {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0) 80%) !important;
-    }
-
-    #pane-setup .cube-add-head .setup-input-compact,
-    #pane-setup .cube-add-head .setup-input-compact:focus {
-      border: none !important;
-      box-shadow: none !important;
-    }
-
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .cube-add-head .setup-input-compact,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .cube-add-head .setup-input-compact:focus {
-      border: none !important;
-    }
-
-    #pane-setup #cubeGrid {
-      grid-column: 1 !important;
-      grid-row: 1 !important;
-      min-width: 0 !important;
-      padding-right: 0 !important;
-    }
+    /* (Workspace grid geometry deleted — roster + strip lived in this
+       grid; the month is a single surface and the registry moved to
+       the Schedule window. Live month footprint rules stay below.) */
 
     #pane-setup #classDetail #calendarGrid {
-      grid-column: 2 !important;
-      grid-row: 1 !important;
-      margin: 0 !important;
-      min-width: 0 !important;
       /* The global .calendar-grid frost rule also carries a 12px
          backdrop-filter: with our transparent background that
          renders as a pure blur rectangle exactly this box. Retire
@@ -8123,20 +7360,10 @@
       background: transparent !important;
     }
 
-    #pane-setup #classDetail #monthEditor {
-      grid-column: 2 !important;
-      grid-row: 2 !important;
-      min-width: 0 !important;
-    }
-
     #pane-setup #classDetail #calTemplateLegend {
       grid-column: 2 !important;
       grid-row: 3 !important;
       margin: 8px 0 0 !important;
-    }
-
-    #pane-setup .setup-card-classes .setup-caption {
-      grid-column: 1 / -1 !important;
     }
 
     #pane-setup #calClassSelect {
@@ -8151,171 +7378,17 @@
       overflow: hidden !important;
     }
 
-    /* Narrow screens: stack list over month again. */
-    @media (max-width: 1160px) {
-      #pane-setup .setup-card-classes .setup-subcard-section {
-        display: flex !important;
-        flex-direction: column !important;
-      }
-      #pane-setup #classCubes {
-        display: flex !important;
-        flex-direction: column !important;
-      }
-      #pane-setup #classDetail {
-        display: flex !important;
-        flex-direction: column !important;
-      }
-      #pane-setup #classDetail #calendarGrid {
-        order: 1 !important;
-      }
-      #pane-setup #classDetail #monthEditor {
-        order: 2 !important;
-      }
-      #pane-setup #classDetail #calTemplateLegend {
-        order: 3 !important;
-      }
-      #pane-setup .cube-wall {
-        width: 100% !important;
-        height: 1px !important;
-      }
+    /* (Narrow-stack media deleted — the registry moved to the Schedule
+       window; the month is a single surface now.) */
+
+    /* Weekday state row below the date grid is display-only (the
+       Schedule window stages edits); month cells are inert. */
+    #pane-setup #calendarGrid .weekly-day-card {
+      cursor: default !important;
     }
 
-    /* MONTH INLINE EDITOR — weekday headers toggle staged working days;
-       thin control strip below the grid (cutoffs + Save/Cancel). Each
-       cutoff field is a fixed two-track grid (label slot + time slot)
-       so the label can never overlap the value or clock glyph at any
-       viewport width; fields wrap as whole units on narrow screens.
-       Paint only: sans labels, mono times, text-first actions, hairline
-       top. Specificity stays under the D1/D2 dark blankets so both inks
-       follow the global pole law with zero bespoke theme rules. */
-    #calendarGrid button.weekly-day-card {
-      font: inherit !important;
-      padding: 0 !important;
-      appearance: none !important;
-      -webkit-appearance: none !important;
-    }
-
-    #calendarGrid button.weekly-day-card:focus,
-    #calendarGrid button.weekly-day-card:focus-visible {
-      outline: none !important;
-    }
-
-    #monthEditor {
-      display: flex !important;
-      align-items: center !important;
-      flex-wrap: wrap !important;
-      column-gap: 40px !important;
-      row-gap: 8px !important;
-      background: transparent !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      border-top: 1px solid var(--hairline) !important;
-      margin-top: 10px !important;
-      padding-top: 10px !important;
-    }
-
-    #monthEditor .me-field {
-      display: grid !important;
-      grid-template-columns: 104px 148px !important;
-      align-items: center !important;
-      column-gap: 12px !important;
-      flex: none !important;
-      min-width: 0 !important;
-    }
-
-    #monthEditor .me-label {
-      font-family: var(--sans) !important;
-      font-size: 9.5px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      color: rgba(242, 243, 246, 0.7) !important;
-      white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-      min-width: 0 !important;
-    }
-
-    #monthEditor input[type="time"] {
-      font-family: var(--mono) !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      background: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      color: #F2F3F6 !important;
-      padding: 2px !important;
-      outline: none !important;
-      color-scheme: light !important;
-      width: 100% !important;
-      max-width: 100% !important;
-      flex: none !important;
-      min-width: 0 !important;
-    }
-
-    #monthEditor input[type="time"]:focus {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      outline: none !important;
-    }
-
-    #monthEditor .me-actions {
-      margin-left: auto !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 12px !important;
-    }
-
-    #monthEditor .me-actions .btn {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      font-family: var(--sans) !important;
-      font-weight: 500 !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      text-decoration: none !important;
-      height: auto !important;
-      padding: 4px 6px !important;
-      cursor: pointer !important;
-      white-space: nowrap !important;
-      transition: none !important;
-    }
-
-    #monthEditor .me-actions .btn:hover {
-      background: transparent !important;
-      border: none !important;
-      color: #F2F3F6 !important;
-    }
-
-    /* Dark pole: graphite mirror of the strip type above — same
-       sibling pole law, no new palette. Triple-ID keeps parity
-       with the D1/D2 blankets over the hardcoded light rules. */
-    html[data-ink="dark"] #pane-setup #monthEditor .me-label {
-      color: rgba(24, 26, 32, 0.7) !important;
-    }
-
-    html[data-ink="dark"] #pane-setup #monthEditor input[type="time"] {
-      color: #181A20 !important;
-    }
-
-    html[data-ink="dark"] #pane-setup #monthEditor input[type="time"]:focus {
-      background: transparent !important;
-      border: none !important;
-    }
-
-    html[data-ink="dark"] #pane-setup #monthEditor .me-actions .btn {
-      color: rgba(24, 26, 32, 0.85) !important;
-    }
-
-    html[data-ink="dark"] #pane-setup #monthEditor .me-actions .btn:hover {
-      color: #181A20 !important;
-    }
+    /* (Month-editor strip deleted — timing lives in the Schedule
+       window's single editor. The FLAT EDITORIAL CELLS below stay.) */
 
     /* FLAT EDITORIAL CELLS — text only, no containers: transparent,
        no blur, no radius, no border, no shadow, no motion. Heights stay
@@ -9154,9 +8227,6 @@
     html.ink-switching #enrollModal#enrollModal#enrollModal *,
     html.ink-switching #enrollModal#enrollModal#enrollModal *::before,
     html.ink-switching #enrollModal#enrollModal#enrollModal *::after,
-    html.ink-switching #daySheetModal#daySheetModal#daySheetModal *,
-    html.ink-switching #daySheetModal#daySheetModal#daySheetModal *::before,
-    html.ink-switching #daySheetModal#daySheetModal#daySheetModal *::after,
     html.ink-switching #correctionModal#correctionModal#correctionModal *,
     html.ink-switching #correctionModal#correctionModal#correctionModal *::before,
     html.ink-switching #correctionModal#correctionModal#correctionModal *::after,
@@ -9166,18 +8236,12 @@
     html.ink-switching #overrideModal#overrideModal#overrideModal *,
     html.ink-switching #overrideModal#overrideModal#overrideModal *::before,
     html.ink-switching #overrideModal#overrideModal#overrideModal *::after,
-    html.ink-switching #classDetail#classDetail .sched-solid *,
-    html.ink-switching #classDetail#classDetail .sched-solid *::before,
-    html.ink-switching #classDetail#classDetail .sched-solid *::after,
     html.ink-switching #holidayModal#holidayModal#holidayModal *,
     html.ink-switching #holidayModal#holidayModal#holidayModal *::before,
     html.ink-switching #holidayModal#holidayModal#holidayModal *::after,
     html.ink-switching #overrideModal#overrideModal#overrideModal *,
     html.ink-switching #overrideModal#overrideModal#overrideModal *::before,
     html.ink-switching #overrideModal#overrideModal#overrideModal *::after,
-    html.ink-switching #classDetail#classDetail .sched-solid *,
-    html.ink-switching #classDetail#classDetail .sched-solid *::before,
-    html.ink-switching #classDetail#classDetail .sched-solid *::after,
     html.ink-switching .gconfirm-ov.gconfirm-ov.gconfirm-ov *,
     html.ink-switching .gconfirm-ov.gconfirm-ov.gconfirm-ov *::before,
     html.ink-switching .gconfirm-ov.gconfirm-ov.gconfirm-ov *::after,
@@ -9192,8 +8256,6 @@
     html[data-ink="dark"] #adminLayer#adminLayer *:not(option),
     html[data-ink="dark"] #enrollModal#enrollModal,
     html[data-ink="dark"] #enrollModal#enrollModal *:not(option),
-    html[data-ink="dark"] #daySheetModal#daySheetModal,
-    html[data-ink="dark"] #daySheetModal#daySheetModal *:not(option),
     html[data-ink="dark"] #correctionModal#correctionModal,
     html[data-ink="dark"] #correctionModal#correctionModal *:not(option),
     html[data-ink="dark"] #schoolInfoModal#schoolInfoModal,
@@ -9202,8 +8264,6 @@
     html[data-ink="dark"] #holidayModal#holidayModal *:not(option),
     html[data-ink="dark"] #overrideModal#overrideModal,
     html[data-ink="dark"] #overrideModal#overrideModal *:not(option),
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid *:not(option),
     html[data-ink="dark"] #schedModal#schedModal,
     html[data-ink="dark"] #schedModal#schedModal *:not(option),
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov,
@@ -9230,10 +8290,6 @@
     html[data-ink="dark"] #enrollModal#enrollModal input,
     html[data-ink="dark"] #enrollModal#enrollModal select,
     html[data-ink="dark"] #enrollModal#enrollModal textarea,
-    html[data-ink="dark"] #daySheetModal#daySheetModal h3,
-    html[data-ink="dark"] #daySheetModal#daySheetModal input,
-    html[data-ink="dark"] #daySheetModal#daySheetModal select,
-    html[data-ink="dark"] #daySheetModal#daySheetModal textarea,
     html[data-ink="dark"] #correctionModal#correctionModal h3,
     html[data-ink="dark"] #correctionModal#correctionModal input,
     html[data-ink="dark"] #correctionModal#correctionModal select,
@@ -9250,10 +8306,6 @@
     html[data-ink="dark"] #overrideModal#overrideModal input,
     html[data-ink="dark"] #overrideModal#overrideModal select,
     html[data-ink="dark"] #overrideModal#overrideModal textarea,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid h3,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid input,
-    html[data-ink="dark"] #schedModal#schedModal .sched-solid h3,
-    html[data-ink="dark"] #schedModal#schedModal .sched-solid input,
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov .gconfirm h3 {
       color: #181A20 !important;
     }
@@ -9263,8 +8315,6 @@
     html[data-ink="dark"] #adminLayer#adminLayer textarea::placeholder,
     html[data-ink="dark"] #enrollModal#enrollModal input::placeholder,
     html[data-ink="dark"] #enrollModal#enrollModal textarea::placeholder,
-    html[data-ink="dark"] #daySheetModal#daySheetModal input::placeholder,
-    html[data-ink="dark"] #daySheetModal#daySheetModal textarea::placeholder,
     html[data-ink="dark"] #correctionModal#correctionModal input::placeholder,
     html[data-ink="dark"] #correctionModal#correctionModal textarea::placeholder,
     html[data-ink="dark"] #schoolInfoModal#schoolInfoModal input::placeholder,
@@ -9310,16 +8360,11 @@
     html[data-ink="dark"] #adminLayer#adminLayer #addClassBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #addBatchBtn:hover,
     html[data-ink="dark"] #schoolInfoModal #settingsSaveBtn:hover,
+    html[data-ink="dark"] #schedModal#schedModal #csSaveTiming:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #importStudentsBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #exportStudentsBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer .icon-del:hover {
       color: #F2F3F6 !important;
-    }
-
-    /* Save answers hover with the pointer cursor only — pins resting
-       color at triple-ID strength so the D1 blanket cannot flip it. */
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid #csSaveTiming:hover {
-      color: rgba(242, 243, 246, 0.85) !important;
     }
 
     /* D-hover — dark-ink hover pole (systemic fix). The D1 blanket above
@@ -9342,12 +8387,10 @@
     html[data-ink="dark"] #adminLayer#adminLayer .close-btn:hover,
     html[data-ink="dark"] #enrollModal#enrollModal button:hover,
     html[data-ink="dark"] #enrollModal#enrollModal [data-action]:hover,
-    html[data-ink="dark"] #daySheetModal#daySheetModal button:hover,
     html[data-ink="dark"] #correctionModal#correctionModal button:hover,
     html[data-ink="dark"] #schoolInfoModal#schoolInfoModal button:hover,
     html[data-ink="dark"] #holidayModal#holidayModal button:hover,
     html[data-ink="dark"] #overrideModal#overrideModal button:hover,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid button:hover,
     html[data-ink="dark"] #schedModal#schedModal button:hover,
     html[data-ink="dark"] .gconfirm-ov.gconfirm-ov button:hover {
       color: #F2F3F6 !important;
@@ -9393,8 +8436,6 @@
     #adminLayer#adminLayer input[type="date"],
     #enrollModal#enrollModal input[type="time"],
     #enrollModal#enrollModal input[type="date"],
-    #daySheetModal#daySheetModal input[type="time"],
-    #daySheetModal#daySheetModal input[type="date"],
     #correctionModal#correctionModal input[type="time"],
     #correctionModal#correctionModal input[type="date"],
     #schoolInfoModal#schoolInfoModal input[type="time"],
@@ -9402,9 +8443,7 @@
     #holidayModal#holidayModal input[type="time"],
     #holidayModal#holidayModal input[type="date"],
     #overrideModal#overrideModal input[type="time"],
-    #overrideModal#overrideModal input[type="date"],
-    #classDetail#classDetail .sched-solid input[type="time"],
-    #schedModal#schedModal .sched-solid input[type="time"] {
+    #overrideModal#overrideModal input[type="date"] {
       color-scheme: light !important;
       accent-color: #181A20 !important;
     }
@@ -9908,7 +8947,7 @@
        generic hover or order tie can smother the dark answer */
     #pane-students #studentList button.btn.danger.icon-del:hover,
     #pane-students #detailScroll button.btn.danger.icon-del:hover,
-    #pane-setup #classCubes button.btn.danger.icon-del:hover {
+    #classCubes button.btn.danger.icon-del:hover {
       color: #181A20 !important;
       background: transparent !important;
       text-decoration: none !important;
@@ -9976,9 +9015,6 @@
     #enrollModal input:not([type="file"]):not([type="checkbox"]),
     #enrollModal select,
     #enrollModal textarea,
-    #daySheetModal input:not([type="file"]):not([type="checkbox"]),
-    #daySheetModal select,
-    #daySheetModal textarea,
     #correctionModal input:not([type="file"]):not([type="checkbox"]),
     #correctionModal select,
     #correctionModal textarea,
@@ -9988,7 +9024,6 @@
     #overrideModal input:not([type="file"]):not([type="checkbox"]),
     #overrideModal select,
     #overrideModal textarea,
-    #daySheetModal .gsel-btn,
     .dt-pop .dt-day,
     .dt-pop .dt-col button {
       color: rgba(242, 243, 246, 0.8) !important;
@@ -10000,7 +9035,6 @@
     html[data-ink="dark"] #adminLayer#adminLayer#adminLayer select,
     html[data-ink="dark"] #adminLayer#adminLayer#adminLayer textarea,
     html[data-ink="dark"] #enrollModal#enrollModal input:not([type="file"]):not([type="checkbox"]),
-    html[data-ink="dark"] #daySheetModal#daySheetModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #correctionModal#correctionModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #holidayModal#holidayModal input:not([type="file"]):not([type="checkbox"]),
     html[data-ink="dark"] #overrideModal#overrideModal input:not([type="file"]):not([type="checkbox"]),
@@ -10014,41 +9048,18 @@
       color: #181A20 !important;
     }
 
-    /* …except inside the solid schedule: glyph answers hover with
-       the pointer cursor only, pinned to resting both inks */
-    #classDetail .sched-solid .dt-trig:hover {
-      color: rgba(242, 243, 246, 0.55) !important;
-    }
-
-    #schedModal .sched-solid .dt-trig:hover {
-      color: rgba(242, 243, 246, 0.55) !important;
-    }
-
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid .dt-trig:hover {
-      color: rgba(24, 26, 32, 0.6) !important;
-    }
-
-    html[data-ink="dark"] #schedModal#schedModal .sched-solid .dt-trig:hover {
-      color: rgba(24, 26, 32, 0.6) !important;
-    }
-
     html[data-ink="dark"] #adminLayer#adminLayer .dt-trig,
-    html[data-ink="dark"] #daySheetModal#daySheetModal .dt-trig,
     html[data-ink="dark"] #correctionModal#correctionModal .dt-trig,
     html[data-ink="dark"] #holidayModal#holidayModal .dt-trig,
     html[data-ink="dark"] #overrideModal#overrideModal .dt-trig,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid .dt-trig,
-    html[data-ink="dark"] #schedModal#schedModal .sched-solid .dt-trig,
     html[data-ink="dark"] #enrollModal#enrollModal .dt-trig {
       color: rgba(24, 26, 32, 0.6) !important;
     }
 
     html[data-ink="dark"] #adminLayer#adminLayer .dt-trig:hover,
-    html[data-ink="dark"] #daySheetModal#daySheetModal .dt-trig:hover,
     html[data-ink="dark"] #correctionModal#correctionModal .dt-trig:hover,
     html[data-ink="dark"] #holidayModal#holidayModal .dt-trig:hover,
     html[data-ink="dark"] #overrideModal#overrideModal .dt-trig:hover,
-    html[data-ink="dark"] #classDetail#classDetail .sched-solid .dt-trig:hover,
     html[data-ink="dark"] #enrollModal#enrollModal .dt-trig:hover {
       color: #F2F3F6 !important;
     }
@@ -10250,15 +9261,11 @@
         </div>
         <!-- Setup: School Configuration & Schedule (Unified) -->
         <div class="admin-pane hidden" id="pane-setup">
-          <!-- Setup secondary bar: same two-bar geometry as Students /
-               Attendance (thin control row under TOP NAV). Left: list
-               tabs. Center: month context. Right: month navigation. -->
+          <!-- Setup month bar: context legend + month navigation only.
+               Classes, batches, and schedule editing live in the
+               Schedule window (Action Wheel) — this workspace is the
+               Month View result surface. -->
           <div class="setup-toolbar" id="setupToolbar">
-            <div class="setup-toolbar-left">
-              <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
-              <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
-              <button class="cube-tab" id="toolbarSetupWheelBtn" title="Open Setup Action Wheel" style="display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>Wheel</button>
-            </div>
             <div class="setup-monthview-legend">
               <span class="setup-monthview-title">Month View</span>
               <button type="button" class="setup-legend-item" data-calview="working" aria-pressed="false">WORKING</button>
@@ -10276,41 +9283,10 @@
             </div>
           </div>
           <div class="detail-scroll">
-            <!-- Row 1: Classes & Batches -->
-            <div class="setup-grid">
-              <!-- Classes & Batches -->
-              <div class="detail-card setup-card setup-card-classes">
-                <!-- Classes Section -->
-                <div class="setup-subcard-section">
-                  <!-- Left: roster (scrolls) + fixed add footer; right:
-                       month grid + cutoff strip. Weekday headers toggle
-                       staged days; cutoffs live in the strip. -->
-                  <div id="classCubes">
-                    <div id="cubeGrid"></div>
-                    <div class="cube-add-head">
-                      <div class="setup-add-row" id="classAddRow">
-                        <input id="newClassName" placeholder="New class e.g. Grade 11-A" class="setup-input-compact">
-                        <button class="btn primary" id="addClassBtn">Add</button>
-                      </div>
-                      <div class="setup-add-row" id="batchAddRow" hidden>
-                        <input id="newBatchName" placeholder="New batch e.g. Batch Morning" class="setup-input-compact">
-                        <button class="btn primary" id="addBatchBtn">Add</button>
-                      </div>
-                    </div>
-                    <div id="classDetail">
-                      <div class="calendar-grid" id="calendarGrid"></div>
-                      <div id="monthEditor">
-                        <div class="me-field"><span class="me-label" id="csPresentLabel">Present cutoff</span><input type="time" id="csPresentCutoff" value="08:00" aria-labelledby="csPresentLabel"></div>
-                        <div class="me-field"><span class="me-label" id="csLateLabel">Late cutoff</span><input type="time" id="csLateCutoff" value="08:30" aria-labelledby="csLateLabel"></div>
-                        <div class="me-actions"><button class="btn primary" id="csSaveTiming">Save</button><button class="btn" id="csCancelTiming">Cancel</button></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="setup-caption">Classes are editable; adding a class here also creates it when enrolling a student.</div>
-                </div>
-              </div>
-
+            <!-- Month View: the one Setup workspace (viewing surface).
+                 Registry + schedule editing live in the Schedule window. -->
+            <div id="classDetail">
+              <div class="calendar-grid" id="calendarGrid"></div>
             </div>
 
             <div class="setup-weekly-card">
@@ -10688,12 +9664,6 @@
       <div id="enrollBody"></div>
     </div>
   </div>
-  <div class="modal" id="daySheetModal">
-    <div class="modal-card">
-      <h3 id="daySheetTitle">Day</h3>
-      <div id="daySheetBody"></div>
-    </div>
-  </div>
   <div class="modal" id="holidayModal">
     <div class="modal-card">
       <h3 id="holidayModalTitle">Add holiday</h3>
@@ -10795,6 +9765,43 @@
       </div>
       <div class="form-field full" style="display:flex;justify-content:flex-end;margin-top:14px">
         <button type="button" class="btn" id="overrideViewClose">Close</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="schedModal">
+    <div class="modal-card">
+      <h3 id="schedTitle">Schedule</h3>
+      <p id="schedSub">Weekdays and cutoff times for one scope. Toggle days, set cutoffs, Save once.</p>
+      <div class="form-field full">
+        <label>Configuration scope</label>
+        <select id="schedCtxSelect"></select>
+      </div>
+      <div id="classCubes">
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
+          <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
+        </div>
+        <div id="cubeGrid"></div>
+        <div class="cube-add-head">
+          <div class="setup-add-row" id="classAddRow">
+            <input id="newClassName" placeholder="New class e.g. Grade 11-A" class="setup-input-compact">
+            <button class="btn primary" id="addClassBtn">Add</button>
+          </div>
+          <div class="setup-add-row" id="batchAddRow" hidden>
+            <input id="newBatchName" placeholder="New batch e.g. Batch Morning" class="setup-input-compact">
+            <button class="btn primary" id="addBatchBtn">Add</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-field full" style="margin-top:14px">
+        <label>Working days</label>
+        <div id="schedWeekRow"></div>
+      </div>
+      <div id="schedTimingNotice"></div>
+      <div class="form-grid">
+        <div class="form-field"><label>Present cutoff</label><input type="time" id="csPresentCutoff" value="08:00"></div>
+        <div class="form-field"><label>Late cutoff</label><input type="time" id="csLateCutoff" value="08:30"></div>
+        <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn" id="csCancelTiming">Cancel</button><button class="btn primary" id="csSaveTiming">Save schedule</button></div>
       </div>
     </div>
   </div>

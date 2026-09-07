@@ -333,7 +333,7 @@ const promptText=$("promptText"),
   enrollModal=$("enrollModal"), holidayModal=$("holidayModal"),
   overrideModal=$("overrideModal"), holidayViewModal=$("holidayViewModal"),
   overrideViewModal=$("overrideViewModal"), correctionModal=$("correctionModal"),
-  daySheetModal=$("daySheetModal"), daySheetTitle=$("daySheetTitle"), daySheetBody=$("daySheetBody"),
+  schedModal=$("schedModal"),
   schoolInfoModal=$("schoolInfoModal"), setupWheelModal=$("setupWheelModal"),
   enrollTitle=$("enrollTitle"), enrollSub=$("enrollSub"), enrollBody=$("enrollBody");
 
@@ -346,7 +346,7 @@ let attAcadFrom=null, attAcadTo=null;
 
 function openModal(m){ m.classList.add("open"); }
 function closeModal(m){ m.classList.remove("open"); }
-[enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, daySheetModal, schoolInfoModal, setupWheelModal].forEach(m=>{
+[enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, schedModal, schoolInfoModal, setupWheelModal].forEach(m=>{
   if(!m) return;
   /* Veil dismiss needs press AND release on the veil: a drag that
      starts inside (e.g. finishing a text selection outside the card)
@@ -1423,13 +1423,14 @@ function renderCalendarMonth(){
   const meKey = selName ? selKind+":"+selName : null;
   if(meKey && pendingDays[meKey]) tplWd = pendingDays[meKey];
   const tplNames=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  /* Weekday header sits BELOW the date grid (still inside #calendarGrid
-     so both delegated editors keep working); cells resolve above it. */
+  /* Weekday state row sits BELOW the date grid (still inside #calendarGrid
+     so the 7-column alignment holds); display-only — staging lives in
+     the Schedule window, which shares the pendingDays overlay. */
   let headHtml=tplNames.map((d,idx)=>{
     const on = asBool(tplWd[idx] ?? tplWd[String(idx)]);
     const cls = on ? "weekly-day-card working" : "weekly-day-card off";
     const status = on ? "WORKING" : "OFF";
-    return `<button type="button" class="${cls}" data-me-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${status}</div></button>`;
+    return `<div class="${cls}"><div class="w-name">${d}</div><div class="w-status">${status}</div></div>`;
   }).join("");
   let tplLegend=$("calTemplateLegend");
   if(!tplLegend && calendarGrid.parentNode){
@@ -1438,7 +1439,7 @@ function renderCalendarMonth(){
     tplLegend.style.cssText="font-size:10px;letter-spacing:0.04em;color:var(--ink-2);margin:0 0 6px;";
     calendarGrid.parentNode.insertBefore(tplLegend, calendarGrid);
   }
-  if(tplLegend) tplLegend.textContent="Headers below are the editable weekly template \u2014 click a day to toggle \u00B7 cells show resolved days including overrides and holidays.";
+  if(tplLegend) tplLegend.textContent="Weekly template state below \u2014 edit it in the Schedule window (Action Wheel). Cells show resolved days including overrides and holidays.";
   let html="";
   for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
   for(let d=1;d<=last;d++){
@@ -1535,6 +1536,7 @@ function syncMonthEditor(){
   const grid=$("cubeGrid");
   if(grid) grid.querySelectorAll(".class-cube").forEach(t=>t.classList.toggle("active",t.dataset.kind===selKind&&t.dataset.cube===selName));
   snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
+  renderSchedEditor();
 }
 function onMeDayClick(e){
   const b=e.target.closest("[data-me-day]"); if(!b||!selName) return;
@@ -1553,24 +1555,29 @@ function onMeDayClick(e){
   renderCalendarMonth();
 }
 async function onMeSave(){
-  if(!selName) return;
-  const key=selKind+":"+selName;
-  if(pendingDays[key]){
-    if(selKind==="batch"){
-      const entry=BatchSchedules[selName]||{};
-      BatchSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
-    } else if(selKind==="class"){
-      const entry=ClassSchedules[selName]||{};
-      ClassSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
-      ClassSchedulesUI=ClassSchedules;
+  const ctx=getScheduleContext();
+  if(ctx.type!=="global"){
+    if(!selName) return;
+    const key=selKind+":"+selName;
+    if(pendingDays[key]){
+      if(selKind==="batch"){
+        const entry=BatchSchedules[selName]||{};
+        BatchSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
+      } else if(selKind==="class"){
+        const entry=ClassSchedules[selName]||{};
+        ClassSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
+        ClassSchedulesUI=ClassSchedules;
+      }
+      delete pendingDays[key];
     }
-    delete pendingDays[key];
   }
   await onCsSaveTiming();
+  renderSchedEditor();
+  closeModal(schedModal);
 }
 function onMeCancel(){
   const key=meKey(); if(key) delete pendingDays[key];
-  snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
+  snapshotSchedule(); paintMonthEditor(); renderCalendarMonth(); renderSchedEditor();
 }
 /* Static strip wiring (nodes persist — wire once, not per render). */
 function wireSchedEditor(){
@@ -2498,133 +2505,84 @@ if($("setupToolbar")) $("setupToolbar").addEventListener("click",(e)=>{
   g.classList.toggle("cal-dim-nonworking", calEmphasis==="non-working");
   g.classList.toggle("cal-dim-override", calEmphasis==="override");
 });
-/* Day window is read-only resolved display — tables own all holiday /
-   override editing. Resolution read ONLY from the shared truth
-   functions: override → holiday (exam = working) → active-context
-   template. Headers keep editing the template. */
-function daySheetSource(iso, ctx){
-  const ov=getOverride(iso);
-  if(ov) return {badge:ov.isWorking?"WORKING":"NON-WORKING",
-    text:"Date override (global) — "+(ov.isWorking?"working":"non-working")+(ov.note?": "+ov.note:"")};
-  const hol=isHoliday(iso);
-  if(hol){
-    const type=String(hol.type||"holiday").toLowerCase();
-    const exam=type==="exam";
-    return {badge:exam?"WORKING":"NON-WORKING",
-      text:"Holiday range (global) — "+hol.name+" ("+hol.type+")"+(exam?", counts as working":"")};
-  }
-  const w=isWorkingDayForContext(iso, ctx);
-  const ctxName=(!ctx||ctx.type==="global")?"Global":(ctx.type==="class"?"Class: "+ctx.name:"Batch: "+ctx.name);
-  return {badge:w?"WORKING":"NON-WORKING",
-    text:"Weekly template ("+ctxName+") — "+(w?"working":"non-working")};
-}
-function openDaySheet(iso){
-  const ctx=getScheduleContext();
-  const src=daySheetSource(iso, ctx);
-  const dt=new Date(iso+"T00:00:00");
-  daySheetTitle.textContent=dt.toLocaleDateString("en-GB",{weekday:"long"})+", "+_fmtShort(iso);
-  daySheetBody.innerHTML=
-    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="setup-legend-context">${esc(src.badge)}</span></div>`+
-    `<div style="font-size:11px;color:var(--ink-2);line-height:1.5;">${esc(src.text)}</div>`+
-    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button><button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
-  openModal(daySheetModal);
-  $("dsClose").onclick=()=>closeModal(daySheetModal);
-  $("dsAddOv").onclick=()=>{
-    closeModal(daySheetModal);
-    $("overrideModalBody").innerHTML=`<div class="form-grid">
-      <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(iso)}"></div>
-      <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
-      <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
-      <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
-    openModal(overrideModal);
-    $("overrideCancel").onclick=()=>closeModal(overrideModal);
-    $("overrideSave").onclick=async()=>{
-      const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
-      if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
-      Overrides=Overrides.filter(o=>o.date!==date);
-      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note});
-      if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
-    };
-    $("overrideNote").focus();
-  };
-}
-/* Day cells open the read-only window; headers are display-only.
-   Weekday toggling lives in the class/batch solid schedule editor —
-   branch bodies lifted verbatim from the retired header path, with
-   the editor context plus an editor refresh. Single persist path. */
-async function onDayToggleClick(e){
-  const cell=e.target.closest("[data-date]");
-  if(cell){ openDaySheet(cell.dataset.date); return; }
-}
+/* (Day window deleted — the Month View is a viewing surface; overrides
+   live in the Exceptions flows. daySheetSource/openDaySheet/onDayToggleClick
+   went with the #daySheetModal markup.) */
 let csCtx=null;
-async function onCsDayClick(e){
-  const t=e.target.closest("[data-cs-day]"); if(!t||!csCtx) return;
-  const day=String(t.dataset.csDay);
-  const ctx=csCtx;
-  if(ctx.type === "class"){
-    let entry = ClassSchedules[ctx.name];
-    let wd;
-    if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
-    else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
-    else wd={...Settings.workingDays};
-    wd[day]=!asBool(wd[day] ?? wd[String(day)]);
-    wd[String(day)]=wd[day];
-    ClassSchedules[ctx.name] = Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: wd});
-    ClassSchedulesUI=ClassSchedules;
-    if(await persistCalendar()){ csRender(); renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  } else if(ctx.type === "batch"){
-    let entry = BatchSchedules[ctx.name];
-    let wd;
-    if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
-    else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
-    else wd={...Settings.workingDays};
-    wd[day]=!asBool(wd[day] ?? wd[String(day)]);
-    wd[String(day)]=wd[day];
-    BatchSchedules[ctx.name] = Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: wd});
-    if(await persistCalendar()){ csRender(); renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  } else {
-    Settings.workingDays[day]=!asBool(Settings.workingDays[day] ?? Settings.workingDays[String(day)]);
-    Settings.workingDays[String(day)]=Settings.workingDays[day];
-    if(await persistCalendar()){ csRender(); renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
+/* (Orphaned solid-editor loop deleted — onCsDayClick/openClassSchedule/
+   csRender had no callers or nodes; the Schedule window below is the one
+   editor. csCtx/syncCsCtx stay as inert selection state.) */
+/* (Orphaned csRender deleted with the loop above — its title/days/
+   notice nodes were never built. renderSchedEditor below paints the
+   Schedule window editor instead.) */
+/* Schedule window — the ONE schedule editor (registry + weekdays +
+   cutoffs, one Save). Doors: wheel sectors and the Setup rail; every
+   door presets scope/tab/focus and lands here. Single truth stays the
+   Setup selection (selKind/selName + #calClassSelect); the window
+   mirrors it, never duplicates it. */
+function setCalScope(val){
+  const src=$("calClassSelect"); if(!src) return;
+  src.value=val;
+  if(src.value!==val && val.indexOf(":")>0){ src.value=val.slice(val.indexOf(":")+1); }
+  try{ src.dispatchEvent(new Event("change")); }catch(e){}
+}
+function syncSchedScope(){
+  const scope=$("schedCtxSelect"), src=$("calClassSelect");
+  if(!scope||!src) return;
+  if(scope.innerHTML!==src.innerHTML) scope.innerHTML=src.innerHTML;
+  if(scope.value!==src.value){
+    scope.value=src.value;
+    try{ scope.dispatchEvent(new Event("change")); }catch(e){}
   }
 }
-function openClassSchedule(ctx){
-  if(ctx.type==="class"){ selKind="class"; selName=ctx.name; }
-  else if(ctx.type==="batch"){ selKind="batch"; selName=ctx.name; }
-  renderClasses();
-  syncCsCtx();
-}
-function csRender(){
-  if(!csCtx) return;
-  const ctx=csCtx;
-  $("csTitle").textContent=(ctx.type==="class"?"Class schedule: ":"Batch schedule: ")+ctx.name;
-  const wd=ctx.type==="class"?getWorkingDaysForClass(ctx.name):getWorkingDaysForBatch(ctx.name);
+function renderSchedEditor(){
+  const title=$("schedTitle"), sub=$("schedSub"), week=$("schedWeekRow"), notice=$("schedTimingNotice");
+  if(!title||!week) return;
+  const ctx=getScheduleContext();
+  const label=ctx.type==="global"?"Global schedule (all classes & batches)":(ctx.type==="class"?"Class: "+ctx.name:"Batch: "+ctx.name);
+  title.textContent=ctx.type==="global"?"Global schedule":("Schedule — "+ctx.name);
+  if(sub) sub.textContent=label+" · toggle days, set cutoffs, Save once. The Month View updates on save.";
+  const key=ctx.type==="global"?null:ctx.type+":"+ctx.name;
+  let wd;
+  if(key&&pendingDays[key]) wd=pendingDays[key];
+  else if(ctx.type==="class") wd=getWorkingDaysForClass(ctx.name);
+  else if(ctx.type==="batch") wd=getWorkingDaysForBatch(ctx.name);
+  else wd=Settings.workingDays||{};
   const names=["SUN","MON","TUE","WED","THU","FRI","SAT"];
-  $("csDays").innerHTML=names.map((d,idx)=>{
+  week.innerHTML=names.map((d,idx)=>{
     const on=asBool(wd[idx] ?? wd[String(idx)]);
-    return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-cs-day="${idx}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;
+    const st=on?"WORKING":"OFF";
+    return key
+      ? `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-me-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${st}</div></button>`
+      : `<div class="weekly-day-card ${on?"working":"off"}"><div class="w-name">${d}</div><div class="w-status">${st}</div></div>`;
   }).join("");
   const timing=getScheduleTiming(ctx);
-  $("csPresentCutoff").value=timing.presentCutoff;
-  $("csLateCutoff").value=timing.lateCutoff;
-  const n=$("csTimingNotice");
-  if(ctx.type === "global"){
-    n.textContent="Global fallback (configured in Attendance Rules)";
-  } else if(ctx.type === "class"){
-    n.textContent=timing.isInherited
-      ? `Inheriting global timings (${timing.presentCutoff} / ${timing.lateCutoff}) — edit below to override`
-      : `Custom class timing active for ${ctx.name} — overrides global`;
-  } else if(ctx.type === "batch"){
-    n.textContent=timing.isInherited
-      ? `Inheriting ${(timing.level === "class" ? "class" : "global")} timings (${timing.presentCutoff} / ${timing.lateCutoff}) — edit below to override`
-      : `Custom batch timing active for ${ctx.name} — overrides class and global`;
+  if($("csPresentCutoff")) $("csPresentCutoff").value=timing.presentCutoff;
+  if($("csLateCutoff")) $("csLateCutoff").value=timing.lateCutoff;
+  if(notice){
+    if(ctx.type==="global") notice.textContent="Global defaults ("+timing.presentCutoff+" / "+timing.lateCutoff+") — classes and batches without their own timing inherit these. Select a class or batch above to stage weekday changes.";
+    else if(timing.isInherited) notice.textContent="Inheriting "+(ctx.type==="batch"&&timing.level==="class"?"class":"global")+" timings ("+timing.presentCutoff+" / "+timing.lateCutoff+") — edit below to override. Staged days apply on Save.";
+    else notice.textContent="Custom timing active for "+ctx.name+" — overrides "+(ctx.type==="class"?"global":"class and global")+". Staged days apply on Save.";
   }
 }
-/* Editor nodes are per-render (wired by wireSchedEditor). */
-if($("calendarGrid")){
-  $("calendarGrid").addEventListener("click", onDayToggleClick);
+function openScheduleModal(opts){
+  opts=opts||{};
+  if(opts.tab) setCubeView(opts.tab);
+  if(opts.ctx!==undefined) setCalScope(opts.ctx==="global"?"":opts.ctx);
+  if(opts.ctx===undefined && !selName){
+    const pool=cubeView==="batch"?allBatchesList():Classes;
+    if(pool.length){ selKind=cubeView; selName=pool[0]; syncCsCtx(); setCalScope((selKind==="class"?"class:":"batch:")+selName); }
+  }
+  renderClasses();
+  syncSchedScope();
+  renderSchedEditor();
+  openModal(schedModal);
+  const f=opts.focus?$(opts.focus):null;
+  if(f) setTimeout(()=>{ try{f.focus();}catch(e){} },80);
 }
+/* Editor nodes are per-render (wired by wireSchedEditor). */
+/* (Month grid is inert — no cell or header click bindings. Weekday
+   staging lives in the Schedule window; see the schedWeekRow binding.) */
 /* Context dropdown drives the same single selection as the tiles:
    retarget the editor to the chosen class/batch (or hide it for
    global) so toolbar, month, roster, and editor never disagree.
@@ -2692,7 +2650,6 @@ $("addOverrideBtn").onclick=()=>{
   const oc=$("overrideViewClose"); if(oc) oc.onclick=()=>closeModal($("overrideViewModal"));
   const hct=$("holidayViewCloseTop"); if(hct) hct.onclick=()=>closeModal($("holidayViewModal"));
   const oct=$("overrideViewCloseTop"); if(oct) oct.onclick=()=>closeModal($("overrideViewModal"));
-  const tsw=$("toolbarSetupWheelBtn"); if(tsw) tsw.onclick=()=>openSetupWheel();
   const osw=$("openSetupWheelBtn"); if(osw) osw.onclick=()=>openSetupWheel();
 })();
 
@@ -2737,46 +2694,21 @@ function getWheelCategories() {
       iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
       actions: [
         {
+          id: "manageClasses",
+          title: "MANAGE CLASSES",
+          sub: "View, add, schedule",
+          run: () => {
+            closeModal(setupWheelModal);
+            openScheduleModal({tab:"class"});
+          }
+        },
+        {
           id: "addClass",
           title: "+ NEW CLASS",
           sub: "Add grade/div",
-          run: async () => {
-            closeModal(setupWheelModal);
-            const name = await glassPrompt("Enter new class name (e.g. Grade 10-A):", "", { title: "Add New Class", okText: "Add Class" });
-            if (!name) return;
-            if (Classes.some(c => c.toLowerCase() === name.toLowerCase())) { await glassAlert("That class already exists."); return; }
-            try {
-              await api("/api/settings", { method: "POST", body: JSON.stringify({ classes: Classes.concat(name) }) });
-              await loadClassesHolidaysSettings();
-              setCubeView("class");
-              renderAll();
-              await glassAlert(`Class "${name}" added successfully.`);
-            } catch (e) { await glassAlert("Failed to add class: " + e.message); }
-          }
-        },
-        {
-          id: "viewClasses",
-          title: "VIEW CLASSES",
-          sub: "Open roster list",
           run: () => {
             closeModal(setupWheelModal);
-            setCubeView("class");
-            const el = $("pane-setup");
-            if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth" });
-          }
-        },
-        {
-          id: "classSched",
-          title: "SCHEDULES",
-          sub: "Weekly template",
-          run: () => {
-            closeModal(setupWheelModal);
-            setCubeView("class");
-            const sel = $("calClassSelect");
-            if (sel && sel.options.length > 1) {
-              sel.selectedIndex = 1;
-              sel.dispatchEvent(new Event("change"));
-            }
+            openScheduleModal({tab:"class", focus:"newClassName"});
           }
         }
       ]
@@ -2788,43 +2720,47 @@ function getWheelCategories() {
       iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
       actions: [
         {
+          id: "manageBatches",
+          title: "MANAGE BATCHES",
+          sub: "View, add, schedule",
+          run: () => {
+            closeModal(setupWheelModal);
+            openScheduleModal({tab:"batch"});
+          }
+        },
+        {
           id: "addBatch",
           title: "+ NEW BATCH",
           sub: "Add group/stream",
-          run: async () => {
+          run: () => {
             closeModal(setupWheelModal);
-            const name = await glassPrompt("Enter new batch name (e.g. Morning Batch):", "", { title: "Add New Batch", okText: "Add Batch" });
-            if (!name) return;
-            await submitBatchName(name);
-            setCubeView("batch");
+            openScheduleModal({tab:"batch", focus:"newBatchName"});
+          }
+        }
+      ]
+    },
+    {
+      id: "schedules",
+      title: "SCHEDULES",
+      sub: "One editor",
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`,
+      actions: [
+        {
+          id: "configSchedule",
+          title: "CONFIGURE",
+          sub: "Pick scope, edit, save",
+          run: () => {
+            closeModal(setupWheelModal);
+            openScheduleModal({});
           }
         },
         {
-          id: "viewBatches",
-          title: "VIEW BATCHES",
-          sub: "Open batch stack",
+          id: "globalSchedule",
+          title: "GLOBAL",
+          sub: "All classes & batches",
           run: () => {
             closeModal(setupWheelModal);
-            setCubeView("batch");
-          }
-        },
-        {
-          id: "batchSched",
-          title: "SCHEDULES",
-          sub: "Batch timings",
-          run: () => {
-            closeModal(setupWheelModal);
-            setCubeView("batch");
-            const sel = $("calClassSelect");
-            if (sel) {
-              for (let i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].value.startsWith("batch:")) {
-                  sel.selectedIndex = i;
-                  sel.dispatchEvent(new Event("change"));
-                  break;
-                }
-              }
-            }
+            openScheduleModal({ctx:"global"});
           }
         }
       ]
@@ -2836,55 +2772,21 @@ function getWheelCategories() {
       iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
       actions: [
         {
-          id: "timingModal",
-          title: "TIMINGS WINDOW",
-          sub: "Edit cutoff rules",
+          id: "globalCutoffs",
+          title: "GLOBAL CUTOFFS",
+          sub: "Defaults for all",
           run: () => {
             closeModal(setupWheelModal);
-            openModal(schoolInfoModal);
-            const f = $("setPresentCutoff");
-            if (f) setTimeout(() => f.focus(), 80);
+            openScheduleModal({ctx:"global", focus:"csPresentCutoff"});
           }
         },
         {
-          id: "editPresentCutoff",
-          title: "PRESENT CUTOFF",
-          sub: `Now: ${Settings.presentCutoff || '08:00'}`,
-          run: async () => {
+          id: "contextCutoffs",
+          title: "CLASS / BATCH",
+          sub: "Per-scope overrides",
+          run: () => {
             closeModal(setupWheelModal);
-            const val = await glassPrompt("Enter present cutoff time (24h HH:MM):", Settings.presentCutoff || "08:00", { title: "Present Cutoff Time", okText: "Save Cutoff" });
-            if (!val) return;
-            if (!/^\d{2}:\d{2}$/.test(val)) { await glassAlert("Time must be in HH:MM format (e.g. 08:00)."); return; }
-            try {
-              await api("/api/settings", { method: "POST", body: JSON.stringify({ presentCutoff: val }) });
-              Settings.presentCutoff = val;
-              if ($("setPresentCutoff")) $("setPresentCutoff").value = val;
-              if ($("csPresentCutoff")) $("csPresentCutoff").value = val;
-              await loadClassesHolidaysSettings();
-              renderAll();
-              await glassAlert(`Present cutoff updated to ${val}.`);
-            } catch (e) { await glassAlert("Failed to update cutoff: " + e.message); }
-          }
-        },
-        {
-          id: "editLateCutoff",
-          title: "LATE CUTOFF",
-          sub: `Now: ${Settings.lateCutoff || '08:30'}`,
-          run: async () => {
-            closeModal(setupWheelModal);
-            const val = await glassPrompt("Enter late cutoff time (24h HH:MM):", Settings.lateCutoff || "08:30", { title: "Late Cutoff Time", okText: "Save Cutoff" });
-            if (!val) return;
-            if (!/^\d{2}:\d{2}$/.test(val)) { await glassAlert("Time must be in HH:MM format (e.g. 08:30)."); return; }
-            try {
-              await api("/api/settings", { method: "POST", body: JSON.stringify({ lateCutoff: val, lateAfter: val }) });
-              Settings.lateCutoff = val;
-              Settings.lateAfter = val;
-              if ($("setLateThreshold")) $("setLateThreshold").value = val;
-              if ($("csLateCutoff")) $("csLateCutoff").value = val;
-              await loadClassesHolidaysSettings();
-              renderAll();
-              await glassAlert(`Late cutoff updated to ${val}.`);
-            } catch (e) { await glassAlert("Failed to update cutoff: " + e.message); }
+            openScheduleModal({});
           }
         }
       ]
@@ -3317,7 +3219,17 @@ async function onCubesClick(e){
   }
 }
 if(classCubes) classCubes.addEventListener("click", onCubesClick);
-if($("calendarGrid")) $("calendarGrid").addEventListener("click", onMeDayClick);
+/* Schedule window static wiring (nodes persist — wire once). The month
+   grid stays inert; weekday staging lives on the modal week row and
+   writes through the shared selection + pendingDays path. */
+if($("schedWeekRow")) $("schedWeekRow").addEventListener("click",(e)=>{ onMeDayClick(e); renderSchedEditor(); });
+if($("schedCtxSelect")) $("schedCtxSelect").onchange=()=>{
+  const scope=$("schedCtxSelect"), src=$("calClassSelect");
+  if(!scope||!src) return;
+  src.value=scope.value;
+  try{ src.dispatchEvent(new Event("change")); }catch(e){}
+  renderSchedEditor();
+};
 wireSchedEditor();
 /* Batch rows retired from the class pane (batches live in their
    own left stack) — selection travels through the tiles only. */
@@ -4165,6 +4077,7 @@ document.addEventListener("keydown",(e)=>{
     else if(overrideModal && overrideModal.classList.contains("open")) closeModal(overrideModal);
     else if(schoolInfoModal && schoolInfoModal.classList.contains("open")) closeModal(schoolInfoModal);
     else if(setupWheelModal && setupWheelModal.classList.contains("open")) closeModal(setupWheelModal);
+    else if(schedModal && schedModal.classList.contains("open")) closeModal(schedModal);
     else if(correctionModal && correctionModal.classList.contains("open")) closeModal(correctionModal);
     else if(adminLayer && adminLayer.classList.contains("open")){
       finishEnrollUi();

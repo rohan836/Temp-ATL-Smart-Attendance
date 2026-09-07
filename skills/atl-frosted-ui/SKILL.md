@@ -79,11 +79,14 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
 - **Attendance presets:** a `seg-strip` built from the hidden
   `attDatePreset` truth (buttons write value + fire change); Academic /
   Range fan hover frost pops. Never a dropdown here.
-- **Setup shortcuts:** the Action Wheel (hub + 5 sectors, hover fans,
-  click lands on the real rail/pane destination) and the sidebar eye
-  icons (record tables live in `#holidayViewModal`/`#overrideViewModal`;
-  creation uses `#holidayModal`/`#overrideModal`). One path per action —
-  wheel/eyes open the same destinations, never duplicate logic.
+- **Setup shortcuts:** the Action Wheel (hub + 6 sectors: Classes ·
+  Batches · Schedules · Cutoffs · Exceptions · School Info; hover fans,
+  click lands in ONE destination with scope/tab/focus preset) and the
+  sidebar eye icons (record tables live in `#holidayViewModal` /
+  `#overrideViewModal`; creation uses `#holidayModal` / `#overrideModal`).
+  One path per action — wheel/eyes open the same destinations, never
+  duplicate logic. Registry + weekdays + cutoffs live ONLY in the
+  Schedule window (`#schedModal`); the Month View is display-only.
 - **Profile placeholder:** no card, no border, transparent, ambient visible
   through; initials in serif `22px/400`, soft white `0.85`. Same size/position,
   text and function unchanged.
@@ -166,10 +169,12 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
    or animation. Fixed 7-column grid; reserve maximum height so
    5-row vs 6-row months never move surrounding UI. Zoom must not
    stretch, wrap, or shift geometry.
-7. **Inline schedule editing:** the selected Class/Batch is edited
-   inline at the Month View — clickable SUN–SAT headers, editable
-   Present/Late cutoffs, Save/Cancel in one strip. Never reintroduce
-   a schedule popup unless explicitly ordered.
+7. **Schedule editing:** Class/Batch/Global scope is edited ONLY in the
+   Schedule window (`#schedModal`) — registry tabs + list, staged
+   SUN–SAT toggles, per-scope Present/Late cutoffs with inherit notice,
+   one Save/Cancel. The Month View never edits (display-only state row
+   + inert cells). Never add a second schedule editor, month strip, or
+   prompt-based cutoff path.
 8. **Workspace geometry:** one unified workspace, stable left/right
    columns, a single 1px structural divider. Align siblings through
    shared boundaries and hairlines, never new containers. Fix the

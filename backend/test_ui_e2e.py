@@ -696,8 +696,8 @@ class UiE2eTest(unittest.TestCase):
         self.page.click("#adminClose")
         self.page.wait_for_function("!document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
 
-    def test_13_calendar_schedule_context_class_batch_and_timings(self):
-        """Calendar schedule contexts with a solid inline editor: CLASSES|BATCHES tabs swap one left list, compact month right, editor below, no popup."""
+    def test_13_setup_wheel_schedule_window_registry_and_save(self):
+        """Setup is wheel + Month View: registry/schedule live in the Schedule window, month is view-only, one save persists."""
         self.page.goto(f"{_BASE_URL}/", wait_until="networkidle")
 
         # Open Admin panel
@@ -705,133 +705,97 @@ class UiE2eTest(unittest.TestCase):
         self.page.click("#openAdminBtn")
         self.page.wait_for_function("document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
 
-        # Navigate to Setup tab to ensure test batch exists
+        # Navigate to Setup tab — workspace is the Month View only
         self.page.click("#adminNav button[data-tab='setup']")
         self.page.wait_for_function("!document.getElementById('pane-setup').classList.contains('hidden')", timeout=3000)
+        self.page.wait_for_function("document.querySelectorAll('#calendarGrid .calendar-cell[data-date]').length > 0", timeout=4000)
+        self.assertEqual(self.page.locator("#pane-setup #cubeGrid").count(), 0)
+        self.assertEqual(self.page.locator("#toolbarSetupWheelBtn").count(), 0)
+        self.assertTrue(self.page.locator("#calendarGrid").is_visible())
+        # month weekday state row is display-only
+        self.assertEqual(self.page.locator("#calendarGrid button.weekly-day-card").count(), 0)
+        self.assertEqual(self.page.locator("#calendarGrid div.weekly-day-card").count(), 7)
 
-        # Master-detail: CLASSES|BATCHES tabs, one list left, detail right
-        cubes = self.page.locator("#classCubes")
-        grid = self.page.locator("#cubeGrid")
-        detail = self.page.locator("#scheduleEditor")
-        monthpane = self.page.locator("#classDetail")
-        self.assertTrue(cubes.is_visible())
-        self.assertTrue(monthpane.locator("#calendarGrid").is_visible())
-        self.assertTrue(self.page.locator("#cubeTabClasses.active").is_visible())
-        self.assertTrue(self.page.evaluate("document.getElementById('batchAddRow').hidden"))
+        # 1. Wheel opens with six command-center categories
+        self.page.click("#openSetupWheelBtn")
+        self.page.wait_for_function("document.getElementById('setupWheelModal').classList.contains('open')", timeout=3000)
+        self.assertEqual(self.page.locator(".wheel-slice[data-cat-id]").count(), 6)
+
+        # 2. CLASSES → MANAGE opens the Schedule window with the registry
+        self.page.locator(".wheel-slice[data-cat-id='classes']").hover()
+        self.page.locator(".wheel-slice[data-action-id='manageClasses']").click()
+        self.page.wait_for_function("document.getElementById('schedModal').classList.contains('open')", timeout=3000)
+        self.assertTrue(self.page.locator("#schedTitle").is_visible())
+        self.assertTrue(self.page.locator("#schedModal #cubeGrid").is_visible())
+        self.assertTrue(self.page.locator("#schedModal #cubeTabClasses.active").is_visible())
         for cls in ["Grade 10-A", "Grade 10-B", "Grade 9-A"]:
-            self.assertEqual(grid.locator(f".class-cube[data-kind='class'][data-cube='{cls}']").count(), 1)
-        self.assertEqual(grid.locator(".class-cube[data-kind='batch']").count(), 0)
-        # BATCHES tab swaps the left list; classes untouched
-        self.page.click("#cubeTabBatches")
-        self.page.wait_for_function("document.querySelector(\"#cubeGrid .class-cube[data-kind='batch'][data-cube='Batch A']\")", timeout=4000)
-        self.assertEqual(grid.locator(".class-cube[data-kind='batch'][data-cube='Batch A']").count(), 1)
-        self.assertEqual(grid.locator(".class-cube[data-kind='class']").count(), 0)
-        self.assertTrue(self.page.evaluate("document.getElementById('classAddRow').hidden"))
-        self.page.click("#cubeTabClasses")
-        self.page.wait_for_function("document.querySelector(\"#cubeGrid .class-cube[data-kind='class'][data-cube='Grade 10-A']\")", timeout=4000)
-        # No popup anywhere
-        self.assertIsNone(self.page.evaluate("document.getElementById('classScheduleModal')"))
-        # Default-select is the first class, editor solid in the pane
-        self.assertEqual(grid.locator(".class-cube.active").get_attribute("data-cube"), "Grade 10-A")
-        self.assertIn("CLASS SCHEDULE: GRADE 10-A", detail.locator("#csTitle").inner_text().upper())
+            self.assertEqual(self.page.locator(f"#schedModal .class-cube[data-kind='class'][data-cube='{cls}']").count(), 1)
 
-        # Seed: Batch A rides the flat stack; class detail holds editor only
-        grid.locator(".class-cube[data-kind='class'][data-cube='Grade 10-A']").click()
-        self.page.wait_for_function("document.getElementById('csTitle').innerText.includes('Grade 10-A')", timeout=4000)
-        self.assertEqual(detail.locator("[data-sched-batch]").count(), 0)
-        self.assertIn("CLASS SCHEDULE: GRADE 10-A", detail.locator("#csTitle").inner_text().upper())
-
-        # Add a new batch "Robotics-A" via the left bar (BATCHES tab)
-        self.page.click("#cubeTabBatches")
+        # 3. Add a new batch "Robotics-A" through the window (BATCHES tab)
+        self.page.locator("#schedModal #cubeTabBatches").click()
         self.page.wait_for_function("!document.getElementById('batchAddRow').hidden", timeout=4000)
         self.page.locator("#newBatchName").fill("Robotics-A")
         self.page.locator("#addBatchBtn").click()
-        self.page.wait_for_function("!!document.querySelector(\"#cubeGrid .class-cube[data-kind='batch'][data-cube='Robotics-A']\")", timeout=4000)
+        self.page.wait_for_function("!!document.querySelector(\"#schedModal #cubeGrid .class-cube[data-kind='batch'][data-cube='Robotics-A']\")", timeout=4000)
 
-        # 1. Verify selector has Global, Classes, and Batches
-        cal_select = self.page.locator("#calClassSelect")
-        self.assertTrue(cal_select.is_visible())
-        select_html = cal_select.inner_html()
-        self.assertIn("Global schedule", select_html)
-        self.assertIn("Classes", select_html)
-        self.assertIn("Batches", select_html)
-        self.assertIn("batch:Robotics-A", select_html)
-
-        # 2. Selecting the batch tile adapts the right side to its schedule
-        grid.locator(".class-cube[data-kind='batch'][data-cube='Robotics-A']").click()
-        self.page.wait_for_function("document.getElementById('csTitle').innerText.includes('Robotics-A')", timeout=3000)
-        self.assertIn("BATCH SCHEDULE: ROBOTICS-A", detail.locator("#csTitle").inner_text().upper())
-        # Month bar carries the context in the selector itself (pill retired)
+        # 4. Selecting the batch tile scopes the editor; scope select agrees
+        self.page.locator("#schedModal .class-cube[data-kind='batch'][data-cube='Robotics-A']").click()
+        self.page.wait_for_function("document.getElementById('schedTitle').innerText.includes('Robotics-A')", timeout=4000)
         self.assertEqual(self.page.locator("#calClassSelect").input_value(), "batch:Robotics-A")
-        self.assertIsNone(self.page.evaluate("document.getElementById('calMonthContextLabel')"))
 
-        # 3. Toggle a weekday in the solid editor — grid header reflects
-        cs_day = self.page.locator("#csDays .weekly-day-card").first
-        before = "working" in (cs_day.get_attribute("class") or "")
-        cs_day.click()
+        # 5. Toggle a weekday (staged), set cutoffs, Save once — window closes, month reflects
+        sched_day = self.page.locator("#schedWeekRow .weekly-day-card").first
+        before = "working" in (sched_day.get_attribute("class") or "")
+        sched_day.click()
         self.page.wait_for_timeout(400)
-        after = "working" in (cs_day.get_attribute("class") or "")
+        after = "working" in (sched_day.get_attribute("class") or "")
         self.assertNotEqual(before, after)
-        grid_first_cls = self.page.locator("#calendarGrid .weekly-day-card").first.get_attribute("class") or ""
-        self.assertEqual("working" in grid_first_cls, after)
-        self.assertIsNone(self.page.evaluate("document.querySelector('#calendarGrid [data-day]')"))
-
-        # 4. Set custom timings in the solid editor and save
         self.page.locator("#csPresentCutoff").fill("07:45")
         self.page.locator("#csLateCutoff").fill("08:15")
         self.page.locator("#csSaveTiming").click()
         self.page.locator(".gconfirm").wait_for(state="visible", timeout=3000)
         self.page.locator(".gconfirm-ok").click()
-        self.page.wait_for_timeout(400)
-
-        # 5. Saved times persist in the solid editor; grid resolves; no popup remnants
-        grid.locator(".class-cube[data-kind='batch'][data-cube='Robotics-A']").click()
-        self.page.wait_for_function("document.getElementById('csPresentCutoff').value === '07:45'", timeout=3000)
-        self.assertEqual(self.page.locator("#csPresentCutoff").input_value(), "07:45")
-        self.assertEqual(self.page.locator("#csLateCutoff").input_value(), "08:15")
-        self.assertIn("CUSTOM BATCH TIMING ACTIVE", self.page.locator("#csTimingNotice").inner_text().upper())
+        self.page.wait_for_function("!document.getElementById('schedModal').classList.contains('open')", timeout=4000)
         grid_first_cls = self.page.locator("#calendarGrid .weekly-day-card").first.get_attribute("class") or ""
         self.assertEqual("working" in grid_first_cls, after)
-        self.assertIsNone(self.page.evaluate("document.getElementById('classScheduleModal')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('csClose')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedTimingCard')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('batchBody')"))
-        self.assertIsNotNone(self.page.evaluate("document.getElementById('newBatchName')"))
-        self.assertIsNotNone(self.page.evaluate("document.getElementById('addBatchBtn')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('classBody')"))
-        self.assertTrue(self.page.evaluate("document.querySelectorAll('#cubeGrid .class-cube').length >= 2"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedPresentCutoff')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedLateCutoff')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedContextBadge')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedInheritNotice')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('calScheduleBanner')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedSaveTimingBtn')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('schedRevertTimingBtn')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('calResetWeekBtn')"))
 
-        # 6. Selecting the class tile adapts the editor to the class context
-        self.page.click("#cubeTabClasses")
-        self.page.wait_for_function("document.querySelector(\"#cubeGrid .class-cube[data-kind='class'][data-cube='Grade 10-A']\")", timeout=4000)
-        grid.locator(".class-cube[data-kind='class'][data-cube='Grade 10-A']").click()
-        self.page.wait_for_function("document.getElementById('csTitle').innerText.includes('Grade 10-A')", timeout=3000)
-        self.assertIn("CLASS SCHEDULE:", detail.locator("#csTitle").inner_text().upper())
+        # 6. SCHEDULES → CONFIGURE reopens with persisted values and custom notice
+        self.page.click("#openSetupWheelBtn")
+        self.page.wait_for_function("document.getElementById('setupWheelModal').classList.contains('open')", timeout=3000)
+        self.page.locator(".wheel-slice[data-cat-id='schedules']").hover()
+        self.page.locator(".wheel-slice[data-action-id='configSchedule']").click()
+        self.page.wait_for_function("document.getElementById('schedModal').classList.contains('open')", timeout=3000)
+        self.page.wait_for_function("document.getElementById('csPresentCutoff').value === '07:45'", timeout=4000)
+        self.assertEqual(self.page.locator("#csPresentCutoff").input_value(), "07:45")
+        self.assertEqual(self.page.locator("#csLateCutoff").input_value(), "08:15")
+        self.assertIn("CUSTOM BATCH TIMING ACTIVE", self.page.locator("#schedTimingNotice").inner_text().upper())
 
-        # 7. Shared batch shows under both classes (display only, one flat entry)
-        created = self.page.evaluate("fetch('/api/students',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Pin':'1234'},body:JSON.stringify({name:'E2E Shared',roll:'E2E-99',grade:'Grade 10-B',batch:'Batch A'})}).then(async r=>({status:r.status,body:await r.json()}))")
-        self.assertEqual(created["status"], 201)
-        tmp_id = created["body"]["id"]
-        self.page.evaluate("loadStudents().then(()=>renderAll())")
-        self.assertIn("Batch A", self.page.evaluate("batchesForClass('Grade 10-A')"))
-        self.assertIn("Batch A", self.page.evaluate("batchesForClass('Grade 10-B')"))
-        grid.locator(".class-cube[data-kind='class'][data-cube='Grade 10-B']").click()
-        self.page.wait_for_function("document.getElementById('csTitle').innerText.includes('Grade 10-B')", timeout=4000)
-        self.assertIn("CLASS SCHEDULE: GRADE 10-B", detail.locator("#csTitle").inner_text().upper())
-        grid.locator(".class-cube[data-kind='class'][data-cube='Grade 10-A']").click()
-        self.page.wait_for_function("document.getElementById('csTitle').innerText.includes('Grade 10-A')", timeout=4000)
-        deleted = self.page.evaluate(f"fetch('/api/students/{tmp_id}',{{method:'DELETE',headers:{{'X-Admin-Pin':'1234'}}}}).then(async r=>({{status:r.status,body:await r.json()}}))")
-        self.assertEqual(deleted["status"], 200)
-        self.page.evaluate("loadStudents().then(()=>renderAll())")
-        self.page.wait_for_timeout(400)
+        # 7. CUTOFFS → GLOBAL shows global defaults read-only (never mutated by tests)
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("!document.getElementById('schedModal').classList.contains('open')", timeout=3000)
+        self.page.click("#openSetupWheelBtn")
+        self.page.wait_for_function("document.getElementById('setupWheelModal').classList.contains('open')", timeout=3000)
+        self.page.locator(".wheel-slice[data-cat-id='cutoffs']").hover()
+        self.page.locator(".wheel-slice[data-action-id='globalCutoffs']").click()
+        self.page.wait_for_function("document.getElementById('schedModal').classList.contains('open')", timeout=3000)
+        self.assertIn("GLOBAL SCHEDULE", self.page.locator("#schedTitle").inner_text().upper())
+        self.assertTrue((self.page.locator("#csPresentCutoff").input_value() or "") != "")
+        self.assertTrue((self.page.locator("#csLateCutoff").input_value() or "") != "")
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("!document.getElementById('schedModal').classList.contains('open')", timeout=3000)
+
+        # 8. Remove the probe batch through the window registry; tile leaves
+        self.page.click("#openSetupWheelBtn")
+        self.page.wait_for_function("document.getElementById('setupWheelModal').classList.contains('open')", timeout=3000)
+        self.page.locator(".wheel-slice[data-cat-id='batches']").hover()
+        self.page.locator(".wheel-slice[data-action-id='manageBatches']").click()
+        self.page.wait_for_function("document.getElementById('schedModal').classList.contains('open')", timeout=3000)
+        self.page.locator("#schedModal .class-cube[data-kind='batch'][data-cube='Robotics-A'] [data-del-batch]").click()
+        self.page.locator(".gconfirm").wait_for(state="visible", timeout=3000)
+        self.page.locator(".gconfirm-ok").click()
+        self.page.wait_for_function("!document.querySelector(\"#schedModal #cubeGrid .class-cube[data-kind='batch'][data-cube='Robotics-A']\")", timeout=4000)
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("!document.getElementById('schedModal').classList.contains('open')", timeout=3000)
 
         # Clean up and close
         self.page.click("#adminClose")
@@ -958,7 +922,7 @@ class UiE2eTest(unittest.TestCase):
         self.page.wait_for_function("!document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
 
     def test_15_calendar_holiday_override_tables_roundtrip(self):
-        """Holiday + override list tables own all editing: add/edit/remove with Month View integration; day window is read-only."""
+        """Holiday + override list tables own all editing: add/edit/remove with Month View integration; month cells are inert."""
         self.page.goto(f"{_BASE_URL}/", wait_until="networkidle")
 
         # Open Admin panel
@@ -1078,42 +1042,21 @@ class UiE2eTest(unittest.TestCase):
             f"document.querySelector('#calendarGrid [data-date=\"{ov_iso}\"]').classList.contains('working')",
             timeout=4000)
 
-        # 9. Day window is read-only resolved display — no editing verbs
+        # 9. Month View is a viewing surface — clicking a cell opens nothing
         self.page.locator(f"#calendarGrid [data-date=\"{ov_iso}\"]").click()
-        self.page.wait_for_function("document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
-        body_text = self.page.locator("#daySheetBody").inner_text()
-        self.assertIn("WORKING", body_text.upper())
-        self.assertIsNone(self.page.evaluate("document.getElementById('dsFlip')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('dsHolSave')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('dsClear')"))
-        self.assertIsNone(self.page.evaluate("document.getElementById('dsDelHol')"))
-        self.page.locator("#dsClose").click()
-        self.page.wait_for_function("!document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
-        # 9b. Shortcut door: window offers Add-override, modal opens prefilled, save lands a table row
-        self.page.locator(f"#calendarGrid [data-date=\"{ov_iso}\"]").click()
-        self.page.wait_for_function("document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
-        self.page.locator("#dsAddOv").click()
-        self.page.wait_for_function("!document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
-        self.page.wait_for_function("document.getElementById('overrideModal').classList.contains('open')", timeout=3000)
-        self.assertEqual(self.page.locator("#overrideDate").input_value(), ov_iso)
-        self.page.locator("#overrideNote").fill("E2E shortcut probe")
-        self.page.locator("#overrideSave").click()
-        self.page.wait_for_function("!document.getElementById('overrideModal').classList.contains('open')", timeout=3000)
-        self.page.wait_for_function(
-            "document.getElementById('overrideBody').innerText.includes('E2E shortcut probe')",
-            timeout=4000)
-        self.page.wait_for_function(
-            f"document.querySelector('#calendarGrid [data-date=\"{ov_iso}\"]').classList.contains('working')",
-            timeout=4000)
-        self.page.locator("#overrideBody [data-del-override]").first.click()
-        self.page.wait_for_function(
-            "!document.getElementById('overrideBody').innerText.includes('E2E shortcut probe')",
-            timeout=4000)
-        # Plain veil click (press + release outside the card) still dismisses
-        self.page.locator(f"#calendarGrid [data-date=\"{ov_iso}\"]").click()
-        self.page.wait_for_function("document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
+        self.page.wait_for_timeout(400)
+        for mid in ["holidayModal", "overrideModal", "holidayViewModal", "overrideViewModal", "schoolInfoModal", "setupWheelModal", "schedModal", "correctionModal", "enrollModal"]:
+            self.assertFalse(
+                self.page.evaluate(f"document.getElementById('{mid}').classList.contains('open')"),
+                f"{mid} opened from an inert month cell")
+        # weekday state row is display-only (divs, not buttons — seven of them)
+        self.assertEqual(self.page.locator("#calendarGrid button.weekly-day-card").count(), 0)
+        self.assertEqual(self.page.locator("#calendarGrid div.weekly-day-card").count(), 7)
+        # Plain veil click (press + release outside the card) still dismisses — via the Holidays popup
+        self.page.click("#eyeHolidaysBtn")
+        self.page.wait_for_function("document.getElementById('holidayViewModal').classList.contains('open')", timeout=3000)
         self.page.mouse.click(10, 10)
-        self.page.wait_for_function("!document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
+        self.page.wait_for_function("!document.getElementById('holidayViewModal').classList.contains('open')", timeout=3000)
 
         # Close Admin
         self.page.click("#adminClose")
@@ -1174,6 +1117,20 @@ class UiE2eTest(unittest.TestCase):
         self.page.wait_for_function("!document.getElementById('pane-attendance').classList.contains('hidden')")
         self.assertTrue(self.page.locator("#sideCtx-attendance .seg-strip").is_visible())
         self.assertFalse(self.page.locator("#attDatePreset").is_visible())
+
+        # 5. Setup redesign: one Schedule window, view-only month, no duplicated homes
+        self.page.click("#adminNav button[data-tab='setup']")
+        self.page.wait_for_function("!document.getElementById('pane-setup').classList.contains('hidden')")
+        self.page.wait_for_function("document.querySelectorAll('#calendarGrid .calendar-cell[data-date]').length > 0", timeout=4000)
+        for sel in ["#daySheetModal", "#monthEditor", "#toolbarSetupWheelBtn", "#pane-setup #cubeGrid", "#scheduleEditor", "#csTitle", "#csDays"]:
+            self.assertEqual(self.page.locator(sel).count(), 0, f"resurrected selector: {sel}")
+        self.assertFalse(self.page.evaluate("document.getElementById('schedModal') === null"))
+        self.assertEqual(self.page.locator("#schedModal .modal-card").count(), 1)
+        self.page.click("#openSetupWheelBtn")
+        self.page.wait_for_function("document.getElementById('setupWheelModal').classList.contains('open')", timeout=3000)
+        self.assertEqual(self.page.locator(".wheel-slice[data-cat-id]").count(), 6)
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("!document.getElementById('setupWheelModal').classList.contains('open')", timeout=3000)
 
         # Close Admin
         self.page.click("#adminClose")
