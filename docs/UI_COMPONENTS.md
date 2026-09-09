@@ -631,6 +631,13 @@ trust the code, then fix this file.
     `ref-pill` black, white text; New Enrollment white pill same
     metrics. Headless render confirms one button type. Paint-only;
     braces balanced.
+48. Students content-sized redesign (approved proposal): calm wash bed
+    on split-view only (`0.22` flat, borderless, no blur); roster +
+    detail wrap content (flex-start, max-height cap, inner scroll);
+    rail sheer/text-first while Students active (`:has`, graceful
+    fallback); detail 28/32 pad, labels `0.5`, history margin 24.
+    Pills, JS, backend, other tabs untouched. Headless white+dark
+    verified, 4-tab smoke zero errors. Paint-only; braces balanced.
 47. Push rebase (remote `af63bbc` rebuilt docs): conflict merge keeps
     remote curation (ADMIN Setup/Attendance, SKILL shell/presets/wheel,
     UI_COMPONENTS values/residuals) + this log; Students action
