@@ -788,8 +788,20 @@ class UiE2eTest(unittest.TestCase):
         page_box = self.page.locator("#cbPageCb").bounding_box()
         self.assertIsNotNone(pager_box)
         self.assertIsNotNone(page_box)
-        self.assertAlmostEqual(pager_box["y"] - (grid_box["y"] + grid_box["height"]), 12, delta=3)
-        self.assertAlmostEqual(page_box["y"] - (pager_box["y"] + pager_box["height"]), 4, delta=3)
+        self.assertAlmostEqual(pager_box["y"] - (grid_box["y"] + grid_box["height"]), 16, delta=3)
+        self.assertAlmostEqual(page_box["y"] - (pager_box["y"] + pager_box["height"]), 16, delta=3)
+        # Board pager: centered ‹ [board] › cluster; flipping slides swaps
+        # the pill text without moving the arrows or clipping the row
+        prev_box = self.page.locator("#cbPrev").bounding_box()
+        next_box = self.page.locator("#cbNext").bounding_box()
+        self.page.locator("#cbNext").click()
+        self.page.wait_for_function("document.getElementById('cbPageLabel').textContent.includes('HOLIDAYS')", timeout=3000)
+        self.assertIn("HOLIDAYS", self.page.locator("#cbPageLabel").inner_text().upper())
+        self.assertAlmostEqual(self.page.locator("#cbPrev").bounding_box()["x"], prev_box["x"], delta=2)
+        self.assertAlmostEqual(self.page.locator("#cbNext").bounding_box()["x"], next_box["x"], delta=2)
+        self.page.locator("#cbPrev").click()
+        self.page.wait_for_function("document.getElementById('cbPageLabel').textContent.includes('CLASSES')", timeout=3000)
+        self.assertIn("CLASSES", self.page.locator("#cbPageLabel").inner_text().upper())
 
         # 4. Set custom timings in the solid editor and save
         self.page.locator("#csPresentCutoff").fill("07:45")

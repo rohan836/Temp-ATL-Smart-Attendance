@@ -8022,12 +8022,18 @@
     #pane-setup .detail-scroll {
       flex: 1 1 0% !important;
       min-height: 0 !important;
-      overflow-y: hidden !important;
+      /* Barless scroll fallback: rows keep their fixed footprints, but on
+         short viewports (high zoom, short windows) the column scrolls
+         instead of clipping the Holidays/Overrides cards at the viewport
+         edge. Scrollbars stay hidden (rules below); wheel/touch keep
+         working. */
+      overflow-y: auto !important;
       overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
       scrollbar-gutter: auto !important;
-      padding: 12px clamp(12px, 2vw, 20px) 8px clamp(12px, 2vw, 20px) !important;
+      padding: 12px clamp(12px, 2vw, 20px) 24px clamp(12px, 2vw, 20px) !important;
       background: transparent !important;
       box-sizing: border-box !important;
       display: flex !important;
@@ -9514,7 +9520,10 @@
       border-radius: var(--ref-radius) !important;
       box-shadow: none !important;
       padding: 18px !important;
-      margin-bottom: 12px !important;
+      /* No bottom margin: the gap above the switcher belongs to the
+         switcher's own my-4 margins, so the pill row can never touch
+         the month border. */
+      margin-bottom: 0 !important;
       box-sizing: border-box !important;
       overflow: hidden !important;
     }
@@ -9534,9 +9543,10 @@
        12px gap separates the two. Same tokens/padding/edge/columns as
        the month window so the 7 text columns align row-for-row with
        the date cells below. Head = row 1, month = row 2, strip = row 3
-       (see G3); #monthEditor stays hidden. Gaps follow the 12px module
-       exactly: the workspace grid carries row-gap 0, so each gap reads
-       from one margin only (head mb 12, month mb 12, strip mt 0).
+       (see G3); #monthEditor stays hidden. Gaps: head mb 12 above the
+       month; below the month the switcher owns my-4 margins (month
+       itself carries none), so the pill row touches neither border.
+       The workspace grid carries row-gap 0.
        Header cards keep the flat text-only law (transparent, no
        wash/blur/radius). */
     #pane-setup .setup-card-classes .setup-subcard-section {
@@ -9780,10 +9790,15 @@
       border-top: none !important;
       margin-top: 0 !important;
       padding-top: 0 !important;
-      margin-bottom: 8px !important;
-      height: 190px !important;
-      min-height: 190px !important;
-      max-height: 190px !important;
+      margin-bottom: 12px !important;
+      /* Dynamic compact height: the strip hugs its content (no fixed
+         190px, no dark void under short boards); tall boards cap at
+         180px and the rows scroll inside (.cb-rows flex-shrink +
+         overflow-y auto). Safe: nothing sits below the strip, so board
+         flips only breathe the bottom margin. */
+      height: auto !important;
+      min-height: 140px !important;
+      max-height: 180px !important;
       box-sizing: border-box !important;
       min-width: 0 !important;
       overflow: hidden !important;
@@ -9884,6 +9899,9 @@
       flex: none !important;
     }
     #pane-setup #classDetail #cbStrip .cb-rows {
+      /* Rows shrink inside the capped strip: flex-shrink + min 0 +
+         inner scroll, so long boards never push the cards past the
+         viewport edge. */
       flex: 1 1 0% !important;
       min-height: 0 !important;
       overflow-y: auto !important;
@@ -10028,14 +10046,19 @@
        card): two separate near-black rounded windows. Geometry locks to
        the month window above — cards span the strip edge-to-edge (page
        gutters removed) so outer corners align with the month's left/right
-       corners. Compact 190px with breathing below. White text in BOTH
+       corners. Dynamic compact height (hugs content, 230px cap +
+       inner scroll), balanced 16/20 padding, 24px breathing below.
+       White text in BOTH
        inks — the reference card doesn't flip. Holidays/Overrides page
        shares the component, so it follows automatically. */
     #pane-setup #classDetail #cbStrip {
       border-top: none !important;
       margin-top: 0 !important;
       padding-top: 0 !important;
-      margin-bottom: 8px !important;
+      /* Breathing room above the page boundary (mb-6): 24px strip
+         margin + 12px scroll padding, so the cards sit cleanly in the
+         viewport without touching its edge. */
+      margin-bottom: 24px !important;
     }
     #pane-setup #classDetail #cbStrip .cb-page {
       padding: 0 !important;
@@ -10046,7 +10069,7 @@
       border: none !important;
       border-radius: var(--ref-radius) !important;
       box-shadow: none !important;
-      padding: 16px 20px 12px !important;
+      padding: 16px 20px 16px !important;
     }
     #pane-setup #classDetail #cbStrip .cb-table + .cb-table {
       border-left: none !important;
@@ -10093,23 +10116,70 @@
       font-weight: 500 !important;
     }
     /* Pager arrows ride ABOVE the cards, in the gap between the month
-       window and the black cards (markup order: pager first). They join
-       the flow — spread to the outer edges so they align with the cards'
-       left/right corners; label stays centered (label text hidden). */
+       window and the black cards (markup order: pager first). Arrows +
+       board pill form one centered cluster (‹ [board] ›) — never docked
+       to the far edges, never shifting: the pill owns a fixed slot so
+       flipping boards cannot move the arrows, and the cluster is far
+       narrower than the strip so nothing clips in either slide state. */
     #pane-setup #classDetail #cbStrip .cb-arrow {
       position: static !important;
       transform: none !important;
       top: auto !important;
       z-index: auto !important;
     }
-    #pane-setup #classDetail #cbStrip .cb-pager {
-      gap: 12px !important;
-      justify-content: space-between !important;
-      margin-bottom: 4px !important;
+    /* Width lock: head window, month window, and strip share one grid
+       column AND identical box metrics — full column width, border-box,
+       zero side margins — so left/right edges align perfectly at every
+       zoom in both slide states. */
+    #pane-setup #classDetail #calendarHeadGrid,
+    #pane-setup #classDetail #calendarGrid,
+    #pane-setup #classDetail #cbStrip {
+      justify-self: stretch !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
     }
-    /* The board label text is unneeded chrome — arrows alone switch boards. */
+    #pane-setup #classDetail #cbStrip .cb-pager {
+      gap: 10px !important;
+      justify-content: center !important;
+      /* Dedicated switcher row: own vertical margins (my-4) top and
+         bottom so the pill cluster sits fully between the month and
+         the cards, touching neither border. Fully in-flow — static,
+         no transforms, no absolute offsets anywhere in this subtree. */
+      margin-top: 16px !important;
+      margin-bottom: 16px !important;
+      min-height: 20px !important;
+      position: static !important;
+      transform: none !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-pager .cb-arrow,
+    #pane-setup #classDetail #cbStrip .cb-pager .cb-page-label {
+      position: static !important;
+      transform: none !important;
+      flex: none !important;
+    }
+    /* The board label is the carousel indicator: a fixed-slot outline
+       pill between the arrows (‹ [board] ›). Fixed 200px slot fits both
+       board names, so flipping slides never moves the arrows; centered
+       text + uniform weight, no shift on switch. */
     #pane-setup #classDetail #cbStrip .cb-page-label {
-      display: none !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-width: 200px !important;
+      height: 20px !important;
+      padding: 0 14px !important;
+      box-sizing: border-box !important;
+      border: 1px solid rgba(242, 243, 246, 0.25) !important;
+      border-radius: 999px !important;
+      background: transparent !important;
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+      white-space: nowrap !important;
     }
     @media (max-width: 1160px) {
       #pane-setup #classDetail #cbStrip {

@@ -182,16 +182,19 @@ trust the code, then fix this file.
   SUN–SAT weekday strip owns its own frost window
   (`#calendarHeadGrid`, `ref-radius`, dark ink) stacked 12px above the
   date grid (`#calendarGrid` frost card, same padding/columns so headers
-  align with dates); 12px vertical module throughout (strip→month→pager,
-  slim pager row, 4px pager→cards); compact black cards (fixed 190px,
-  breathing room at the pane bottom); cells flat text-only (`64px` fixed rows,
+  align with dates (shared width-lock rule); switcher header row (16 above,
+  16 below the pill cluster, fully in-flow); cards container flush with
+  the calendar grid width; dynamic compact cards (hug content, 180px cap
+  with inner row scroll, balanced 16/20 padding, 24px bottom margin +
+  24px page padding); cells flat text-only (`64px` fixed rows,
   transparent, no blur, `0.08` hairline grid both poles, Saturday edge
   open); headers display-only in a slim 44px strip (editing lives in the schedule popup);
   thin `#monthEditor` strip below (mono cutoffs + Save/Cancel,
   hairline top, fixed label/value slots).
 - **Classes / Batches**: two near-black cards (`.cb-table`,
   `--ref-black`, `ref-radius`, white text both inks); rows hover white
-  `0.06` wash, active directional wash; pager arrows ride above the cards.
+  `0.06` wash, active directional wash; centered pager cluster above
+  (‹ + board pill + ›, fixed slot, no shift on flip).
 - **Holidays / overrides**: list tables own all editing — holiday
   ranges and single-date overrides are added via the sidebar
   (`ADD HOLIDAY`, `ADD OVERRIDE`) and edited/removed via table
