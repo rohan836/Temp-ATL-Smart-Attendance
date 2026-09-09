@@ -2731,6 +2731,20 @@
       -webkit-backdrop-filter: var(--frost-blur) !important;
       border-color: var(--frost-line) !important;
     }
+    /* Quiet rail while Students is active (redesign — the frost card
+       read as a third competing panel): sheer text-first treatment,
+       whisper fill only, no blur/edge/radius. Scoped via :has() on the
+       visible Students context, so Attendance/Setup/Backup keep their
+       rail untouched. Graceful fallback: unsupported engines keep the
+       frost card. */
+    #adminLayer #adminSide:has(#sideCtx-students:not([hidden])) {
+      background: rgba(242, 243, 246, 0.06) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
 
     /* Vertical nav: same node, same buttons — the horizontal bar
        language retuned to a left-aligned stack. Paint (400/500 +
@@ -3797,16 +3811,21 @@
          instead of clipping full-bleed at the viewport edges. */
       padding: 16px clamp(16px, 3vw, 32px) 24px !important;
       box-sizing: border-box !important;
-      /* Geometry lock (user order — roster sat lower than detail):
-         both columns stretch, so identical top AND bottom by
-         construction; the child pin below zeroes any wedging margin. */
-      align-items: stretch !important;
+      /* Content-sized columns (redesign — stretch forced tall empty
+         windows): both columns wrap content, top-aligned; internal
+         scroll only when capped by max-height. Calm wash bed behind
+         the windows (Students scope only): flattens the desert so
+         text stops fighting it; flat, borderless, no blur — a zone,
+         not a panel. */
+      align-items: flex-start !important;
+      background: rgba(228, 219, 208, 0.22) !important;
+      border-radius: var(--ref-radius) !important;
     }
     #pane-students .split-view > .list-pane,
     #pane-students .split-view > .detail-pane {
       margin-top: 0 !important;
       margin-bottom: 0 !important;
-      align-self: stretch !important;
+      align-self: flex-start !important;
     }
 
     /* Phase 1 reference-window exception (user-ordered): the Students
@@ -3883,7 +3902,8 @@
       box-shadow: none !important;
       padding: 0 !important;
       gap: 12px !important;
-      align-self: stretch !important;
+      align-self: flex-start !important;
+      max-height: 100% !important;
     }
     /* Unified frost + borderless roster (user order — roster wore
        frost-bg/frost-line while detail wears ref-frost/ref-edge, and its
@@ -4076,7 +4096,8 @@
       flex: 1 1 0% !important;
       min-width: 0 !important;
       box-sizing: border-box !important;
-      align-self: stretch !important;
+      align-self: flex-start !important;
+      max-height: 100% !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
@@ -4085,7 +4106,7 @@
     #pane-students .detail-pane .detail-scroll,
     #pane-students #detailScroll {
       background: transparent !important;
-      padding: 36px 40px !important;
+      padding: 28px 32px !important;
     }
     /* Dark-ink text inside the frost card (beats white-ink inheritance). */
     #pane-students .detail-pane .pf-title-row div,
@@ -4098,7 +4119,7 @@
     }
     #pane-students .detail-pane .detail-field label,
     #pane-students .detail-pane .table-wrap > div:first-child > span {
-      color: rgba(24, 26, 32, 0.55) !important;
+      color: rgba(24, 26, 32, 0.5) !important;
     }
     #pane-students .detail-pane .empty {
       color: rgba(24, 26, 32, 0.6) !important;
@@ -4503,7 +4524,7 @@
 
     /* Profile Attendance History Table: clean rows, no hairlines */
     #detailScroll .table-wrap {
-      margin-top: 32px !important;
+      margin-top: 24px !important;
       padding-top: 0 !important;
       border-top: none !important;
     }
