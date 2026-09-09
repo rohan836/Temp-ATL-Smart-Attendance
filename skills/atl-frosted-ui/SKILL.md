@@ -19,9 +19,9 @@ tests, or plans unless explicitly ordered. Never open a browser.
 
 Desert ambient (light cactus render, `0.12` pass over `#050507`) provides
 all atmosphere and color. UI floats over it as warm frost windows
-(`--ref-frost`, `22px` blur, `24px` radius), opaque white cards
-(Students detail, Backup audit), and near-black cards (Setup
-Classes/Batches). Primary actions are black pills (`--ref-pill`,
+(`--ref-frost`, `22px` blur, `24px` radius) — Students roster/detail,
+Attendance workspace, the single Setup window, the single Backup window.
+Primary actions are black pills (`--ref-pill`,
 `999px`); secondary actions are transparent outline pills. Month cells
 are flat text-only with a quiet hairline grid — state reads via text,
 never boxes. Palette is otherwise monochrome — white, near-black,
@@ -43,21 +43,20 @@ atmosphere, not windows on top of it.
   `1px solid var(--ref-white-line)` + `24px`, dark `--ref-ink` text
   forced in both ink modes. [RETIRED — both converted to warm frost,
   log 25; vars stay defined.]
-- Black cards (Setup Classes/Batches): `var(--ref-black)`, no border,
-  `24px`, white text both inks.
+- Black cards (Setup board rows — Classes/Batches/Holidays/Overrides):
+  `var(--ref-black)`, no border, `24px`, white text both inks.
 - Pills (`999px`): black primary `var(--ref-pill)` + silver text;
   secondary transparent + `1px solid rgba(24,26,32,0.25)` + `--ref-ink`.
-- Enrollment modal: card frost above at `0.07`; veil
-  `#enrollModal.modal { background: rgba(26,20,16,0.2) }` — deep enough for
-  white text to read, light enough to stay luminous. Do NOT return to the
-  global milky veil or a dark dialog.
+- Enrollment modal: warm milky `ref-frost` window (`24px`, dark ink
+  both poles), white slot pills, black-pill SAVE + graphite CANCEL;
+  transparent modal veil (dark dialog retired, log 35).
 - `#adminLayer.open` is transparent (old `0.12` veil retired); kiosk idle
   chrome hides while Admin is open.
 - Everywhere-sharp law retired (it squared the 24px windows — white
   card, rail, roster, frost workspaces). Narrow sharpness stays by own
   rules: day pills, month cells, option rows, validation errors.
-  `body > .gsel-pop.gsel-pop` pins popover frost + `2px`. Month cells
-  flat text-only (`56px`, transparent, `0.08` hairline grid).
+  `body > .gsel-pop.gsel-pop` pins borderless popover frost + `2px`. Month cells
+  flat text-only (`64px`, transparent, `0.08` hairline grid).
 
 ## Typography system
 
@@ -71,19 +70,23 @@ atmosphere, not windows on top of it.
 
 ## Component treatments (approved direction — preserve)
 
-- **Sidebar shell (current):** admin = top bar (title + ink/esc/close)
-  + main workspace + fixed 248px right rail (`#adminSide`: vertical
+- **Sidebar shell (current):** no top bar (`#adminLayer .admin-top`
+  renders nothing — title, search, controls all retired or relocated);
+  single admin window (workspace + fixed 248px right rail fused with a
+  dashed seam, dark ink both poles — `#adminSide`: vertical
   `#adminNav` stack, then exactly one visible `.side-ctx` per tab —
   Students filters · Attendance presets · Setup wheel/school/
-  holiday/override/eyes · Backup none). Retired `.tab-toolbar` nodes stay
+  holiday/override/eyes · Backup none) + rail foot (`#sideFoot`:
+  INK/ESC/CLOSE docked bottom). Retired `.tab-toolbar` nodes stay
   in the DOM as hidden logic truth (never delete). `updateTabs` toggles
   `[hidden]` sections only.
-- **Students:** frost roster window (`320–400px`, `ref-frost`,
-  borderless, dark-ink text both poles; transparent text-only rows,
-  selection is 500 name + full-ink text) + warm frost detail window
-  (dark ink forced, bars stripped) + floating pills under the roster
-  (`#studentActionsCard`: white primary + solid black pair, same type
-  as EDIT INFORMATION — `34px/999px/10px/500/0.08em`).
+- **Students:** ONE frost roster window (`320–400px`, `ref-frost`,
+  borderless, dark-ink text both poles): roster-local search slot,
+  transparent text-only rows (selection is 500 name + full-ink text),
+  action pills docked below — dashed divider hairlines; detail fused
+  edge-to-edge (shared seam, squared meeting corners). Pills:
+  `#studentActionsCard` white primary + solid black pair, same type
+  as EDIT INFORMATION — `34px/999px/10px/500/0.08em`.
 - **Header nav:** the tab stack lives in the RIGHT RAIL, left-aligned
   44px rows, uniform weight 400 (active reads via opposite-pole color +
   500, no bar, no dot) — per-tab title-length swings can never push it.
@@ -151,11 +154,11 @@ language — never a wash.
 
 ## ATL Smart Attendance UI rules (locked — from the Students/Setup redesign)
 
-1. **Global visual language:** desert ambient + warm frost windows
-   (`24px`) + white detail/audit cards + near-black Classes/Batches
-   cards + black-pill primaries / outline pills. Never invent a new
-   surface: reuse the window/card/pill systems. No shadows, no colored
-   UI (danger red excepted).
+1. **Global visual language:** desert ambient + one admin window
+   (`24px`, roster/detail/attendance/setup/month/backup-single-window)
+   + near-black Setup board cards + black-pill primaries / outline
+   pills. Never invent a new surface: reuse the window/card/pill
+   systems. No shadows, no colored UI (danger red excepted).
 2. **Typography:** `var(--sans)` interface text; `var(--mono)` only for
    technical/numeric/time values; serif/editorial only for major
    identity/page titles (e.g. profile name). Weights 400 normal /

@@ -775,33 +775,27 @@ class UiE2eTest(unittest.TestCase):
         grid_first_cls = self.page.locator("#calendarHeadGrid .weekly-day-card").first.get_attribute("class") or ""
         self.assertEqual("working" in grid_first_cls, after)
         self.assertIsNone(self.page.evaluate("document.querySelector('#calendarGrid [data-day]')"))
-        # Weekday strip owns its own window above the month (12px gap, same left edge)
+        # Single-window Setup (user order): toolbar, weekday strip, month
+        # grid, and all four boards share ONE frost window — no separate
+        # containers, no pager carousel. Strip stacks directly above the
+        # grid; both boards render visible with the pager retired.
         head_box = self.page.locator("#calendarHeadGrid").bounding_box()
         grid_box = self.page.locator("#calendarGrid").bounding_box()
         self.assertIsNotNone(head_box)
         self.assertIsNotNone(grid_box)
         self.assertLess(head_box["y"] + head_box["height"], grid_box["y"])
         self.assertAlmostEqual(head_box["x"], grid_box["x"], delta=2)
-        # 12px vertical module: strip→month gap, month→pager gap, pager→cards gap
-        self.assertAlmostEqual(grid_box["y"] - (head_box["y"] + head_box["height"]), 12, delta=3)
-        pager_box = self.page.locator("#cbStrip .cb-pager").bounding_box()
-        page_box = self.page.locator("#cbPageCb").bounding_box()
-        self.assertIsNotNone(pager_box)
-        self.assertIsNotNone(page_box)
-        self.assertAlmostEqual(pager_box["y"] - (grid_box["y"] + grid_box["height"]), 16, delta=3)
-        self.assertAlmostEqual(page_box["y"] - (pager_box["y"] + pager_box["height"]), 16, delta=3)
-        # Board pager: centered ‹ [board] › cluster; flipping slides swaps
-        # the pill text without moving the arrows or clipping the row
-        prev_box = self.page.locator("#cbPrev").bounding_box()
-        next_box = self.page.locator("#cbNext").bounding_box()
-        self.page.locator("#cbNext").click()
-        self.page.wait_for_function("document.getElementById('cbPageLabel').textContent.includes('HOLIDAYS')", timeout=3000)
-        self.assertIn("HOLIDAYS", self.page.locator("#cbPageLabel").inner_text().upper())
-        self.assertAlmostEqual(self.page.locator("#cbPrev").bounding_box()["x"], prev_box["x"], delta=2)
-        self.assertAlmostEqual(self.page.locator("#cbNext").bounding_box()["x"], next_box["x"], delta=2)
-        self.page.locator("#cbPrev").click()
-        self.page.wait_for_function("document.getElementById('cbPageLabel').textContent.includes('CLASSES')", timeout=3000)
-        self.assertIn("CLASSES", self.page.locator("#cbPageLabel").inner_text().upper())
+        self.assertLess(grid_box["y"] - (head_box["y"] + head_box["height"]), 16)
+        # Pager carousel retired: arrows render nothing, both boards stay
+        # visible, label names all four sections.
+        self.assertFalse(self.page.locator("#cbStrip .cb-pager").is_visible())
+        self.assertFalse(self.page.locator("#cbPrev").is_visible())
+        self.assertFalse(self.page.locator("#cbNext").is_visible())
+        self.assertTrue(self.page.locator("#cbPageCb").is_visible())
+        self.assertTrue(self.page.locator("#cbPageHo").is_visible())
+        label_text = (self.page.locator("#cbPageLabel").text_content() or "").upper()
+        self.assertIn("CLASSES", label_text)
+        self.assertIn("HOLIDAYS", label_text)
 
         # 4. Set custom timings in the solid editor and save
         self.page.locator("#csPresentCutoff").fill("07:45")

@@ -38,11 +38,12 @@ never literals:
 --ref-ink-2:      rgba(24, 26, 32, 0.55);      /* muted dark text */
 ```
 
-Windows (no shadow; `ref-radius` outer): rail + Students roster use the
-sheer frost (`--frost-bg` / `--frost-blur` / `--frost-line`) in BOTH
-inks (milky swap retired — backgrounds frozen); Attendance workspace,
-Setup month, and Backup manager use the warm `--ref-frost` /
-`--ref-frost-blur` / `--ref-edge` in both inks. Roster rows carry no
+Windows (no shadow; `ref-radius` outer): rail keeps the sheer frost
+(`--frost-bg` / `--frost-blur` / `--frost-line`) in BOTH inks; Students
+roster, Attendance workspace, Setup month, and Backup manager use the
+warm `--ref-frost` / `--ref-frost-blur` in both inks (roster borderless
+since log 43; `ref-edge` retired on roster/detail — no window edge
+lines). Roster rows carry no
 fade wash — selection reads via 500 name + full-ink text only.
 Rail dropdown rows are underline-free at rest in both inks (hover
 keeps its pole-mirrored underline).
@@ -181,12 +182,13 @@ row separator: 1px solid rgba(242, 243, 246, 0.07–0.08);
 ## Laws
 
 - No 600/700. No text shadows. No colored UI.
-- Opaque fills exist only for the reference cards below (white
-  detail/audit, black Classes/Batches); everything else stays
-  frost/transparent.
+- Opaque fills exist only for solid pills (white New Enrollment,
+  black primaries); everything else stays frost/transparent (standalone
+  Setup near-black cards retired — boards are dark-ink rows in the
+  single window now).
 - Native `<select>` under custom dropdowns stays `opacity: 0` (invisible truth).
 - Centered flex rows + dynamic text = shift bug; use absolute centering / fixed slots.
-- Ink toggle (`INK: WHITE ⇄ BLACK` in admin top bar, `atl_ink` persisted):
+- Ink toggle (rail foot `#sideFoot`, `atl_ink` persisted):
   `html[data-ink="dark"]` flips text tiers only — primary `#181A20`,
   base `rgba(24,26,32,0.8)`, placeholders `rgba(24,26,32,0.5)`.
   Backgrounds/frost/blur/borders/layout frozen. Native `<option>` popups

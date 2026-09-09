@@ -1538,10 +1538,11 @@ function renderCbTables(){
   }
   paintCbPage(cbPage);
 }
-/* Board pager: arrows flip pages (wrap); Shift+wheel is the slide
-   gesture — horizontal delta flips, plain wheel keeps scrolling
-   rows. Ctrl+wheel is left alone (browser zoom). */
-let cbPage=0, _cbWheelT=0;
+/* Single board (H single-window law): the ‹ › pager carousel is retired —
+   Classes · Batches and Holidays · Overrides always stack visible in the
+   one frost window, so paintCbPage pins both pages open. Nodes stay
+   (hidden pager + label remain logic truth for tests/wiring). */
+let cbPage=0;
 let selHolidayKey=null, selOverrideKey=null;
 function editTarget(kind){
   if(selKind===kind&&selName) return {type:kind,name:selName};
@@ -1550,11 +1551,11 @@ function editTarget(kind){
   return null;
 }
 function paintCbPage(i){
-  cbPage=((i%2)+2)%2;
+  cbPage=0;
   const p0=$("cbPageCb"), p1=$("cbPageHo"), lab=$("cbPageLabel");
-  if(p0) p0.hidden=cbPage!==0;
-  if(p1) p1.hidden=cbPage!==1;
-  if(lab) lab.textContent=cbPage===0?"CLASSES · BATCHES":"HOLIDAYS · OVERRIDES";
+  if(p0) p0.hidden=false;
+  if(p1) p1.hidden=false;
+  if(lab) lab.textContent="CLASSES · BATCHES · HOLIDAYS · OVERRIDES";
 }
 function onCbStripClick(e){
   const del=e.target.closest("[data-cb-del-kind],[data-ho-del]");
@@ -1633,13 +1634,6 @@ if($("cbStrip")){
     if(e.target.closest("button")) return;
     if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
   });
-  $("cbStrip").addEventListener("wheel",(e)=>{
-    if(e.ctrlKey) return;
-    const dx=e.deltaX||0; if(!e.shiftKey||!dx) return;
-    e.preventDefault();
-    const now=Date.now(); if(now-_cbWheelT<250) return; _cbWheelT=now;
-    paintCbPage(cbPage+(dx>0?1:-1));
-  },{passive:false});
 }
 /* Inline month editor: staged days + snapshot + strip paint. Toggles
    stage into pendingDays (never persisted); Save composes staged days

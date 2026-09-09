@@ -43,8 +43,9 @@ trust the code, then fix this file.
   `#050507`) stays visible through the UI; warmth comes from the
   background only, never from controls.
 - Surfaces: warm frost windows (`--ref-frost`, `22px` blur, `24px`
-  radius) + opaque white cards (Students detail, Backup audit) +
-  near-black cards (Setup Classes/Batches). No shadows, no per-cell
+  radius) + opaque white cards (Students detail, Backup audit); Setup
+  boards stack as dark-ink rows in the single Setup window (standalone
+  near-black cards retired). No shadows, no per-cell
   boxes.
 - Monochrome: white / near-black / translucent neutrals. No colored
   badges, chips, or shadows. Errors/destructive stay `danger` red.
@@ -124,50 +125,60 @@ trust the code, then fix this file.
   create no event. 15s background poller refreshes today's data (skipped
   while the tab is hidden).
 
-## 4. Admin shell (rail + top-center search)
+## 4. Admin shell (no top bar, rail + foot)
 
-- **Top bar**: left title, top-center search (`min(520px,44vw)`,
-  `min(320px,50vw)` ≤900px — solid white `999px` pill, `40px` tall,
-  dark text both poles; palette `+6px` under the box), right group
-  `INK | ESC | CLOSE`. `overflow:visible` + `z-index:30` unclip results
-  above pane content; palette stays below modals (40) / confirms (90)
-  / pickers (120).
-- **Rail** (`248px` frost card, `ref-radius`): the `#adminNav` node moved
+- **Top bar**: retired — `#adminLayer .admin-top` renders nothing on
+  any tab (`display:none`). Tab titles retired globally (`#adminTitle`
+  hidden, JS textContent harmless); the command search retired globally
+  (node stays for JS `.value` wiring, palette mouse-only so fully
+  retired); INK/ESC/CLOSE moved verbatim into the rail foot (IDs kept).
+  Panes start at the even-12 frame directly.
+- **Rail** (`248px` frost card, `ref-radius`, margins `12/12/12/0`): the `#adminNav` node moved
   verbatim from the old header bar into `#adminSide` — vertical stack,
   `44px` left-aligned rows, `400/500` + directional-wash active
   (silver/dark poles), no separators. ≤900px it becomes a top strip.
+- **Rail foot** (`#sideFoot`): INK/ESC/CLOSE docked fully-bottom via
+  `margin-top:auto` under a dashed divider hairline; borderless text
+  buttons, all states identical, both poles.
 - **Contexts** (`.side-ctx`): one per tab (Student / Attendance / Setup
   controls); `[hidden]` beats the flex shell so inactive controls never
   leak. Rail actions are black pills (`36px`, `999px`, `#attApplyBtn`).
-- **Body/panes**: row flex (workspace + rail); one visible tab at a time.
+- **Body/panes**: single frost window on `.admin-body` (workspace +
+  248px rail fused with a dashed seam, dark ink both poles); one visible
+  tab at a time, inner pane windows retired to transparent sections.
   `#adminLayer.open` is transparent (old `0.12` veil retired); kiosk
   idle chrome hides while Admin is open.
 
 ## 5. Students pane
 
-- Roster = frost window (`320–400px`, `ref-frost`, `ref-radius`,
-  borderless, full-height stretch with internal scroll); rows
-  transparent text-only, no fade wash (selection = 500 name +
-  full-ink text, dark ink both poles).
-- Detail = warm frost window (`--ref-frost`, `ref-radius`,
-  `28px 32px` scroll); dark ink forced in both modes; inner
-  tables/bars stripped; photo frameless `12px` round.
-- Actions = floating pills under the roster (`#studentActionsCard`,
-  no window): white New Enrollment + solid black Import/Export,
-  EDIT-INFORMATION type (`34px/999px/10px/500/0.08em`); rail keeps
-  filters only.
+- Roster = left section of the single admin window (`320–400px`,
+  transparent, full-height stretch): roster-local search slot up top,
+  transparent scrolling rows in the middle, action pills docked below —
+  sections split by dashed divider hairlines, 14px pad / 12px rhythm.
+  Rows transparent text-only, no fade wash (selection = 500 name +
+  full-ink text, dark ink both poles). Roster filter writes through
+  the retired global input (palette stays shut).
+- Detail fused edge-to-edge with the roster (shared hairline seam,
+  transparent section of the single window, dark ink forced both modes); inner tables/bars
+  stripped; photo frameless `12px` round; full height by construction.
+- Actions = pills docked in-window (`#studentActionsCard`): white New
+  Enrollment + solid black Import/Export, EDIT-INFORMATION type
+  (`34px/999px/10px/500/0.08em`); rail keeps filters only.
 - Last 60 events in detail; history bundles `events` 500 + `daily` 500.
 
 ## 6. Attendance pane
 
-- Workspace = one inset frost window (`.detail-scroll`, `ref-radius`,
-  dark `--ref-ink` text both modes); stats/table/unknown inside with no
-  divider bars; `LIVE TODAY` plain; table buttons = small outline pills.
+- Workspace = transparent section of the single admin window
+  (`.detail-scroll`, dark `--ref-ink` text both modes); stats band framed
+  by dashed dividers, tables on the quiet audit hairline grid (dark head
+  rule + 0.08 row rules, graphite hover, clean empty states);
+  `LIVE TODAY` plain; table buttons = small outline pills.
 - Filters live in the rail context (Today / Yesterday / Custom Date /
   Custom Range / This Week (7d) / This Month / Academic Year + Clear +
   black APPLY pill); the old pane `.tab-toolbar` is hidden truth (nodes
   moved verbatim, IDs/events untouched).
-- Stats row, attendance table (static thead), duplicate/late/not-
+- Stats row (full-width even strip, dark hairline dividers,
+  ellipsis-guarded values, wide date share), attendance table (static thead), duplicate/late/not-
   scheduled/absent states per attendance law (`PRESENT ≤08:00`, else
   `LATE`; same-day re-scan `DUPLICATE`; `NOT_SCHEDULED` muted;
   `ABSENT` only after `lateCutoff` via daemon/manual reconcile).
@@ -175,34 +186,27 @@ trust the code, then fix this file.
 
 ## 7. Setup pane
 
-- **Month windows**: toolbar rides its own frost bar (legend + Global
-  schedule selector + month nav, dark ink, underline-free selector,
-  uniform 30px control slots, right-docked to the rail, same 1600 cap
-  as the column below, top flush with the rail);
-  SUN–SAT weekday strip owns its own frost window
-  (`#calendarHeadGrid`, `ref-radius`, dark ink) stacked 12px above the
-  date grid (`#calendarGrid` frost card, same padding/columns so headers
-  align with dates (shared width-lock rule); switcher header row (16 above,
-  16 below the pill cluster, fully in-flow); cards container flush with
-  the calendar grid width; dynamic compact cards (hug content, 180px cap
-  with inner row scroll, balanced 16/20 padding, shared 16px bottom
-  datum with the rail); month absorbs surplus height (1fr cells, 420 reserve)
-  so content and rail share one bottom datum; cells flat text-only
-  (`64px` minimum rows,
-  transparent, no blur, `0.08` hairline grid both poles, Saturday edge
-  open); headers display-only in a slim 44px strip (editing lives in the schedule popup);
-  thin `#monthEditor` strip below (mono cutoffs + Save/Cancel,
-  hairline top, fixed label/value slots).
-- **Classes / Batches**: two near-black cards (`.cb-table`,
-  `--ref-black`, `ref-radius`, white text both inks); rows hover white
-  `0.06` wash, active directional wash; centered pager cluster above
-  (‹ + board pill + ›, fixed slot, no shift on flip).
-- **Holidays / overrides**: list tables own all editing — holiday
-  ranges and single-date overrides are added via the sidebar
+- **Single window section** (transparent part of the single admin
+  window — Students single-roster-window pattern): toolbar, SUN–SAT
+  strip, date grid, and all four boards are transparent sections split
+  by dashed divider hairlines — no separate containers, no pager
+  carousel (both boards always stack visible).
+- **Month**: toolbar header section (legend + Global schedule selector +
+  month nav, G5 dark ink, uniform 30px slots) over a dashed divider;
+  SUN–SAT display-only strip (44px, 12px breather, no divider — one
+  calendar); date grid (flat text-only cells, `64px` minimum rows,
+  transparent, `0.08` hairline grid both poles, Saturday edge open,
+  420px reserve so 5-row vs 6-row months never move surrounding UI).
+  `#monthEditor` stays hidden (cutoffs live in the schedule popup).
+- **Boards**: two rows of near-black cards (Classes · Batches, then
+  Holidays · Overrides — 12px gap, 240px cap + inner row scroll, white
+  text both inks, 20px titles, graphite hover wash). Holiday ranges and
+  single-date overrides are added via the sidebar
   (`ADD HOLIDAY`, `ADD OVERRIDE`) and edited/removed via table
   Edit/Remove (`#holidayModal` / `#overrideModal` forms with the
-  holiday validators). Tables live in eye popups (same frost
-  modals as creation; `Close` dismisses). Every month
+  holiday validators). Tables live in eye popups (all Setup popups share
+  the warm enrollment-window language — frost card, dark ink, pill
+  fields, black-pill save + outline cancel; `Close` dismisses). Every month
   day cell opens a read-only day window (resolved badge +
   global-vs-template source line + Close) — no editing verbs.
   Setup views, popup edits. Single-POST persist throughout. Validated `YYYY-MM-DD[..YYYY-MM-DD]:type:name`
@@ -212,16 +216,22 @@ trust the code, then fix this file.
 
 ## 8. Backup pane
 
-- **Manager** = frost window (`#backupManagerCard`, `ref-radius`, dark
-  ink); **audit** = twin frost window (`:has(#auditBody)`, dark ink). Inner
-  boxes/dividers transparent, bars gone.
-- **Pill hierarchy**: `.primary` black, everything else transparent
-  outline — all interactive states pinned, no square/flash.
+- **Single window section** (transparent part of the single admin
+  window — Students fused roster+detail pattern): manager
+  (`#backupManagerCard`, fixed 400px left section, dashed seam) + audit
+  (fluid right section, stacks with a dashed divider under 1080px).
+  Inner boxes transparent; sections split by dashed divider hairlines.
+- **Pill hierarchy**: 34px black `.primary` / 30px transparent outline —
+  all interactive states pinned, no square/flash; uniform type
+  (`10px/500/0.08em` uppercase).
 - Checkboxes graphite (black when checked, silver tick); scheduler
-  time/freq/interval soft filled slots, dark text; audit rows graphite
-  hover wash; errors/destructive stay red.
-- **Audit history**: editorial table on white, header `9.5px/500/uppercase`;
-  Export/Clear actions; scrollbars ink-aware (D9).
+  time/freq/interval are text-first underline fields (solid mono time
+  text, underline frequency gsel in a fixed 140px slot); weekday buttons
+  are outline pills (active = black pill); pairing code in a mono pill
+  slot; audit rows graphite hover wash; errors/destructive stay red.
+- **Audit history**: editorial table, header `9.5px/500/uppercase`;
+  Export/Clear share one 34px header row; graphite hairline grid;
+  graphite scrollbars.
 
 ## 9. Custom frost date/time picker (replaces native popups)
 
@@ -667,7 +677,9 @@ trust the code, then fix this file.
     outer + middle inset is one value; both panels full-height by
     construction. Widths stay per design (380 roster / 248 rail).
     Paint + markup move; braces balanced.
-47. Push rebase (remote `af63bbc` rebuilt docs): conflict merge keeps
-    remote curation (ADMIN Setup/Attendance, SKILL shell/presets/wheel,
-    UI_COMPONENTS values/residuals) + this log; Students action
-    locations corrected to floating pills (rail holds filters only).
+53. Dashed section dividers (user order — minus-symbol dashes, not
+    straight bars): all four hairlines go `1px dashed` (slightly
+    raised alpha to keep dashes legible). Paint-only; braces
+    balanced.
+54. Docs refresh (logs order fixed — 47 sat after 53 from the rebase
+    merge; contract sections §4/§5 rewritten to the shipped UI).
