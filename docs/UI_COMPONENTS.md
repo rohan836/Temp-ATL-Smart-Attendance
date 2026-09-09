@@ -185,8 +185,10 @@ trust the code, then fix this file.
   align with dates (shared width-lock rule); switcher header row (16 above,
   16 below the pill cluster, fully in-flow); cards container flush with
   the calendar grid width; dynamic compact cards (hug content, 180px cap
-  with inner row scroll, balanced 16/20 padding, 24px bottom margin +
-  24px page padding); cells flat text-only (`64px` fixed rows,
+  with inner row scroll, balanced 16/20 padding, shared 16px bottom
+  datum with the rail); month absorbs surplus height (1fr cells, 420 reserve)
+  so content and rail share one bottom datum; cells flat text-only
+  (`64px` minimum rows,
   transparent, no blur, `0.08` hairline grid both poles, Saturday edge
   open); headers display-only in a slim 44px strip (editing lives in the schedule popup);
   thin `#monthEditor` strip below (mono cutoffs + Save/Cancel,

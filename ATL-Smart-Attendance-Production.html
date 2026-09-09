@@ -8033,7 +8033,7 @@
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
       scrollbar-gutter: auto !important;
-      padding: 12px clamp(12px, 2vw, 20px) 24px clamp(12px, 2vw, 20px) !important;
+      padding: 12px clamp(12px, 2vw, 20px) 8px clamp(12px, 2vw, 20px) !important;
       background: transparent !important;
       box-sizing: border-box !important;
       display: flex !important;
@@ -8052,6 +8052,7 @@
     #pane-setup .setup-grid {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) !important;
+      grid-template-rows: minmax(0, 1fr) !important;
       gap: 0 !important;
       align-items: stretch !important;
       border-bottom: none !important;
@@ -8076,6 +8077,8 @@
     #pane-setup .detail-card.setup-card {
       display: flex !important;
       flex-direction: column !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
       background: transparent !important;
       background-color: transparent !important;
       backdrop-filter: none !important;
@@ -9105,8 +9108,8 @@
       color: rgba(242, 243, 246, 0.75) !important;
     }
 
-    /* Wide layout geometry lives in the workspace grid below
-       (#classCubes/#classDetail are display:contents there);
+    /* Wide layout geometry lives in the workspace flex below
+       (#classCubes is display:contents, #classDetail a flex column there);
        narrow stacking re-establishes column flow at 1160px. */
     #pane-setup #cubeGrid {
       min-width: 0 !important;
@@ -9335,21 +9338,33 @@
       margin-top: 0 !important;
     }
 
-    /* One workspace geometry: fixed 240px left rail, remaining
-       width for the month. Tops share row 1; roster and calendar
-       bottoms land on one datum; add footer aligns with the
-       cutoff strip. */
+    /* One workspace geometry: the section is a plain flex column —
+       head, month, then strip flow top-to-bottom in DOM order with
+       margins between (no grid tracks, no placement props needed).
+       Children stretch full-bleed; the width-lock below reinforces it. */
     #pane-setup .setup-card-classes .setup-subcard-section {
-      display: grid !important;
-      grid-template-columns: 240px minmax(0, 1fr) !important;
+      display: flex !important;
+      flex-direction: column !important;
       column-gap: 20px !important;
       row-gap: 8px !important;
-      align-items: start !important;
+      align-items: stretch !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
     }
 
-    #pane-setup #classCubes,
-    #pane-setup #classDetail {
+    /* Structural: #classCubes stays transparent (hidden roster nodes
+       pass through) but #classDetail is a REAL flex column — no
+       display:contents flattening, so head/month/strip stack in natural
+       top-to-bottom document flow with margins doing the spacing
+       (no grid-track math, no placement collisions). */
+    #pane-setup #classCubes {
       display: contents !important;
+    }
+    #pane-setup #classDetail {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      min-width: 0 !important;
     }
 
     /* Roster owns grid row 1 (7 rows = 392 = calendar height);
@@ -9408,15 +9423,18 @@
       background: transparent !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
-      /* Stable footprint: 6 uniform body rows (weeks) × 64px = 384px
-         reserved, gapless so hairlines join into continuous guides.
-         The SUN–SAT header row lives in its own window above
-         (#calendarHeadGrid, 44px + 12px gap). Shorter months leave
-         quiet invisible space; 5-row vs 6-row never moves the page. */
+      /* Stable footprint: 6 uniform body rows (weeks), each at least
+         64px, sharing the month box equally (1fr) — the box itself is
+         at least 420px (6×64 + 36px padding) and grows via the 1fr
+         workspace row on tall viewports, so date cells absorb surplus
+         height instead of pooling void below. Gapless hairlines join
+         into continuous guides; 5-row vs 6-row months share the same
+         box, so surrounding UI never moves. */
       gap: 0 !important;
-      grid-auto-rows: 64px !important;
-      align-content: start !important;
-      min-height: 384px !important;
+      grid-auto-rows: minmax(64px, 1fr) !important;
+      align-content: stretch !important;
+      align-self: stretch !important;
+      min-height: 420px !important;
     }
 
     /* Month header cards match cube height so rows line up exactly.
@@ -9507,8 +9525,8 @@
        (#calendarHeadGrid) and the date grid (#calendarGrid) are two
        stacked frosted cards with a 12px gap — warm frost in both
        inks, dark text forced. Geometry: head 44px row, body 6×64px
-       rows (384px footprint); #monthEditor and #cbStrip below are
-       NOT touched. Cell divider lines already gone via the no-bars
+       rows (420px reserve, 1fr-shared when taller); #monthEditor and
+       #cbStrip below are NOT touched. Cell divider lines already gone via the no-bars
        sweep; state tints (working/off/holiday/override) keep working.
        Lives at top level (NOT in the narrow media query above) so it
        applies at every viewport width. */
@@ -9542,8 +9560,9 @@
        frost window ABOVE the month — same position as before, only a
        12px gap separates the two. Same tokens/padding/edge/columns as
        the month window so the 7 text columns align row-for-row with
-       the date cells below. Head = row 1, month = row 2, strip = row 3
-       (see G3); #monthEditor stays hidden. Gaps: head mb 12 above the
+       the date cells below. Head, month, strip flow top-to-bottom in
+       DOM order inside the #classDetail flex column (see G3);
+       #monthEditor stays hidden. Gaps: head mb 12 above the
        month; below the month the switcher owns my-4 margins (month
        itself carries none), so the pill row touches neither border.
        The workspace grid carries row-gap 0.
@@ -9790,7 +9809,7 @@
       border-top: none !important;
       margin-top: 0 !important;
       padding-top: 0 !important;
-      margin-bottom: 12px !important;
+      margin-bottom: 8px !important;
       /* Dynamic compact height: the strip hugs its content (no fixed
          190px, no dark void under short boards); tall boards cap at
          180px and the rows scroll inside (.cb-rows flex-shrink +
@@ -9810,9 +9829,9 @@
       min-height: 0 !important;
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-      column-gap: 20px !important;
+      column-gap: 12px !important;
       min-width: 0 !important;
-      padding: 0 36px !important;
+      padding: 0 !important;
     }
     #pane-setup #classDetail #cbStrip .cb-page[hidden] {
       display: none !important;
@@ -9828,14 +9847,10 @@
       align-items: center !important;
       justify-content: center !important;
     }
-    /* Board arrows ride the strip's vertical middle at both edges
-       (out of flow, in reserved 36px gutters so rows never slide
-       under them); the footer keeps only the centered board label. */
+    /* Board arrows: plain in-flow text controls in the centered cluster
+       (positioning lives in the cluster rule below — no absolute
+       overlay, no edge docking). */
     #pane-setup #classDetail #cbStrip .cb-arrow {
-      position: absolute !important;
-      top: calc(50% - 13px) !important;
-      transform: translateY(-50%) !important;
-      z-index: 2 !important;
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
@@ -9845,12 +9860,6 @@
       line-height: 1 !important;
       padding: 2px 10px !important;
       cursor: pointer !important;
-    }
-    #pane-setup #classDetail #cbStrip #cbPrev {
-      left: 0 !important;
-    }
-    #pane-setup #classDetail #cbStrip #cbNext {
-      right: 0 !important;
     }
     #pane-setup #classDetail #cbStrip .cb-arrow:hover {
       color: #F2F3F6 !important;
@@ -10055,14 +10064,10 @@
       border-top: none !important;
       margin-top: 0 !important;
       padding-top: 0 !important;
-      /* Breathing room above the page boundary (mb-6): 24px strip
-         margin + 12px scroll padding, so the cards sit cleanly in the
-         viewport without touching its edge. */
-      margin-bottom: 24px !important;
-    }
-    #pane-setup #classDetail #cbStrip .cb-page {
-      padding: 0 !important;
-      column-gap: 12px !important;
+      /* Shared 16px bottom datum with the rail (rail margin-bottom is
+         16px): 8px strip margin + 8px scroll padding — both columns
+         terminate at the exact same baseline. */
+      margin-bottom: 8px !important;
     }
     #pane-setup #classDetail #cbStrip .cb-table {
       background: var(--ref-black) !important;
@@ -10127,10 +10132,10 @@
       top: auto !important;
       z-index: auto !important;
     }
-    /* Width lock: head window, month window, and strip share one grid
-       column AND identical box metrics — full column width, border-box,
-       zero side margins — so left/right edges align perfectly at every
-       zoom in both slide states. */
+    /* Width lock: head window, month window, and strip are flex items
+       of one column AND share identical box metrics — full width,
+       border-box, zero side margins — so left/right edges align
+       perfectly at every zoom in both slide states. */
     #pane-setup #classDetail #calendarHeadGrid,
     #pane-setup #classDetail #calendarGrid,
     #pane-setup #classDetail #cbStrip {
