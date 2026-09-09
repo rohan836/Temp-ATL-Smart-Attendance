@@ -321,9 +321,6 @@ const promptText=$("promptText"),
   attDateLabel=$("attDateLabel"), attModeBadge=$("attModeBadge"), attStats=$("attStats"),
   attTableHead=$("attTableHead"), attTableBody=$("attTableBody"),
   attUnknownWrap=$("attUnknownWrap"), attUnknownCount=$("attUnknownCount"), attUnknownBody=$("attUnknownBody"),
-  todayDateLabel=$("todayDateLabel"), todayClassFilter=$("todayClassFilter"),
-  todayStatusFilter=$("todayStatusFilter"), todaySort=$("todaySort"),
-  todayStats=$("todayStats"), todayTableBody=$("todayTableBody"), todayUnknownBody=$("todayUnknownBody"),
   reportScope=$("reportScope"), reportClass=$("reportClass"), reportStudent=$("reportStudent"),
   reportTime=$("reportTime"), reportFrom=$("reportFrom"), reportTo=$("reportTo"),
   reportStats=$("reportStats"), reportBody=$("reportBody"),
@@ -621,7 +618,6 @@ function renderClassFilters(){
   const opts=['<option value="">All Classes</option>'].concat(Classes.map(c=>`<option>${esc(c)}</option>`)).join("");
   if(classFilter) classFilter.innerHTML=opts;
   if(attClassFilter) attClassFilter.innerHTML=opts;
-  if(todayClassFilter) todayClassFilter.innerHTML=opts;
   if(reportClass) reportClass.innerHTML='<option value="">Select class</option>'+Classes.map(c=>`<option>${esc(c)}</option>`).join("");
   const batches=[...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
   if(batchFilter){
@@ -2332,18 +2328,6 @@ function updateTabs(){
      The opened section starts at top (nav stays fixed above it; the
      section scrolls internally, never the rail or the workspace). */
   try{ document.querySelectorAll('#adminSide [data-side]').forEach(s=>{ const on=(s.dataset.side===tab); s.hidden=!on; if(on){ try{ s.scrollTop=0; }catch(_){} } }); }catch(e){}
-  const pToday = document.getElementById("pane-today");
-  const pReports = document.getElementById("pane-reports");
-  if(tab === "attendance"){
-    if(pToday) pToday.classList.remove("hidden");
-    if(pReports) pReports.classList.remove("hidden");
-  }
-  const pCal = document.getElementById("pane-calendar");
-  const pSet = document.getElementById("pane-settings");
-  if(tab === "setup"){
-    if(pCal) pCal.classList.remove("hidden");
-    if(pSet) pSet.classList.remove("hidden");
-  }
   const titles = {
     students: "Students",
     attendance: "Today — Attendance",
@@ -2491,7 +2475,7 @@ const handleAttendancePrint = () => {
     </div>`;
 
   const stats = (attStats && attStats.children.length) ? `<div class="stats-row">${attStats.innerHTML}</div>` : "";
-  const mainTbl = document.querySelector('#pane-attendance .table-wrap:first-of-type') || document.querySelector('#pane-today .table-wrap:first-of-type');
+  const mainTbl = document.querySelector('#pane-attendance .table-wrap:first-of-type');
   const tblHtml = mainTbl ? mainTbl.outerHTML : "";
 
   let unknownsHtml = "";
@@ -2591,7 +2575,7 @@ const handleAttendanceExport = async () => {
 };
 
 const handleAttendanceRefresh = async () => {
-  const btn = attRefreshBtn || $("todayRefreshBtn");
+  const btn = attRefreshBtn;
   if(btn){ btn.disabled = true; }
   try {
     await loadTodayAttendance();
@@ -2605,14 +2589,6 @@ if(attRefreshBtn) attRefreshBtn.onclick = handleAttendanceRefresh;
 if(attPrintBtn) attPrintBtn.onclick = handleAttendancePrint;
 if(attExportBtn) attExportBtn.onclick = handleAttendanceExport;
 if(attApplyBtn) attApplyBtn.onclick = renderAttendance;
-
-// Connect legacy button aliases
-if($("todayRefreshBtn")) $("todayRefreshBtn").onclick = handleAttendanceRefresh;
-if($("todayPrintBtn")) $("todayPrintBtn").onclick = handleAttendancePrint;
-if($("todayExportBtn")) $("todayExportBtn").onclick = handleAttendanceExport;
-if($("reportApplyBtn")) $("reportApplyBtn").onclick = renderAttendance;
-if($("reportPrintBtn")) $("reportPrintBtn").onclick = handleAttendancePrint;
-if($("reportCsvBtn")) $("reportCsvBtn").onclick = handleAttendanceExport;
 
 if(attDatePreset) attDatePreset.addEventListener("change", () => {
   const v = attDatePreset.value;
@@ -3993,9 +3969,6 @@ document.addEventListener("pointerdown",(e)=>{
 classFilter.addEventListener("change",renderStudentList);
 if(batchFilter) batchFilter.addEventListener("change",renderStudentList);
 if(studentStatusFilter) studentStatusFilter.addEventListener("change",renderStudentList);
-if(todayClassFilter) todayClassFilter.addEventListener("change",renderToday);
-if(todayStatusFilter) todayStatusFilter.addEventListener("change",renderToday);
-if(todaySort) todaySort.addEventListener("change",renderToday);
 if(reportScope) reportScope.addEventListener("change",()=>{
   const sc=reportScope.value;
   if(reportClass) reportClass.style.display=(sc==="class")?"":"none";
@@ -4017,7 +3990,6 @@ const handleTableClick = (e)=>{
   if(sid){ adminNav.querySelector('[data-tab="students"]').click(); setTimeout(()=>selectStudent(sid),120); }
 };
 if(attTableBody) attTableBody.addEventListener("click", handleTableClick);
-if(todayTableBody && todayTableBody !== attTableBody) todayTableBody.addEventListener("click", handleTableClick);
 // ---- correction (POST /api/correction) ----
 function openCorrection(studentId, date, oldStatus){
   const s=Students.find(x=>x.id===studentId);
