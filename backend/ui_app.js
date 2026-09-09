@@ -303,7 +303,7 @@ function ensureFirstStudent(){
 }
 // ---- DOM ----
 const promptText=$("promptText"),
-  leftClock=$("leftClock"), idleLayer=$("idleLayer"),
+  idleLayer=$("idleLayer"),
   identityLayer=$("identityLayer"), unknownLayer=$("unknownLayer"),
   photoImg=$("photoImg"), photoFallback=$("photoFallback"),
   idName=$("idName"), idSub=$("idSub"), idStatus=$("idStatus"), idTime=$("idTime"),
@@ -476,12 +476,6 @@ function showUnknown(){
     }
   }, 2800));
 }
-function tickClock(){
-  if(!leftClock) return;
-  const n=new Date();
-  leftClock.textContent=n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+" · "+n.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-}
-if(leftClock){ Timers.set("clock", setInterval(tickClock,1000)); tickClock(); }
 
 // Real scan hook (called by the sensor loop and the injected backend bridge)
 let _lastHandledScanSeq=0;
@@ -518,7 +512,7 @@ window.handleRealScan = async function(fid, info){
       if(seq && seq < _lastHandledScanSeq) return;
       showUnknown();
     }
-    loadTodayAttendance().then(()=>{ if(currentTab==="attendance" || currentTab==="today") renderAttendance(); });
+    loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
     return;
   }
   let s = info.student ? upsertStudent(info.student) : null;
@@ -540,7 +534,7 @@ window.handleRealScan = async function(fid, info){
       if(seq && seq < _lastHandledScanSeq) return;
       showUnknown();
     }
-    loadTodayAttendance().then(()=>{ if(currentTab==="attendance" || currentTab==="today") renderAttendance(); });
+    loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
     return;
   }
   if(!isAdminOpen){
@@ -551,7 +545,7 @@ window.handleRealScan = async function(fid, info){
     const time = info.time || new Date().toTimeString().slice(0,8);
     showIdentity(s, status, time, info.date ? fmtDate(info.date) : "");
   }
-  loadTodayAttendance().then(()=>{ if(currentTab==="attendance" || currentTab==="today") renderAttendance(); });
+  loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
 };
 let _scanLoopActive=true, _scanRequestInFlight=false, _scanLoopTimer=null;
 function pauseSensorScan(){ _scanLoopActive=false; if(_scanLoopTimer){ clearTimeout(_scanLoopTimer); _scanLoopTimer=null; } if(promptText){ promptText.classList.remove("scanning","identifying","detecting","is-hidden"); } }
@@ -580,7 +574,7 @@ function returnToFrontPage(rawStudent){
 async function sensorScanLoop(){
   if(!_scanLoopActive || _scanRequestInFlight) return;
   if(_resultHold){ _scanLoopTimer=setTimeout(sensorScanLoop, 180); return; }
-  const isEnrollOpen = (enrollModal && enrollModal.classList.contains("open")) || ($("scanModal") && $("scanModal").classList.contains("open"));
+  const isEnrollOpen = (enrollModal && enrollModal.classList.contains("open"));
   if(isEnrollOpen){ _scanLoopTimer=setTimeout(sensorScanLoop,500); return; }
   _scanRequestInFlight=true;
   let nextDelay=150;
@@ -1581,7 +1575,7 @@ function onCbStripClick(e){
     if(selKind==="class"&&!sel.value) sel.value=selName;
   }
   renderCalendarMonth(); renderCbTables();
-  if(currentTab==="attendance"||currentTab==="today") renderAttendance();
+  if(currentTab==="attendance") renderAttendance();
 }
 async function onCbDel(del){
   if(del.dataset.cbDelKind){
@@ -1801,7 +1795,7 @@ function renderAll(){
   renderClasses();
   renderCbTables();
   renderAudit();
-  if(currentTab==="attendance" || currentTab==="today" || currentTab==="reports") renderAttendance();
+  if(currentTab==="attendance") renderAttendance();
 }
 // ---- ENROLL: information + real fingerprint scan ----
 async function pollEnrollProgress(stepEl, labelEl){
@@ -2317,7 +2311,6 @@ function updateTabs(){
   document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
   let tab = currentTab;
   if(tab === "calendar" || tab === "settings") tab = "setup";
-  if(tab === "today" || tab === "reports") tab = "attendance";
   const pane = document.getElementById("pane-" + tab);
   if(pane){ pane.classList.remove("hidden"); pane.style.opacity = ""; }
   /* Sidebar context follows the tab: only the active page's secondary
@@ -2339,7 +2332,7 @@ function updateTabs(){
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent = titles[currentTab] || "Admin";
-  if(tab === "attendance" || tab === "today" || tab === "reports"){
+  if(tab === "attendance"){
     if(currentTab === "attendance" && attDatePreset && !attDatePreset.value) attDatePreset.value = "today";
     renderAttendance();
   }
@@ -2379,11 +2372,7 @@ adminNav.onclick=(e)=>{
     const setupBtn = adminNav.querySelector("button[data-tab='setup']");
     if(setupBtn) setupBtn.classList.add("active");
   }
-  if(currentTab === "today" || currentTab === "reports"){
-    const attBtn = adminNav.querySelector("button[data-tab='attendance']");
-    if(attBtn) attBtn.classList.add("active");
-  }
-  if(currentTab === "attendance" || currentTab === "today"){
+  if(currentTab === "attendance"){
     if(attDatePreset) attDatePreset.value = "today";
   }
   updateTabs();
@@ -2722,68 +2711,11 @@ async function onDayToggleClick(e){
   if(cell){ openDaySheet(cell.dataset.date); return; }
 }
 let csCtx=null;
-async function onCsDayClick(e){
-  const t=e.target.closest("[data-cs-day]"); if(!t||!csCtx) return;
-  const day=String(t.dataset.csDay);
-  const ctx=csCtx;
-  if(ctx.type === "class"){
-    let entry = ClassSchedules[ctx.name];
-    let wd;
-    if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
-    else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
-    else wd={...Settings.workingDays};
-    wd[day]=!asBool(wd[day] ?? wd[String(day)]);
-    wd[String(day)]=wd[day];
-    ClassSchedules[ctx.name] = Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: wd});
-    ClassSchedulesUI=ClassSchedules;
-    if(await persistCalendar()){ csRender(); renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  } else if(ctx.type === "batch"){
-    let entry = BatchSchedules[ctx.name];
-    let wd;
-    if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
-    else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
-    else wd={...Settings.workingDays};
-    wd[day]=!asBool(wd[day] ?? wd[String(day)]);
-    wd[String(day)]=wd[day];
-    BatchSchedules[ctx.name] = Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: wd});
-    if(await persistCalendar()){ csRender(); renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  } else {
-    Settings.workingDays[day]=!asBool(Settings.workingDays[day] ?? Settings.workingDays[String(day)]);
-    Settings.workingDays[String(day)]=Settings.workingDays[day];
-    if(await persistCalendar()){ csRender(); renderWeekly(); renderCalendarMonth(); renderToday(); renderReports(); }
-  }
-}
 function openClassSchedule(ctx){
   if(ctx.type==="class"){ selKind="class"; selName=ctx.name; }
   else if(ctx.type==="batch"){ selKind="batch"; selName=ctx.name; }
   renderClasses();
   syncCsCtx();
-}
-function csRender(){
-  if(!csCtx) return;
-  const ctx=csCtx;
-  $("csTitle").textContent=(ctx.type==="class"?"Class schedule: ":"Batch schedule: ")+ctx.name;
-  const wd=ctx.type==="class"?getWorkingDaysForClass(ctx.name):getWorkingDaysForBatch(ctx.name);
-  const names=["SUN","MON","TUE","WED","THU","FRI","SAT"];
-  $("csDays").innerHTML=names.map((d,idx)=>{
-    const on=asBool(wd[idx] ?? wd[String(idx)]);
-    return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-cs-day="${idx}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;
-  }).join("");
-  const timing=getScheduleTiming(ctx);
-  $("csPresentCutoff").value=timing.presentCutoff;
-  $("csLateCutoff").value=timing.lateCutoff;
-  const n=$("csTimingNotice");
-  if(ctx.type === "global"){
-    n.textContent="Global fallback (configured in Attendance Rules)";
-  } else if(ctx.type === "class"){
-    n.textContent=timing.isInherited
-      ? `Inheriting global timings (${timing.presentCutoff} / ${timing.lateCutoff}) — edit below to override`
-      : `Custom class timing active for ${ctx.name} — overrides global`;
-  } else if(ctx.type === "batch"){
-    n.textContent=timing.isInherited
-      ? `Inheriting ${(timing.level === "class" ? "class" : "global")} timings (${timing.presentCutoff} / ${timing.lateCutoff}) — edit below to override`
-      : `Custom batch timing active for ${ctx.name} — overrides class and global`;
-  }
 }
 /* Editor nodes are per-render (wired by wireSchedEditor). */
 if($("calendarGrid")){
@@ -2808,7 +2740,7 @@ if($("calClassSelect")) $("calClassSelect").onchange=()=>{
     sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
     if(selKind==="class"&&!sel.value) sel.value=selName;
   }
-  if(currentTab==="attendance" || currentTab==="today") renderAttendance();
+  if(currentTab==="attendance") renderAttendance();
 };
 /* Reset-week retired: template editing lives in the solid schedule editor. */
 function openHolidayCreate(){
@@ -4070,7 +4002,7 @@ setState("ready");
 loadAll().then(()=>{ setTimeout(sensorScanLoop,300); }, bootFail);
 setInterval(()=>{
   if(typeof document!=="undefined" && document.hidden) return;
-  loadTodayAttendance().then(()=>{ if(currentTab==="attendance" || currentTab==="today") renderAttendance(); });
+  loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
 }, 15000);
 // alias used by the injected backend bridge
 function saveStorage(){ return cacheSave(); }
