@@ -328,13 +328,15 @@ const promptText=$("promptText"),
   reportTime=$("reportTime"), reportFrom=$("reportFrom"), reportTo=$("reportTo"),
   reportStats=$("reportStats"), reportBody=$("reportBody"),
   holidayBody=$("holidayBody"), overrideBody=$("overrideBody"),
-  calendarGrid=$("calendarGrid"), calMonthLabel=$("calMonthLabel"),
+  calendarGrid=$("calendarGrid"), calendarHeadGrid=$("calendarHeadGrid"), calMonthLabel=$("calMonthLabel"),
   classCubes=$("classCubes"), auditBody=$("auditBody"),
   enrollModal=$("enrollModal"), holidayModal=$("holidayModal"),
   overrideModal=$("overrideModal"), holidayViewModal=$("holidayViewModal"),
   overrideViewModal=$("overrideViewModal"), correctionModal=$("correctionModal"),
   daySheetModal=$("daySheetModal"), daySheetTitle=$("daySheetTitle"), daySheetBody=$("daySheetBody"),
-  schoolInfoModal=$("schoolInfoModal"), setupWheelModal=$("setupWheelModal"),
+  schoolInfoModal=$("schoolInfoModal"),
+  schedModal=$("schedModal"), schedModalTitle=$("schedModalTitle"),
+  schedModalSub=$("schedModalSub"), schedModalBody=$("schedModalBody"),
   enrollTitle=$("enrollTitle"), enrollSub=$("enrollSub"), enrollBody=$("enrollBody");
 
 const Timers={ _ids:{}, set(n,id){ this.clear(n); this._ids[n]=id; },
@@ -346,7 +348,7 @@ let attAcadFrom=null, attAcadTo=null;
 
 function openModal(m){ m.classList.add("open"); }
 function closeModal(m){ m.classList.remove("open"); }
-[enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, daySheetModal, schoolInfoModal, setupWheelModal].forEach(m=>{
+[enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, daySheetModal, schoolInfoModal, schedModal].forEach(m=>{
   if(!m) return;
   /* Veil dismiss needs press AND release on the veil: a drag that
      starts inside (e.g. finishing a text selection outside the card)
@@ -709,7 +711,7 @@ function renderStudentDetail(id){
             <div class="detail-field"><label>Address</label><span>${esc(s.address||"—")}</span></div>
             <div class="detail-field"><label>Fingerprint</label><span>${esc(s.fid||"—")} · ${s.active?"Active":"Inactive"}</span></div>
           </div>
-          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+          <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap">
             <button class="btn primary" data-action="edit" data-id="${s.id}">Edit information</button>
             <button class="btn" data-action="reenroll" data-id="${s.id}">Re-enroll fingerprint</button>
             ${s.active ? `` : `<button class="btn primary" data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
@@ -1362,7 +1364,7 @@ function renderHolidays(){
   const hBadge = $("holidayCountBadge"); if(hBadge) hBadge.textContent = Holidays.length;
   if(!holidayBody) return;
   if(!Holidays.length){
-    holidayBody.innerHTML=`<tr><td colspan="5"><div class="exc-empty"><div class="exc-empty-title">No holidays or vacations configured</div><div class="exc-empty-sub">Use ADD HOLIDAY in the sidebar to schedule school-wide breaks and exam days.</div></div></td></tr>`;
+    holidayBody.innerHTML=`<tr><td colspan="5"><div class="exc-empty"><div class="exc-empty-title">No holidays or vacations configured</div><div class="exc-empty-sub">Use ADD HOLIDAY below the month to schedule school-wide breaks and exam days.</div></div></td></tr>`;
     return;
   }
   holidayBody.innerHTML=Holidays.map(h=>{
@@ -1380,12 +1382,13 @@ function renderHolidays(){
       </td>
     </tr>`;
   }).join("");
+  try{ renderCbTables(); }catch(e){}
 }
 function renderOverrides(){
   const oBadge = $("overrideCountBadge"); if(oBadge) oBadge.textContent = Overrides.length;
   if(!overrideBody) return;
   if(!Overrides.length){
-    overrideBody.innerHTML=`<tr><td colspan="4"><div class="exc-empty"><div class="exc-empty-title">No date overrides configured</div><div class="exc-empty-sub">Use ADD OVERRIDE in the sidebar for single-day schedule exceptions.</div></div></td></tr>`;
+    overrideBody.innerHTML=`<tr><td colspan="4"><div class="exc-empty"><div class="exc-empty-title">No date overrides configured</div><div class="exc-empty-sub">Use ADD OVERRIDE below the month for single-day schedule exceptions.</div></div></td></tr>`;
     return;
   }
   overrideBody.innerHTML=Overrides.map(o=>{
@@ -1403,6 +1406,7 @@ function renderOverrides(){
       </td>
     </tr>`;
   }).join("");
+  try{ renderCbTables(); }catch(e){}
 }
 function renderWeekly(){
   populateScheduleSelector();
@@ -1413,32 +1417,25 @@ function renderCalendarMonth(){
   calMonthLabel.textContent=calendarMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const ctx = getScheduleContext();
   const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
-  // Phase 1: weekday headers are the recurring-template editor (same source as renderWeekly)
-  /* Month headers are the inline editor for the left selection (staged
-     pendingDays overlay saved values); cells below stay resolved. */
+  /* Weekday template row owns its own frost window ABOVE the date grid
+     (see #calendarHeadGrid): display-only text from the same source as
+     renderWeekly (saved values only). Editing moved to the sidebar
+     schedule popup, so headers carry no toggle affordance and no click
+     target. Same position as before — only a 12px gap separates the two
+     windows; column widths match so headers align with the dates below. */
   let tplWd = Settings.workingDays;
   if(selName && (selKind==="class"||selKind==="batch")) tplWd = selKind==="batch" ? getWorkingDaysForBatch(selName) : getWorkingDaysForClass(selName);
   else if(ctx.type === "class") tplWd = getWorkingDaysForClass(ctx.name);
   else if(ctx.type === "batch") tplWd = getWorkingDaysForBatch(ctx.name);
-  const meKey = selName ? selKind+":"+selName : null;
-  if(meKey && pendingDays[meKey]) tplWd = pendingDays[meKey];
   const tplNames=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  /* Weekday header sits BELOW the date grid (still inside #calendarGrid
-     so both delegated editors keep working); cells resolve above it. */
   let headHtml=tplNames.map((d,idx)=>{
     const on = asBool(tplWd[idx] ?? tplWd[String(idx)]);
     const cls = on ? "weekly-day-card working" : "weekly-day-card off";
     const status = on ? "WORKING" : "OFF";
-    return `<button type="button" class="${cls}" data-me-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${status}</div></button>`;
+    return `<div class="${cls}" aria-hidden="true"><div class="w-name">${d}</div><div class="w-status">${status}</div></div>`;
   }).join("");
-  let tplLegend=$("calTemplateLegend");
-  if(!tplLegend && calendarGrid.parentNode){
-    tplLegend=document.createElement("div");
-    tplLegend.id="calTemplateLegend";
-    tplLegend.style.cssText="font-size:10px;letter-spacing:0.04em;color:var(--ink-2);margin:0 0 6px;";
-    calendarGrid.parentNode.insertBefore(tplLegend, calendarGrid);
-  }
-  if(tplLegend) tplLegend.textContent="Headers below are the editable weekly template \u2014 click a day to toggle \u00B7 cells show resolved days including overrides and holidays.";
+  const oldTplLegend = $("calTemplateLegend");
+  if(oldTplLegend) oldTplLegend.remove();
   let html="";
   for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
   for(let d=1;d<=last;d++){
@@ -1449,12 +1446,9 @@ function renderCalendarMonth(){
     const tag = ov ? esc(ov.note) : (hol ? esc(hol.name) : (working ? "WORKING" : "NON-WORKING"));
     html+=`<div class="calendar-cell ${typeCls}${todayCls}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
   }
-  /* Trailing fillers close the final week so the weekday header below
-     always starts a fresh 7-column row with SUN under Sunday's column
-     (without them the header flowed into the partial last week). */
-  const trail=(7-((first+last)%7))%7;
-  for(let i=0;i<trail;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
-  calendarGrid.innerHTML=html+headHtml;
+  const headEl=(typeof calendarHeadGrid!=="undefined"&&calendarHeadGrid)||$("calendarHeadGrid");
+  if(headEl){ headEl.innerHTML=headHtml; calendarGrid.innerHTML=html; }
+  else{ calendarGrid.innerHTML=headHtml+html; }
 }
 /* Class cubes: display regroup only — batches stay one flat global
    list, zero data change. Batch B nests under class C iff ≥1 student
@@ -1510,6 +1504,151 @@ function renderClasses(){
   const rows=(cubeView==="batch"?allBatches:Classes).map(label=>tile(cubeView,label,Students.filter(s=>cubeView==="batch"?s.batch===label:s.class===label).length)).join("");
   grid.innerHTML=rows;
   syncMonthEditor();
+}
+/* Bottom strip tables: read-only classes/batches with active-student
+   counts (missing/legacy records count as active — only explicit
+   inactive students are excluded). Row click previews that schedule
+   in the month above (same retarget flow as the toolbar selector). */
+function renderCbTables(){
+  const cr=$("cbClassRows"), br=$("cbBatchRows");
+  if(!cr||!br) return;
+  const isActive=s=>s&&(s.active!==false&&s.active!==0);
+  if($("cbClassCount")) $("cbClassCount").textContent=Classes.length;
+  const batches=allBatchesList();
+  if($("cbBatchCount")) $("cbBatchCount").textContent=batches.length;
+  const row=(kind,label,n)=>{
+    const sel=(selKind===kind&&selName===label)?" active":"";
+    const dim=n===0?" dim":"";
+    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(label)}" role="button" tabindex="0" title="Show schedule"><span class="cb-name">${esc(label)}</span><span class="cb-num">${n}</span><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(label)}" aria-label="Remove" title="Remove">×</button></div>`;
+  };
+  cr.innerHTML=Classes.length?Classes.map(c=>row("class",c,Students.filter(s=>isActive(s)&&s.class===c).length)).join(""):`<div class="cb-empty">No classes yet — use ADD CLASS in the sidebar.</div>`;
+  br.innerHTML=batches.length?batches.map(b=>row("batch",b,Students.filter(s=>isActive(s)&&s.batch===b).length)).join(""):`<div class="cb-empty">No batches yet — use ADD BATCH in the sidebar.</div>`;
+  /* Page 2: holidays & overrides. Past entries dim so actives read
+     instantly; headers carry the active (today-or-later) counts. */
+  const t=todayISO();
+  const MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dShort=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?(+m[3])+" "+MS[+m[2]-1]:"—"; };
+  const rangeShort=(a,b)=>{
+    if(!a) return "—"; if(!b||b===a) return dShort(a);
+    const ma=/^(\d{4})-(\d{2})-(\d{2})$/.exec(a), mb=/^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+    if(ma&&mb&&ma[1]===mb[1]&&ma[2]===mb[2]) return (+ma[3])+"→"+(+mb[3])+" "+MS[+mb[2]-1];
+    return dShort(a)+"→"+dShort(b);
+  };
+  const hr=$("cbHolidayRows"), or_=$("cbOverrideRows");
+  if(hr&&or_){
+    const hoRow=(kind,key,label,meta,past,title)=>{
+      const sel=((kind==="holiday"&&selHolidayKey===key)||(kind==="override"&&selOverrideKey===key))?" active":"";
+      return `<div class="cb-row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0" title="${esc(title||label)}"><span class="cb-name">${esc(label)}</span><span class="cb-num">${esc(meta)}</span><button type="button" class="cb-del" data-ho-del="${kind}" data-ho-key="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
+    };
+    if($("cbHolidayCount")) $("cbHolidayCount").textContent=Holidays.filter(h=>h.end>=t).length;
+    if($("cbOverrideCount")) $("cbOverrideCount").textContent=Overrides.filter(o=>o.date>=t).length;
+    hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+" ("+(h.type||"holiday")+")")).join(""):`<div class="cb-empty">No holidays yet — use ADD HOLIDAY below.</div>`;
+    or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),o.isWorking?"WORKING":"HOLIDAY",o.date<t,o.date+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<div class="cb-empty">No overrides yet — use ADD OVERRIDE below.</div>`;
+  }
+  paintCbPage(cbPage);
+}
+/* Board pager: arrows flip pages (wrap); Shift+wheel is the slide
+   gesture — horizontal delta flips, plain wheel keeps scrolling
+   rows. Ctrl+wheel is left alone (browser zoom). */
+let cbPage=0, _cbWheelT=0;
+let selHolidayKey=null, selOverrideKey=null;
+function editTarget(kind){
+  if(selKind===kind&&selName) return {type:kind,name:selName};
+  const c=getScheduleContext();
+  if(c.type===kind&&c.name) return c;
+  return null;
+}
+function paintCbPage(i){
+  cbPage=((i%2)+2)%2;
+  const p0=$("cbPageCb"), p1=$("cbPageHo"), lab=$("cbPageLabel");
+  if(p0) p0.hidden=cbPage!==0;
+  if(p1) p1.hidden=cbPage!==1;
+  if(lab) lab.textContent=cbPage===0?"CLASSES · BATCHES":"HOLIDAYS · OVERRIDES";
+}
+function onCbStripClick(e){
+  const del=e.target.closest("[data-cb-del-kind],[data-ho-del]");
+  if(del){ onCbDel(del); return; }
+  const ho=e.target.closest("[data-ho-kind]");
+  if(ho){
+    if(ho.dataset.hoKind==="holiday") selHolidayKey=(selHolidayKey===ho.dataset.hoKey)?null:ho.dataset.hoKey;
+    else selOverrideKey=(selOverrideKey===ho.dataset.hoKey)?null:ho.dataset.hoKey;
+    renderCbTables(); return;
+  }
+  const r=e.target.closest("[data-cb-kind]"); if(!r) return;
+  selKind=r.dataset.cbKind; selName=r.dataset.cbName; syncCsCtx();
+  pendingDays={};
+  cubeView=selKind;
+  renderWeekly(); renderClasses();
+  const sel=$("calClassSelect");
+  if(sel&&selName){
+    sel.value=selKind==="class"?`class:${selName}`:`batch:${selName}`;
+    if(selKind==="class"&&!sel.value) sel.value=selName;
+  }
+  renderCalendarMonth(); renderCbTables();
+  if(currentTab==="attendance"||currentTab==="today") renderAttendance();
+}
+async function onCbDel(del){
+  if(del.dataset.cbDelKind){
+    const kind=del.dataset.cbDelKind, name=del.dataset.cbDelName;
+    if(kind==="class"){
+      if(!(await glassConfirm(`Remove class "${name}"?`,{title:"Remove class",okText:"Remove",danger:true}))) return;
+      try{
+        const next=Classes.filter(x=>x!==name);
+        await api("/api/settings",{method:"POST",body:JSON.stringify({classes:next})});
+        await loadClassesHolidaysSettings(); renderAll();
+      }catch(err){ await glassAlert("Failed to remove class: "+err.message); }
+    }else{
+      if(!(await glassConfirm(`Remove batch "${name}"?`,{title:"Remove batch",okText:"Remove",danger:true}))) return;
+      try{
+        if(!(Batches||[]).some(b=>b===name)){ await glassAlert(`"${name}" is carried by student records and cannot be removed here.`); return; }
+        const next=(Batches||[]).filter(x=>x!==name);
+        await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
+        await loadClassesHolidaysSettings(); renderAll();
+      }catch(err){ await glassAlert("Failed to remove batch: "+err.message); }
+    }
+    return;
+  }
+  const hk=del.dataset.hoKey;
+  if(del.dataset.hoDel==="holiday"){
+    if(selHolidayKey===hk) selHolidayKey=null;
+    Holidays=Holidays.filter(h=>h.start!==hk);
+    if(await persistCalendar()){ renderHolidays(); renderCalendarMonth(); }
+  }else if(del.dataset.hoDel==="override"){
+    if(selOverrideKey===hk) selOverrideKey=null;
+    Overrides=Overrides.filter(o=>o.date!==hk);
+    if(await persistCalendar()){ renderOverrides(); renderCalendarMonth(); }
+  }
+}
+function cbEditKind(kind, singular){
+  const t=editTarget(kind);
+  if(!t){ glassAlert("Select "+singular+" in the table first."); return; }
+  openSchedPopup(t.type,t.name);
+}
+if($("cbAddClass")) $("cbAddClass").onclick=()=>openSchedPopup("class",null);
+if($("cbAddBatch")) $("cbAddBatch").onclick=()=>openSchedPopup("batch",null);
+if($("cbEditClass")) $("cbEditClass").onclick=()=>cbEditKind("class","a class");
+if($("cbEditBatch")) $("cbEditBatch").onclick=()=>cbEditKind("batch","a batch");
+if($("cbAddHoliday")) $("cbAddHoliday").onclick=()=>openHolidayCreate();
+if($("cbAddOverride")) $("cbAddOverride").onclick=()=>openOverrideCreate();
+if($("cbEditHoliday")) $("cbEditHoliday").onclick=()=>{ if(!selHolidayKey){ glassAlert("Select a holiday in the table first."); return; } openHolidayEdit(selHolidayKey); };
+if($("cbEditOverride")) $("cbEditOverride").onclick=()=>{ if(!selOverrideKey){ glassAlert("Select an override in the table first."); return; } openOverrideEdit(selOverrideKey); };
+if($("cbStrip")){
+  $("cbStrip").addEventListener("click",(e)=>{
+    if(e.target.closest("#cbPrev")){ paintCbPage(cbPage-1); return; }
+    if(e.target.closest("#cbNext")){ paintCbPage(cbPage+1); return; }
+    onCbStripClick(e);
+  });
+  $("cbStrip").addEventListener("keydown",(e)=>{
+    if(e.target.closest("button")) return;
+    if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
+  });
+  $("cbStrip").addEventListener("wheel",(e)=>{
+    if(e.ctrlKey) return;
+    const dx=e.deltaX||0; if(!e.shiftKey||!dx) return;
+    e.preventDefault();
+    const now=Date.now(); if(now-_cbWheelT<250) return; _cbWheelT=now;
+    paintCbPage(cbPage+(dx>0?1:-1));
+  },{passive:false});
 }
 /* Inline month editor: staged days + snapshot + strip paint. Toggles
    stage into pendingDays (never persisted); Save composes staged days
@@ -1664,8 +1803,8 @@ function renderAll(){
   renderOverrides();
   renderCalendarMonth();
   renderClasses();
+  renderCbTables();
   renderAudit();
-  if(setupWheelModal && setupWheelModal.classList.contains("open")) renderSetupWheel();
   if(currentTab==="attendance" || currentTab==="today" || currentTab==="reports") renderAttendance();
 }
 // ---- ENROLL: information + real fingerprint scan ----
@@ -1788,7 +1927,7 @@ function openEditStudent(id){
       <div class="form-field full"><label>Address</label><input id="edAddress" value="${esc(s.address)}"></div>
       <div class="form-field full"><label>Photo (max 2MB)</label><input type="file" id="edPhoto" accept="image/*"></div>
       <div class="form-field"><label>Status</label><select id="edActive"><option value="1" ${s.active?"selected":""}>Active</option><option value="0" ${!s.active?"selected":""}>Inactive</option></select></div>
-      <div class="form-field full" id="edPhotoPreview" style="${s.photo ? '' : 'display:none'}"><img src="${esc(s.photo)}" style="width:92px;height:92px;object-fit:cover;border:1px solid var(--line);display:block"><div style="font-size:10px;color:var(--ink-3);margin-top:6px">Current photo</div><button class="btn" id="edClearPhoto" style="margin-top:8px">Clear photo</button></div>
+      ${s.photo ? `<div class="form-field full" id="edPhotoPreview"><img src="${esc(s.photo)}" style="width:92px;height:92px;object-fit:cover;display:block"><div style="font-size:10px;color:var(--ink-3);margin-top:6px">Current photo</div><button class="btn" id="edClearPhoto" style="margin-top:8px">Clear photo</button></div>` : ``}
       <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save changes</button></div>
       <div class="inline-error" id="edErr" style="display:none"></div>
     </div>`;
@@ -2169,20 +2308,14 @@ async function openAdmin(){
     attendance: "Today — Attendance",
     today: "Today — Attendance",
     reports: "Attendance",
-    setup: "Setup — School Configuration & Schedule",
-    calendar: "Setup — School Configuration & Schedule",
-    settings: "Setup — School Configuration & Schedule",
+    setup: "Setup",
+    calendar: "Setup",
+    settings: "Setup",
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
-  // show loading briefly while data refreshes
-  let activeTabName = currentTab;
-  if(activeTabName === "calendar" || activeTabName === "settings") activeTabName = "setup";
-  if(activeTabName === "today" || activeTabName === "reports") activeTabName = "attendance";
-  const pane=document.getElementById("pane-"+activeTabName);
-  if(pane) pane.style.opacity="0.6";
   adminLayer.classList.add("open"); renderAll();
-  setTimeout(()=>{ if(pane) pane.style.opacity=""; updateTabs(); }, 80);
+  setTimeout(()=>{ updateTabs(); }, 80);
 }
 function updateTabs(){
   document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
@@ -2216,9 +2349,9 @@ function updateTabs(){
     attendance: "Today — Attendance",
     today: "Today — Attendance",
     reports: "Attendance",
-    setup: "Setup — School Configuration & Schedule",
-    calendar: "Setup — School Configuration & Schedule",
-    settings: "Setup — School Configuration & Schedule",
+    setup: "Setup",
+    calendar: "Setup",
+    settings: "Setup",
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent = titles[currentTab] || "Admin";
@@ -2563,13 +2696,27 @@ function openDaySheet(iso){
   const ctx=getScheduleContext();
   const src=daySheetSource(iso, ctx);
   const dt=new Date(iso+"T00:00:00");
+  const ov=getOverride(iso), hol=isHoliday(iso);
   daySheetTitle.textContent=dt.toLocaleDateString("en-GB",{weekday:"long"})+", "+_fmtShort(iso);
   daySheetBody.innerHTML=
     `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="setup-legend-context">${esc(src.badge)}</span></div>`+
     `<div style="font-size:11px;color:var(--ink-2);line-height:1.5;">${esc(src.text)}</div>`+
-    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button><button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
+    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button>${ov?`<button class="btn" id="dsDelOv">Remove override</button>`:""}${(!ov&&hol)?`<button class="btn" id="dsDelHol">Remove holiday</button>`:""}<button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
   openModal(daySheetModal);
   $("dsClose").onclick=()=>closeModal(daySheetModal);
+  const rmOvBtn=$("dsDelOv");
+  if(rmOvBtn) rmOvBtn.onclick=async()=>{
+    if(!(await glassConfirm(`Remove the override on ${iso}?`,{title:"Remove override",okText:"Remove",danger:true}))) return;
+    Overrides=Overrides.filter(o=>o.date!==iso);
+    if(await persistCalendar()){ closeModal(daySheetModal); renderOverrides(); renderCalendarMonth(); }
+  };
+  const rmHolBtn=$("dsDelHol");
+  if(rmHolBtn) rmHolBtn.onclick=async()=>{
+    const h=isHoliday(iso); if(!h) return;
+    if(!(await glassConfirm(`Remove holiday "${h.name}" (${h.start===h.end?h.start:(h.start+".."+h.end)})?`,{title:"Remove holiday",okText:"Remove",danger:true}))) return;
+    Holidays=Holidays.filter(x=>x.start!==h.start);
+    if(await persistCalendar()){ closeModal(daySheetModal); renderHolidays(); renderCalendarMonth(); }
+  };
   $("dsAddOv").onclick=()=>{
     closeModal(daySheetModal);
     $("overrideModalBody").innerHTML=`<div class="form-grid">
@@ -2688,7 +2835,7 @@ if($("calClassSelect")) $("calClassSelect").onchange=()=>{
   if(currentTab==="attendance" || currentTab==="today") renderAttendance();
 };
 /* Reset-week retired: template editing lives in the solid schedule editor. */
-$("addHolidayBtn").onclick=()=>{
+function openHolidayCreate(){
   $("holidayModalBody").innerHTML=`<div class="form-grid">
     <div class="form-field full"><label>Name</label><input id="holidayName" placeholder="Diwali vacation"></div>
     <div class="form-field"><label>Start date</label><input type="date" id="holidayStart"></div>
@@ -2704,8 +2851,8 @@ $("addHolidayBtn").onclick=()=>{
     Holidays.push({name,start,end,category:"",type:$("holidayType").value});
     if(await persistCalendar()){ closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); }
   };
-};
-$("addOverrideBtn").onclick=()=>{
+}
+function openOverrideCreate(){
   $("overrideModalBody").innerHTML=`<div class="form-grid">
     <div class="form-field"><label>Date</label><input type="date" id="overrideDate"></div>
     <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
@@ -2722,6 +2869,109 @@ $("addOverrideBtn").onclick=()=>{
     if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
   };
 };
+/* Sidebar schedule popup: ADD CLASS / ADD BATCH create with the full
+   schedule inline (name + working days + cutoffs). Same .modal
+   species as the holiday / override forms; same persist paths as
+   the retired inline editor. */
+let _pbDays={};
+function paintPbDays(){
+  if(!schedModalBody) return;
+  schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
+    const on=!!_pbDays[b.dataset.pbDay];
+    b.classList.toggle("working",on);
+    b.classList.toggle("off",!on);
+    const st=b.querySelector(".w-status"); if(st) st.textContent=on?"WORKING":"OFF";
+    b.setAttribute("aria-pressed",on?"true":"false");
+  });
+}
+function openSchedPopup(kind, name){
+  const isEdit=!!name||kind==="global";
+  const ctx=isEdit?(kind==="global"?{type:"global",name:"",label:"Global (all classes & batches)"}:{type:kind,name:name,label:(kind==="class"?"Class: ":"Batch: ")+name}):{type:kind,name:"",label:""};
+  const timing=getScheduleTiming(isEdit?ctx:{type:"global",name:""});
+  _pbDays={};
+  const srcWd=isEdit?(ctx.type==="global"?Settings.workingDays:(ctx.type==="class"?getWorkingDaysForClass(ctx.name):getWorkingDaysForBatch(ctx.name))):Settings.workingDays;
+  for(let i=0;i<7;i++) _pbDays[i]=asBool(srcWd[i]??srcWd[String(i)]);
+  const kindWord=kind==="global"?"Schedule":(kind==="class"?"Class":"Batch");
+  schedModalTitle.textContent=isEdit?("Edit schedule"+(ctx.type==="global"?" — Global":" — "+ctx.name)):("Add "+kindWord.toLowerCase());
+  schedModalSub.textContent=isEdit?("Weekly template and cutoff thresholds for "+ctx.label+"."):(kind==="class"?"Name the class and set its weekly schedule. The calendar switches to it on save.":"Name the batch and set its weekly schedule. The calendar switches to it on save.");
+  const names=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  schedModalBody.innerHTML=`<div class="form-grid">
+    <div class="form-field full"><label>${isEdit?"Schedule for":kindWord+" name"}</label><input id="pbName" placeholder="${kind==="batch"?"Batch Morning":"Grade 11-A"}" value="${isEdit?esc(ctx.type==="global"?"Global":ctx.name):""}" ${isEdit?"disabled":""}></div>
+    <div class="form-field full"><label>Working days</label><div class="pb-days">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-pb-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;}).join("")}</div></div>
+    <div class="form-field"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
+    <div class="form-field"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
+    <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></div>
+    <div class="inline-error" id="pbErr" style="display:none"></div></div>`;
+  openModal(schedModal);
+  schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
+    b.onclick=()=>{ _pbDays[b.dataset.pbDay]=!_pbDays[b.dataset.pbDay]; paintPbDays(); };
+  });
+  $("pbCancel").onclick=()=>closeModal(schedModal);
+  if(!isEdit){ try{ $("pbName").focus(); }catch(e){} }
+  $("pbSave").onclick=async()=>{
+    const err=$("pbErr");
+    const pVal=$("pbPresent").value, lVal=$("pbLate").value;
+    if(!pVal||!lVal){ err.textContent="Both Present and Late cutoffs are required."; err.style.display="block"; return; }
+    if(pVal>lVal){ err.textContent="Present cutoff must be before or equal to Late cutoff."; err.style.display="block"; return; }
+    const wd={}; for(let i=0;i<7;i++) wd[i]=!!_pbDays[i];
+    if(!isEdit){
+      const raw=(($("pbName")||{}).value||"").trim();
+      if(!raw){ err.textContent="A name is required."; err.style.display="block"; return; }
+      if(kind==="class"){
+        if(Classes.some(c=>c.toLowerCase()===raw.toLowerCase())){ err.textContent="That class already exists."; err.style.display="block"; return; }
+        try{
+          await api("/api/settings",{method:"POST",body:JSON.stringify({classes:Classes.concat(raw)})});
+          ClassSchedules[raw]={workingDays:wd,presentCutoff:pVal,lateCutoff:lVal};
+          ClassSchedulesUI=ClassSchedules;
+          if(await persistCalendar()){
+            cubeView="class"; selKind="class"; selName=raw; syncCsCtx();
+            closeModal(schedModal);
+            await loadClassesHolidaysSettings(); renderAll();
+            const sel=$("calClassSelect");
+            if(sel){ sel.value=`class:${raw}`; if(!sel.value) sel.value=raw; }
+            renderWeekly(); renderCalendarMonth();
+          }
+        }catch(e){ err.textContent="Failed to add class: "+e.message; err.style.display="block"; }
+      }else{
+        if((Batches||[]).some(b=>b.toLowerCase()===raw.toLowerCase())){ err.textContent="That batch already exists."; err.style.display="block"; return; }
+        try{
+          await api("/api/settings",{method:"POST",body:JSON.stringify({batches:(Batches||[]).concat(raw)})});
+          BatchSchedules[raw]={workingDays:wd,presentCutoff:pVal,lateCutoff:lVal};
+          if(await persistCalendar()){
+            cubeView="batch"; selKind="batch"; selName=raw; syncCsCtx();
+            closeModal(schedModal);
+            await loadClassesHolidaysSettings(); renderAll();
+            const sel=$("calClassSelect");
+            if(sel) sel.value=`batch:${raw}`;
+            renderWeekly(); renderCalendarMonth();
+          }
+        }catch(e){ err.textContent="Failed to add batch: "+e.message; err.style.display="block"; }
+      }
+      return;
+    }
+    if(ctx.type==="global"){
+      Settings.workingDays=wd;
+      Settings.presentCutoff=pVal; Settings.lateCutoff=lVal; Settings.lateAfter=lVal;
+      if($("setLateThreshold")) $("setLateThreshold").value=lVal;
+      if($("setPresentCutoff")) $("setPresentCutoff").value=pVal;
+      try{
+        await api("/api/settings",{method:"POST",body:JSON.stringify({presentCutoff:pVal,lateCutoff:lVal})});
+        if(await persistCalendar()){ closeModal(schedModal); await loadClassesHolidaysSettings(); renderAll(); }
+      }catch(e){ err.textContent="Failed to save timings: "+e.message; err.style.display="block"; }
+    }else if(ctx.type==="class"){
+      const entry=ClassSchedules[ctx.name]||{};
+      ClassSchedules[ctx.name]=Object.assign({},typeof entry==="object"?entry:{},{workingDays:wd,presentCutoff:pVal,lateCutoff:lVal});
+      ClassSchedulesUI=ClassSchedules;
+      if(await persistCalendar()){ closeModal(schedModal); await loadClassesHolidaysSettings(); renderAll(); }
+    }else{
+      const entry=BatchSchedules[ctx.name]||{};
+      BatchSchedules[ctx.name]=Object.assign({},typeof entry==="object"?entry:{},{workingDays:wd,presentCutoff:pVal,lateCutoff:lVal});
+      if(await persistCalendar()){ closeModal(schedModal); await loadClassesHolidaysSettings(); renderAll(); }
+    }
+  };
+}
+if($("sideAddClassBtn")) $("sideAddClassBtn").onclick=()=>openSchedPopup("class",null);
+if($("sideAddBatchBtn")) $("sideAddBatchBtn").onclick=()=>openSchedPopup("batch",null);
 /* Sidebar eyes open the record popups (same .modal species as the
    creation forms); Close buttons dismiss them. */
 (function(){
@@ -2733,473 +2983,8 @@ $("addOverrideBtn").onclick=()=>{
   const oc=$("overrideViewClose"); if(oc) oc.onclick=()=>closeModal($("overrideViewModal"));
   const hct=$("holidayViewCloseTop"); if(hct) hct.onclick=()=>closeModal($("holidayViewModal"));
   const oct=$("overrideViewCloseTop"); if(oct) oct.onclick=()=>closeModal($("overrideViewModal"));
-  const tsw=$("toolbarSetupWheelBtn"); if(tsw) tsw.onclick=()=>openSetupWheel();
-  const osw=$("openSetupWheelBtn"); if(osw) osw.onclick=()=>openSetupWheel();
 })();
 
-/* ============================================================
-   SETUP RADIAL ACTION WHEEL — Tactical HUD Radial Action System
-   Translates tactical wheel pattern to monochrome frosted UI.
-   2-tier architecture: Center Hub + 5 Category Sectors + Dynamic Outer Action Arc.
-   ============================================================ */
-let wheelActiveCategory = "classes";
-
-function polarToCartesian(cx, cy, r, angleInDegrees) {
-  const rad = (angleInDegrees - 90) * Math.PI / 180.0;
-  return {
-    x: cx + (r * Math.cos(rad)),
-    y: cy + (r * Math.sin(rad))
-  };
-}
-
-function describeSector(cx, cy, r1, r2, startAngle, endAngle) {
-  const angleDiff = (endAngle - startAngle + 360) % 360;
-  const largeArcFlag = angleDiff > 180 ? 1 : 0;
-  const p1 = polarToCartesian(cx, cy, r2, startAngle);
-  const p2 = polarToCartesian(cx, cy, r2, endAngle);
-  const p3 = polarToCartesian(cx, cy, r1, endAngle);
-  const p4 = polarToCartesian(cx, cy, r1, startAngle);
-
-  return [
-    "M", p1.x.toFixed(2), p1.y.toFixed(2),
-    "A", r2, r2, 0, largeArcFlag, 1, p2.x.toFixed(2), p2.y.toFixed(2),
-    "L", p3.x.toFixed(2), p3.y.toFixed(2),
-    "A", r1, r1, 0, largeArcFlag, 0, p4.x.toFixed(2), p4.y.toFixed(2),
-    "Z"
-  ].join(" ");
-}
-
-function getWheelCategories() {
-  return [
-    {
-      id: "classes",
-      title: "CLASSES",
-      sub: `${Classes.length} Configured`,
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
-      actions: [
-        {
-          id: "addClass",
-          title: "+ NEW CLASS",
-          sub: "Add grade/div",
-          run: async () => {
-            closeModal(setupWheelModal);
-            const name = await glassPrompt("Enter new class name (e.g. Grade 10-A):", "", { title: "Add New Class", okText: "Add Class" });
-            if (!name) return;
-            if (Classes.some(c => c.toLowerCase() === name.toLowerCase())) { await glassAlert("That class already exists."); return; }
-            try {
-              await api("/api/settings", { method: "POST", body: JSON.stringify({ classes: Classes.concat(name) }) });
-              await loadClassesHolidaysSettings();
-              setCubeView("class");
-              renderAll();
-              await glassAlert(`Class "${name}" added successfully.`);
-            } catch (e) { await glassAlert("Failed to add class: " + e.message); }
-          }
-        },
-        {
-          id: "viewClasses",
-          title: "VIEW CLASSES",
-          sub: "Open roster list",
-          run: () => {
-            closeModal(setupWheelModal);
-            setCubeView("class");
-            const el = $("pane-setup");
-            if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth" });
-          }
-        },
-        {
-          id: "classSched",
-          title: "SCHEDULES",
-          sub: "Weekly template",
-          run: () => {
-            closeModal(setupWheelModal);
-            setCubeView("class");
-            const sel = $("calClassSelect");
-            if (sel && sel.options.length > 1) {
-              sel.selectedIndex = 1;
-              sel.dispatchEvent(new Event("change"));
-            }
-          }
-        }
-      ]
-    },
-    {
-      id: "batches",
-      title: "BATCHES",
-      sub: `${(Batches || []).length} Groups`,
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-      actions: [
-        {
-          id: "addBatch",
-          title: "+ NEW BATCH",
-          sub: "Add group/stream",
-          run: async () => {
-            closeModal(setupWheelModal);
-            const name = await glassPrompt("Enter new batch name (e.g. Morning Batch):", "", { title: "Add New Batch", okText: "Add Batch" });
-            if (!name) return;
-            await submitBatchName(name);
-            setCubeView("batch");
-          }
-        },
-        {
-          id: "viewBatches",
-          title: "VIEW BATCHES",
-          sub: "Open batch stack",
-          run: () => {
-            closeModal(setupWheelModal);
-            setCubeView("batch");
-          }
-        },
-        {
-          id: "batchSched",
-          title: "SCHEDULES",
-          sub: "Batch timings",
-          run: () => {
-            closeModal(setupWheelModal);
-            setCubeView("batch");
-            const sel = $("calClassSelect");
-            if (sel) {
-              for (let i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].value.startsWith("batch:")) {
-                  sel.selectedIndex = i;
-                  sel.dispatchEvent(new Event("change"));
-                  break;
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      id: "cutoffs",
-      title: "CUTOFFS",
-      sub: `${Settings.presentCutoff || '08:00'} / ${Settings.lateCutoff || '08:30'}`,
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-      actions: [
-        {
-          id: "timingModal",
-          title: "TIMINGS WINDOW",
-          sub: "Edit cutoff rules",
-          run: () => {
-            closeModal(setupWheelModal);
-            openModal(schoolInfoModal);
-            const f = $("setPresentCutoff");
-            if (f) setTimeout(() => f.focus(), 80);
-          }
-        },
-        {
-          id: "editPresentCutoff",
-          title: "PRESENT CUTOFF",
-          sub: `Now: ${Settings.presentCutoff || '08:00'}`,
-          run: async () => {
-            closeModal(setupWheelModal);
-            const val = await glassPrompt("Enter present cutoff time (24h HH:MM):", Settings.presentCutoff || "08:00", { title: "Present Cutoff Time", okText: "Save Cutoff" });
-            if (!val) return;
-            if (!/^\d{2}:\d{2}$/.test(val)) { await glassAlert("Time must be in HH:MM format (e.g. 08:00)."); return; }
-            try {
-              await api("/api/settings", { method: "POST", body: JSON.stringify({ presentCutoff: val }) });
-              Settings.presentCutoff = val;
-              if ($("setPresentCutoff")) $("setPresentCutoff").value = val;
-              if ($("csPresentCutoff")) $("csPresentCutoff").value = val;
-              await loadClassesHolidaysSettings();
-              renderAll();
-              await glassAlert(`Present cutoff updated to ${val}.`);
-            } catch (e) { await glassAlert("Failed to update cutoff: " + e.message); }
-          }
-        },
-        {
-          id: "editLateCutoff",
-          title: "LATE CUTOFF",
-          sub: `Now: ${Settings.lateCutoff || '08:30'}`,
-          run: async () => {
-            closeModal(setupWheelModal);
-            const val = await glassPrompt("Enter late cutoff time (24h HH:MM):", Settings.lateCutoff || "08:30", { title: "Late Cutoff Time", okText: "Save Cutoff" });
-            if (!val) return;
-            if (!/^\d{2}:\d{2}$/.test(val)) { await glassAlert("Time must be in HH:MM format (e.g. 08:30)."); return; }
-            try {
-              await api("/api/settings", { method: "POST", body: JSON.stringify({ lateCutoff: val, lateAfter: val }) });
-              Settings.lateCutoff = val;
-              Settings.lateAfter = val;
-              if ($("setLateThreshold")) $("setLateThreshold").value = val;
-              if ($("csLateCutoff")) $("csLateCutoff").value = val;
-              await loadClassesHolidaysSettings();
-              renderAll();
-              await glassAlert(`Late cutoff updated to ${val}.`);
-            } catch (e) { await glassAlert("Failed to update cutoff: " + e.message); }
-          }
-        }
-      ]
-    },
-    {
-      id: "exceptions",
-      title: "EXCEPTIONS",
-      sub: `${Holidays.length} Hol · ${Overrides.length} Ovr`,
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-      actions: [
-        {
-          id: "addHoliday",
-          title: "+ ADD HOLIDAY",
-          sub: "Vacation / exam",
-          run: () => {
-            closeModal(setupWheelModal);
-            const btn = $("addHolidayBtn");
-            if (btn) btn.click();
-          }
-        },
-        {
-          id: "addOverride",
-          title: "+ ADD OVERRIDE",
-          sub: "Single day rule",
-          run: () => {
-            closeModal(setupWheelModal);
-            const btn = $("addOverrideBtn");
-            if (btn) btn.click();
-          }
-        },
-        {
-          id: "viewHolidays",
-          title: "ALL HOLIDAYS",
-          sub: "Open registry list",
-          run: () => {
-            closeModal(setupWheelModal);
-            openModal($("holidayViewModal"));
-          }
-        },
-        {
-          id: "viewOverrides",
-          title: "ALL OVERRIDES",
-          sub: "Open registry list",
-          run: () => {
-            closeModal(setupWheelModal);
-            openModal($("overrideViewModal"));
-          }
-        }
-      ]
-    },
-    {
-      id: "school",
-      title: "SCHOOL INFO",
-      sub: "Rules & Settings",
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
-      actions: [
-        {
-          id: "openRules",
-          title: "SCHOOL RULES",
-          sub: "Open rules window",
-          run: () => {
-            closeModal(setupWheelModal);
-            openModal(schoolInfoModal);
-          }
-        },
-        {
-          id: "academicYear",
-          title: "ACADEMIC YEAR",
-          sub: Settings.academicYear || "Configure dates",
-          run: () => {
-            closeModal(setupWheelModal);
-            openModal(schoolInfoModal);
-            const f = $("setAttendanceStart");
-            if (f) setTimeout(() => f.focus(), 80);
-          }
-        },
-        {
-          id: "adminPin",
-          title: "ADMIN PIN",
-          sub: "Security pin",
-          run: () => {
-            closeModal(setupWheelModal);
-            openModal(schoolInfoModal);
-            const f = $("setAdminPin");
-            if (f) setTimeout(() => f.focus(), 80);
-          }
-        }
-      ]
-    }
-  ];
-}
-
-function renderSetupWheel() {
-  const svg = $("setupWheelSvg");
-  if (!svg) return;
-  svg.innerHTML = "";
-
-  const categories = getWheelCategories();
-  if (!categories.some(c => c.id === wheelActiveCategory)) {
-    wheelActiveCategory = categories[0].id;
-  }
-  const activeCat = categories.find(c => c.id === wheelActiveCategory) || categories[0];
-
-  const cx = 0, cy = 0;
-  const hubRadius = 50;
-  const innerR1 = 56, innerR2 = 134;
-  const outerR1 = 142, outerR2 = 216;
-
-  // 1. Defs / Filter
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  svg.appendChild(defs);
-
-  // 2. Outer Action Arc (dynamic fan based on active inner category)
-  const numCats = categories.length;
-  const catSectorAngle = 360 / numCats;
-  const catGap = 2.5;
-  const startOffset = -90;
-
-  const catIndex = categories.findIndex(c => c.id === activeCat.id);
-  const catStartAngle = startOffset + catIndex * catSectorAngle + catGap / 2;
-  const catEndAngle = startOffset + (catIndex + 1) * catSectorAngle - catGap / 2;
-  const catMidAngle = (catStartAngle + catEndAngle) / 2;
-
-  const actions = activeCat.actions || [];
-  if (actions.length > 0) {
-    const actSpanPerItem = 34;
-    const totalActSpan = actions.length * actSpanPerItem;
-    const actStartBase = catMidAngle - totalActSpan / 2;
-    const actGap = 2;
-
-    const actionGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    actionGroup.setAttribute("class", "wheel-actions-layer");
-
-    actions.forEach((act, i) => {
-      const aStart = actStartBase + i * actSpanPerItem + actGap / 2;
-      const aEnd = actStartBase + (i + 1) * actSpanPerItem - actGap / 2;
-      const aMid = (aStart + aEnd) / 2;
-
-      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      g.setAttribute("class", "wheel-slice action-slice");
-      g.setAttribute("data-action-id", act.id);
-
-      const pathD = describeSector(cx, cy, outerR1, outerR2, aStart, aEnd);
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", pathD);
-      path.setAttribute("class", "slice-arc");
-      g.appendChild(path);
-
-      const labelPos = polarToCartesian(cx, cy, (outerR1 + outerR2) / 2, aMid);
-      const textTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      textTitle.setAttribute("x", labelPos.x.toFixed(1));
-      textTitle.setAttribute("y", (labelPos.y - 6).toFixed(1));
-      textTitle.setAttribute("class", "slice-title");
-      textTitle.textContent = act.title;
-      g.appendChild(textTitle);
-
-      const textSub = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      textSub.setAttribute("x", labelPos.x.toFixed(1));
-      textSub.setAttribute("y", (labelPos.y + 7).toFixed(1));
-      textSub.setAttribute("class", "slice-sub");
-      textSub.textContent = act.sub;
-      g.appendChild(textSub);
-
-      g.onclick = (e) => {
-        e.stopPropagation();
-        if (act.run) act.run();
-      };
-
-      actionGroup.appendChild(g);
-    });
-
-    svg.appendChild(actionGroup);
-  }
-
-  // 3. Inner Category Ring (5 sectors)
-  const catGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  catGroup.setAttribute("class", "wheel-categories-layer");
-
-  categories.forEach((cat, idx) => {
-    const sAngle = startOffset + idx * catSectorAngle + catGap / 2;
-    const eAngle = startOffset + (idx + 1) * catSectorAngle - catGap / 2;
-    const mAngle = (sAngle + eAngle) / 2;
-    const isActive = cat.id === activeCat.id;
-
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("class", "wheel-slice cat-slice" + (isActive ? " active" : ""));
-    g.setAttribute("data-cat-id", cat.id);
-
-    const pathD = describeSector(cx, cy, innerR1, innerR2, sAngle, eAngle);
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", pathD);
-    path.setAttribute("class", "slice-arc");
-    g.appendChild(path);
-
-    const iconPos = polarToCartesian(cx, cy, innerR1 + 22, mAngle);
-    const iconG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    iconG.setAttribute("class", "slice-icon-wrap");
-    iconG.setAttribute("transform", `translate(${(iconPos.x - 9).toFixed(1)}, ${(iconPos.y - 9).toFixed(1)})`);
-    iconG.innerHTML = cat.iconSvg;
-    g.appendChild(iconG);
-
-    const titlePos = polarToCartesian(cx, cy, innerR1 + 46, mAngle);
-    const textTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    textTitle.setAttribute("x", titlePos.x.toFixed(1));
-    textTitle.setAttribute("y", titlePos.y.toFixed(1));
-    textTitle.setAttribute("class", "slice-title");
-    textTitle.textContent = cat.title;
-    g.appendChild(textTitle);
-
-    const subPos = polarToCartesian(cx, cy, innerR1 + 60, mAngle);
-    const textSub = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    textSub.setAttribute("x", subPos.x.toFixed(1));
-    textSub.setAttribute("y", subPos.y.toFixed(1));
-    textSub.setAttribute("class", "slice-sub");
-    textSub.textContent = cat.sub;
-    g.appendChild(textSub);
-
-    g.onmouseenter = () => {
-      if (wheelActiveCategory !== cat.id) {
-        wheelActiveCategory = cat.id;
-        renderSetupWheel();
-      }
-    };
-
-    g.onclick = (e) => {
-      e.stopPropagation();
-      wheelActiveCategory = cat.id;
-      renderSetupWheel();
-    };
-
-    catGroup.appendChild(g);
-  });
-
-  svg.appendChild(catGroup);
-
-  // 4. Center Hub
-  const hubGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  hubGroup.setAttribute("class", "wheel-hub");
-
-  const hubCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  hubCircle.setAttribute("cx", "0");
-  hubCircle.setAttribute("cy", "0");
-  hubCircle.setAttribute("r", hubRadius);
-  hubCircle.setAttribute("class", "wheel-hub-circle");
-  hubGroup.appendChild(hubCircle);
-
-  const hubTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  hubTitle.setAttribute("x", "0");
-  hubTitle.setAttribute("y", "-7");
-  hubTitle.setAttribute("class", "hub-title");
-  hubTitle.textContent = "SETUP";
-  hubGroup.appendChild(hubTitle);
-
-  const hubSub = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  hubSub.setAttribute("x", "0");
-  hubSub.setAttribute("y", "9");
-  hubSub.setAttribute("class", "hub-sub");
-  hubSub.textContent = "ACTIONS";
-  hubGroup.appendChild(hubSub);
-
-  hubGroup.onclick = (e) => {
-    e.stopPropagation();
-    closeModal(setupWheelModal);
-  };
-
-  svg.appendChild(hubGroup);
-}
-
-function openSetupWheel(defaultCategory) {
-  if (defaultCategory) wheelActiveCategory = defaultCategory;
-  renderSetupWheel();
-  openModal(setupWheelModal);
-}
-window.openSetupWheel = openSetupWheel;
 /* Solid timing save: lifted verbatim from the popup — same
    validators, same 3 branches, same global double-POST, same mirror
    sync, same confirmations. Only the tail changed: refresh the
@@ -3255,8 +3040,13 @@ async function onCsSaveTiming(){
    (Custom timings now stand until overwritten — flagged regression.) */
 $("holidayBody").addEventListener("click",async(e)=>{
   const edit=e.target.closest("[data-edit-holiday]");
-  if(edit){
-    const h=Holidays.find(x=>x.start===edit.dataset.editHoliday); if(!h) return;
+  if(edit){ openHolidayEdit(edit.dataset.editHoliday); return; }
+  const btn=e.target.closest("[data-del-holiday]"); if(!btn) return;
+  Holidays=Holidays.filter(h=>h.start!==btn.dataset.delHoliday);
+  if(await persistCalendar()){ renderHolidays(); renderCalendarMonth(); }
+});
+function openHolidayEdit(startKey){
+  const h=Holidays.find(x=>x.start===startKey); if(!h) return;
     try{ closeModal($("holidayViewModal")); }catch(e){}
     $("holidayModalBody").innerHTML=`<div class="form-grid">
       <div class="form-field full"><label>Name</label><input id="holidayName" value="${esc(h.name)}"></div>
@@ -3275,16 +3065,16 @@ $("holidayBody").addEventListener("click",async(e)=>{
       Holidays.push({name,start,end,category:"",type:$("holidayType").value});
       if(await persistCalendar()){ closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); } else Holidays.push(h);
     };
-    return;
-  }
-  const btn=e.target.closest("[data-del-holiday]"); if(!btn) return;
-  Holidays=Holidays.filter(h=>h.start!==btn.dataset.delHoliday);
-  if(await persistCalendar()){ renderHolidays(); renderCalendarMonth(); }
-});
+}
 $("overrideBody").addEventListener("click",async(e)=>{
   const edit=e.target.closest("[data-edit-override]");
-  if(edit){
-    const o=Overrides.find(x=>x.date===edit.dataset.editOverride); if(!o) return;
+  if(edit){ openOverrideEdit(edit.dataset.editOverride); return; }
+  const btn=e.target.closest("[data-del-override]"); if(!btn) return;
+  Overrides=Overrides.filter(o=>o.date!==btn.dataset.delOverride);
+  if(await persistCalendar()){ renderOverrides(); renderCalendarMonth(); }
+});
+function openOverrideEdit(dateKey){
+  const o=Overrides.find(x=>x.date===dateKey); if(!o) return;
     try{ closeModal($("overrideViewModal")); }catch(e){}
     $("overrideModalBody").innerHTML=`<div class="form-grid">
       <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(o.date)}"></div>
@@ -3303,12 +3093,7 @@ $("overrideBody").addEventListener("click",async(e)=>{
       Overrides.push({date,isWorking:$("overrideWorking").value==="1",note});
       if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); } else Overrides.push(o);
     };
-    return;
-  }
-  const btn=e.target.closest("[data-del-override]"); if(!btn) return;
-  Overrides=Overrides.filter(o=>o.date!==btn.dataset.delOverride);
-  if(await persistCalendar()){ renderOverrides(); renderCalendarMonth(); }
-});
+}
 /* Class tiles + inline month editor: tiles live in #cubeGrid, day
    toggles in the month headers, cutoffs in the strip below the grid.
    Tile select clears staged edits and repaints for the new item. */
@@ -4114,6 +3899,97 @@ detailScroll.addEventListener("click",(e)=>{
 });
 studentListEl.addEventListener("click",(e)=>{ const row=e.target.closest(".student-row"); if(!row) return; const id=parseInt(row.dataset.id); if(id) selectStudent(id); });
 searchInput.addEventListener("input",()=>{ Timers.clear("search"); Timers.set("search", setTimeout(renderStudentList,260)); });
+/* Rail command palette: same input, second job. Roster filtering is
+   untouched (same id, same debounce above); the palette matches
+   actions + students and runs on Enter/click. */
+function gotoTab(name){ const b=adminNav&&adminNav.querySelector(`button[data-tab="${name}"]`); if(b) b.click(); }
+const CMD_ACTIONS=[
+  {t:"Add Class",k:"add class new create",run:()=>{ gotoTab("setup"); openSchedPopup("class",null); }},
+  {t:"Add Batch",k:"add batch new create",run:()=>{ gotoTab("setup"); openSchedPopup("batch",null); }},
+  {t:"Add Holiday",k:"add holiday vacation exam break",run:()=>{ gotoTab("setup"); paintCbPage(1); openHolidayCreate(); }},
+  {t:"Add Override",k:"add override special date exception",run:()=>{ gotoTab("setup"); paintCbPage(1); openOverrideCreate(); }},
+  {t:"School Information",k:"school info settings name address year cutoff",run:()=>{ openModal(schoolInfoModal); }},
+  {t:"New Enrollment",k:"new enroll admit student",run:()=>{ gotoTab("students"); openNewStudent(); }},
+  {t:"Import CSV",k:"import csv upload students",run:()=>{ gotoTab("students"); const b=$("importStudentsBtn"); if(b) b.click(); }},
+  {t:"Export CSV",k:"export csv download students",run:()=>{ gotoTab("students"); const b=$("exportStudentsBtn"); if(b) b.click(); }},
+  {t:"Back Up Now",k:"backup save database drive",run:()=>{ gotoTab("backup"); const b=$("backupNowBtn"); if(b) b.click(); }},
+  {t:"Holidays",k:"holidays list view vacations board",run:()=>{ gotoTab("setup"); paintCbPage(1); }},
+  {t:"Overrides",k:"overrides list view dates board",run:()=>{ gotoTab("setup"); paintCbPage(1); }},
+  {t:"Attendance",k:"attendance today present late absent",run:()=>gotoTab("attendance")},
+  {t:"Students",k:"students roster list",run:()=>gotoTab("students")},
+  {t:"Setup",k:"setup schedule school configuration",run:()=>gotoTab("setup")},
+  {t:"Backup",k:"backup manager",run:()=>gotoTab("backup")},
+];
+let _cmdItems=[], _cmdHi=0;
+function cmdMatches(){
+  const q=(searchInput.value||"").trim().toLowerCase();
+  if(!q) return null;
+  const acts=CMD_ACTIONS.filter(a=>(a.t+" "+a.k).toLowerCase().includes(q)).slice(0,5);
+  const stus=Students.filter(s=>(s.name+" "+s.roll+" "+s.class+" "+(s.batch||"")+" "+s.phone+" "+s.fid+" "+s.id+" "+(s.section||"")+" "+(s.parent||"")).toLowerCase().includes(q)).slice(0,6);
+  return {acts,stus};
+}
+function paintCmdPal(){
+  const box=$("cmdPal"); if(!box) return;
+  const m=cmdMatches();
+  if(!m||(!m.acts.length&&!m.stus.length)){ box.hidden=true; searchInput.setAttribute("aria-expanded","false"); searchInput.removeAttribute("aria-activedescendant"); return; }
+  let html=""; _cmdItems=[]; let idx=0;
+  if(m.acts.length){
+    html+=`<div class="cmd-grp">Actions</div>`;
+    m.acts.forEach(a=>{ _cmdItems.push({kind:"act",ref:a}); html+=`<div class="cmd-opt" id="cmdOpt-${idx}" data-cmd="${idx++}" role="option" aria-selected="false"><span>${esc(a.t)}</span><span class="k">action</span></div>`; });
+  }
+  if(m.stus.length){
+    html+=`<div class="cmd-grp">Students</div>`;
+    m.stus.forEach(s=>{ _cmdItems.push({kind:"stu",ref:s}); html+=`<div class="cmd-opt" id="cmdOpt-${idx}" data-cmd="${idx++}" role="option" aria-selected="false"><span>${esc(s.name)}</span><span class="k">${esc(s.roll||"")}</span></div>`; });
+  }
+  box.innerHTML=html; box.hidden=false; searchInput.setAttribute("aria-expanded","true");
+  _cmdHi=0; markCmdHi();
+}
+function markCmdHi(){
+  const box=$("cmdPal"); if(!box||box.hidden) return;
+  box.querySelectorAll(".cmd-opt").forEach((el,i)=>{
+    const on=(i===_cmdHi);
+    el.classList.toggle("hi",on);
+    el.setAttribute("aria-selected",on?"true":"false");
+    if(on) searchInput.setAttribute("aria-activedescendant",el.id||("cmdOpt-"+i));
+  });
+  const cur=box.querySelector(".cmd-opt.hi");
+  if(cur){ try{ cur.scrollIntoView({block:"nearest"}); }catch(e){} }
+}
+function runCmd(i){
+  const it=_cmdItems[i]; closeCmdPal(false); if(!it) return;
+  if(it.kind==="act"){ try{ it.ref.run(); }catch(e){} }
+  else { gotoTab("students"); selectStudent(it.ref.id); }
+}
+function closeCmdPal(clear){
+  const box=$("cmdPal"); if(box) box.hidden=true;
+  searchInput.setAttribute("aria-expanded","false");
+  searchInput.removeAttribute("aria-activedescendant");
+  if(clear){ searchInput.value=""; renderStudentList(); }
+}
+searchInput.addEventListener("input",paintCmdPal);
+searchInput.addEventListener("keydown",(e)=>{
+  const box=$("cmdPal"), open=box&&!box.hidden;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    if(!open) return;
+    e.preventDefault();
+    _cmdHi=((_cmdHi+(e.key==="ArrowDown"?1:-1))%_cmdItems.length+_cmdItems.length)%_cmdItems.length;
+    markCmdHi();
+  }else if(e.key==="Enter"){
+    if(!open) return;
+    e.preventDefault(); runCmd(_cmdHi);
+  }else if(e.key==="Escape"){
+    if(!open) return;
+    e.preventDefault(); e.stopPropagation(); closeCmdPal(false);
+  }
+});
+if($("cmdPal")) $("cmdPal").addEventListener("click",(e)=>{
+  const o=e.target.closest("[data-cmd]"); if(!o) return;
+  runCmd(parseInt(o.dataset.cmd,10));
+});
+document.addEventListener("pointerdown",(e)=>{
+  const box=$("cmdPal");
+  if(box&&!box.hidden&&!(e.target.closest&&e.target.closest(".rail-search"))) closeCmdPal(false);
+},true);
 classFilter.addEventListener("change",renderStudentList);
 if(batchFilter) batchFilter.addEventListener("change",renderStudentList);
 if(studentStatusFilter) studentStatusFilter.addEventListener("change",renderStudentList);
@@ -4204,8 +4080,8 @@ document.addEventListener("keydown",(e)=>{
     else if(overrideViewModal && overrideViewModal.classList.contains("open")) closeModal(overrideViewModal);
     else if(holidayModal && holidayModal.classList.contains("open")) closeModal(holidayModal);
     else if(overrideModal && overrideModal.classList.contains("open")) closeModal(overrideModal);
+    else if(schedModal && schedModal.classList.contains("open")) closeModal(schedModal);
     else if(schoolInfoModal && schoolInfoModal.classList.contains("open")) closeModal(schoolInfoModal);
-    else if(setupWheelModal && setupWheelModal.classList.contains("open")) closeModal(setupWheelModal);
     else if(correctionModal && correctionModal.classList.contains("open")) closeModal(correctionModal);
     else if(adminLayer && adminLayer.classList.contains("open")){
       finishEnrollUi();

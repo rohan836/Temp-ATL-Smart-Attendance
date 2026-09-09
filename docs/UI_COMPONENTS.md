@@ -37,37 +37,28 @@ trust the code, then fix this file.
   weights, reserved space — see SKILL.md). New work must pass the same
   check: switch states and confirm no sibling moves.
 
-## 1. Locked visual language (applies to everything below)
+## 1. Locked visual language (reference rollout — current)
 
-- Warm ambient background stays visible through the UI; subtle
-  translucent/frosted neutral fills; 1px translucent hairlines for
-  structural separation only.
-- Monochrome: white / near-black / translucent white. No colored badges,
-  chips, shadows, opaque cards, or heavy borders.
-- Actions are **text-first, plain text** (transparent, no border; underline
-  only where the existing link language uses it). One contained primary
-  action per surface at most (e.g. Save, New Enrollment) — see
-  `docs/UI_TOKENS.md`. Destructive verbs stay monochrome; the verb copy
-  carries the warning.
+- Desert ambient (`bg-spheres.jpg` light render, `0.12` pass,
+  `#050507`) stays visible through the UI; warmth comes from the
+  background only, never from controls.
+- Surfaces: warm frost windows (`--ref-frost`, `22px` blur, `24px`
+  radius) + opaque white cards (Students detail, Backup audit) +
+  near-black cards (Setup Classes/Batches). No shadows, no per-cell
+  boxes.
+- Monochrome: white / near-black / translucent neutrals. No colored
+  badges, chips, or shadows. Errors/destructive stay `danger` red.
+- Actions are **pills** (`999px`): black primary (`--ref-pill`,
+  silver text) vs transparent outline secondary. Sidebar Apply/rail
+  actions are black pills (the ONE-pill block is the single truth).
 - Type: `var(--sans)` for interface text, weight **400 normal / 500
   important-active** (never 600/700); `var(--mono)` only for dates,
-  times, IDs, counts, technical data; serif only for major titles
-  (kiosk name, profile initials). No text shadows.
-  Primary `#F2F3F6` → secondary `rgba(242,243,246,0.65–0.75)` →
-  tertiary `rgba(242,243,246,0.4–0.6)`.
-- Theme vars: `bg #FCFBF7 · panel #F2F3F6 · ink #181A20 · ink-2 #6B6B6B ·
-  ink-3 #A8A5A0 · line #E9E6E0 · paper #F6F4EF · ok #2F5D34 ·
-  danger #8A3A3A`, fonts `Inter / Newsreader / ui-monospace`.
-- Frost tokens (verbatim from `docs/UI_TOKENS.md` — the `242,243,246`
-  pole, not white): fill `rgba(242,243,246,0.08)` · blur
-  `blur(24px) saturate(1.2)` · line `rgba(242,243,246,0.14)` · radius
-  `2px` (3px large modals) · `--hairline: rgba(242,243,246,0.12)` (the
-  global structural line) · input underline `0.2` (`#F2F3F6` on focus) ·
-  row separators `0.07–0.08`.
-- Directional fade washes (locked pattern for search, weekly tiles, month
-  tiles): `linear-gradient(90deg, rgba(POLE,HEAD), rgba(POLE,TAIL) 80%)`,
-  per-tile, both poles — exact stops in `docs/UI_TOKENS.md`. Never one
-  wash across a wrapping row; gradients don't transition (hover flips).
+  times, IDs, counts, technical data; serif only for major titles.
+  Light surfaces force `--ref-ink` dark text in both ink modes.
+  Primary white → secondary translucent → tertiary softer translucent.
+- Frost tokens (`--frost-*`, `2px` radius) survive for popovers only
+  (`.gsel-pop` reference, palette, pickers); windows/cards use the
+  `--ref-*` system. Full values in `docs/UI_TOKENS.md`.
 
 ## 2. Global primitives
 
@@ -133,201 +124,99 @@ trust the code, then fix this file.
   create no event. 15s background poller refreshes today's data (skipped
   while the tab is hidden).
 
-## 4. Admin shell
+## 4. Admin shell (rail + top-center search)
 
-```
-.admin-layer
-├─ .admin-top            title + INK | ESC | CLOSE (48px, hairline bottom)
-└─ .admin-body (row)
-   ├─ .admin-main        one visible .admin-pane at a time
-   └─ aside#adminSide    248px rail: #adminNav + per-tab .side-ctx
-```
-
-- **Top bar**: left per-tab title (`Students`, `Today — Attendance`,
-  `Setup — School Configuration & Schedule`, `Backup — Audit` — titles
-  map in `updateTabs`/`openAdmin`); right group ink toggle, `ESC` hint,
-  `Close`. `openAdminBtn` opens (PIN-gated via header-only `/api/audit`
-  check — 401 aborts, offline-with-no-PIN still opens); `adminClose` /
-  `Esc` closes and re-arms the scan loop.
-- **Rail**: fixed 248px, hairline left boundary, never scrolls itself. The
-  global nav (`#adminNav`, same node/IDs/delegation as always) is a
-  left-aligned vertical stack of 44px rows; active = opposite-pole text
-  color + 500 weight only (no bar, no dot — the retired dot/selection
-  rules are dead). Below the nav, exactly one `.side-ctx` section is
-  visible per tab (`updateTabs` toggles `[hidden]`; the
-  `display:none !important` guard beats the flex shell). The open section
-  scrolls internally from top; nav stays fixed. Under 900px the rail
-  becomes a top strip (boundary rotates, context flows inline).
-- **Per-tab rail map** (nodes live in markup; `updateTabs` only toggles):
-
-  | Tab | `#sideCtx-*` contents |
-  |---|---|
-  | Students | class / batch / status filters + New Enrollment + Import CSV + Export CSV |
-  | Attendance | preset seg-strip + custom date/range inputs + Apply + Clear (filters below stay hidden truth — see §7) |
-  | Setup | Action Wheel + School Information + Add Holiday (+ eye) + Add Override (+ eye) |
-  | Backup | none (workspace owns everything) |
-
-- **Hidden toolbars law**: retired `.tab-toolbar` nodes stay in the DOM as
-  *logic truth* (IDs, values, change handlers untouched) and render
-  nothing. Students' bar is `display:none` (still anchors the CSV-import
-  fallback); Attendance's bar is `[hidden]` + a `display:none !important`
-  override. Never delete these nodes — E2E and the gsel/seg builders
-  address them by ID.
-- **Compatibility aliases** (dead tabs, never remove): hidden
-  `#pane-today` / `#pane-reports` (unhidden with Attendance),
-  `#pane-calendar` / `#pane-settings` (unhidden with Setup), hidden nav
-  buttons `today|reports|calendar|settings` (mapped back to their parent
-  tab + active state on click).
+- **Top bar**: left title, top-center search (`min(520px,44vw)`,
+  `min(320px,50vw)` ≤900px — solid white `999px` pill, `40px` tall,
+  dark text both poles; palette `+6px` under the box), right group
+  `INK | ESC | CLOSE`. `overflow:visible` + `z-index:30` unclip results
+  above pane content; palette stays below modals (40) / confirms (90)
+  / pickers (120).
+- **Rail** (`248px` frost card, `ref-radius`): the `#adminNav` node moved
+  verbatim from the old header bar into `#adminSide` — vertical stack,
+  `44px` left-aligned rows, `400/500` + directional-wash active
+  (silver/dark poles), no separators. ≤900px it becomes a top strip.
+- **Contexts** (`.side-ctx`): one per tab (Student / Attendance / Setup
+  controls); `[hidden]` beats the flex shell so inactive controls never
+  leak. Rail actions are black pills (`36px`, `999px`, `#attApplyBtn`).
+- **Body/panes**: row flex (workspace + rail); one visible tab at a time.
+  `#adminLayer.open` is transparent (old `0.12` veil retired); kiosk
+  idle chrome hides while Admin is open.
 
 ## 5. Students pane
 
-- Workspace is a split view: left roster (`#studentList`), right detail
-  (`#detailScroll`). Pinned search lives at the **bottom** of the list
-  (`.list-search`, fade wash, icon + field one line) so roster growth
-  scrolls above a footer that never moves.
-- Filters + New Enrollment / Import / Export live in the rail
-  (`sideCtx-students`); the gsel wraps render them as full-width 40px
-  quiet rows. Search spans name, roll, class, batch, phone, fingerprint
-  ID, section, parent. Status filter: Active only / All / Inactive only.
-- Rows are a flat editorial grid (`42px minmax(0,1fr)`): avatar/initials +
-  flexible identity track with ellipsis — long names can never move
-  anything. Selection is type-only (400→500) + 1px left marker in a
-  reserved slot + the locked directional wash. Initials are bare text (no
-  tile); uploaded photos render frameless, square. First student (sorted
-  active-first) is always selected — never an empty detail pane
-  (`ensureFirstStudent`).
-- Detail: photo, name, Active/Inactive + batch badges, field grid
-  (roll/class/batch/section/ID/parent/phone/address/fingerprint), actions
-  **Edit · Re-enroll fingerprint · Re-activate (when inactive) · Print
-  profile · Correct today**, then the last-60-events history table with
-  per-row `Correct` (→ `correctionModal`, reason required, original
-  preserved in audit). Deactivate = `DELETE` → `active=0`, roll suffixed,
-  `fingerId=NULL`; re-activate restores the roll when free.
-- Enrollment (`openNewStudent` → `#enrollModal`): profile form + photo
-  dropzone (quiet hairline region, 2MB data-URL cap) + one Start and 3
-  captures with lifts (`/api/sensor/progress`, scan-line sweep). Success
-  closes modal + Admin and returns to the front page (`returnToFrontPage`).
+- Roster = frost window (`320–400px`, `ref-frost`, `ref-radius`,
+  borderless, full-height stretch with internal scroll); rows
+  transparent text-only, no fade wash (selection = 500 name +
+  full-ink text, dark ink both poles).
+- Detail = warm frost window (`--ref-frost`, `ref-radius`,
+  `28px 32px` scroll); dark ink forced in both modes; inner
+  tables/bars stripped; photo frameless `12px` round.
+- Actions = floating pills under the roster (`#studentActionsCard`,
+  no window): white New Enrollment + solid black Import/Export,
+  EDIT-INFORMATION type (`34px/999px/10px/500/0.08em`); rail keeps
+  filters only.
+- Last 60 events in detail; history bundles `events` 500 + `daily` 500.
 
 ## 6. Attendance pane
 
-- **Rail owns:** preset seg-strip (Today / Yesterday / Custom Date /
-  Custom Range / This Week (7d) / This Month / Academic Year), the custom
-  date/range inputs (revealed only for their preset), Apply (same reveal),
-  Clear. Academic-Year span anchors to `Settings.startDate` month/day (no
-  invented cutoffs); range Apply auto-orders.
-- **Hidden truth:** class / batch / student / status / sort selects stay in
-  the retired toolbar — present in DOM, wired to `renderAttendance`, not
-  visible. They are driven by value + `change` (this is also how E2E drives
-  them). Do not wire new visible controls to duplicate them; surface them
-  in the rail when the redesign reaches this pane.
-- **Workspace:** mono date readout (`#attDateLabel`, concise, never
-  stretches) + mode badge (`Live Today` green-contained / Yesterday /
-  `Date:` / `Range: (Nd)` / `STUDENT:`) + 9 KPI cards + main table +
-  unknown-attempts strip. Single-day columns: Time · Student · Roll ·
-  Class · Status[Correct] · Fingerprint. Multi-day adds Date and a
-  Scheduled/Not-Scheduled working-day column. Status law: `PRESENT`
-  ≤ present cutoff else `LATE`; same-day re-scan `DUPLICATE` (first
-  timestamp kept); `NOT_SCHEDULED` muted, never absent; `ABSENT` only from
-  `POST /api/reconcile` after the late cutoff (today guarded
-  `BEFORE_CUTOFF`). Single-student scope pulls authoritative metrics from
-  `/api/reports?studentId` (eligible / attended / rate); Today scope
-  prefers `/api/kpis` when unfiltered.
-- Refresh / Print / Export CSV handlers (`handleAttendanceRefresh/Print/
-  Export`) stay wired to their hidden buttons (presence, not visible —
-  E2E asserts exactly this). Live updates arrive via real scans + the 15s
-  poller while the tab is open. Print builds the editorial report
-  (header, metadata, KPIs, table, unknowns); Export streams backend CSV
-  for the current range + filters.
+- Workspace = one inset frost window (`.detail-scroll`, `ref-radius`,
+  dark `--ref-ink` text both modes); stats/table/unknown inside with no
+  divider bars; `LIVE TODAY` plain; table buttons = small outline pills.
+- Filters live in the rail context (Today / Yesterday / Custom Date /
+  Custom Range / This Week (7d) / This Month / Academic Year + Clear +
+  black APPLY pill); the old pane `.tab-toolbar` is hidden truth (nodes
+  moved verbatim, IDs/events untouched).
+- Stats row, attendance table (static thead), duplicate/late/not-
+  scheduled/absent states per attendance law (`PRESENT ≤08:00`, else
+  `LATE`; same-day re-scan `DUPLICATE`; `NOT_SCHEDULED` muted;
+  `ABSENT` only after `lateCutoff` via daemon/manual reconcile).
+- Unknown-scan strip + timing notice.
 
 ## 7. Setup pane
 
-- **Workspace toolbar** (`#setupToolbar`, kept — this bar was never
-  retired): left CLASSES|BATCHES tabs + Wheel button; center Month View
-  legend (WORKING / NON-WORKING / OVERRIDE filter chips) + schedule
-  context selector (`#calClassSelect`); right Prev / month label / Next /
-  Today. Priority footer always visible: *Override → Holiday/Vacation →
-  Weekly*.
-- **Classes & Batches** (`#cubeGrid` + add rows): one list, one add per
-  view; `setCubeView` swaps kind and follows selection to the first item
-  so the right side never disagrees. Class tiles nest their batches by
-  display regroup only (batch nests under a class iff ≥1 student carries
-  both; zero-student batches collect in an Ungrouped tile last — zero data
-  change). Adds POST to `/api/settings` (`classes` / `batches`, duplicate
-  names rejected case-insensitively) and re-render. Batch creation lives
-  only in the BATCHES tab via the single `submitBatchName` path; new names
-  surface there until a student carries them into a class.
-- **Context selector values**: `""` = Global (all classes & batches),
-  `class:Name`, `batch:Name` (bare legacy names and `Grade|Batch`
-  composite keys still parse). It retargets editor + month + roster
-  together — toolbar, month, list and editor can never disagree.
-- **Month grid** (`#calendarGrid`, `renderCalendarMonth`): leading blanks +
-  date cells + trailing fillers (fillers keep the last week full so the
-  header row below always starts SUN under Sunday). Each cell resolves its
-  state for the active context — `override` (note as tag) · `working` ·
-  `non-working` (holiday name as tag) — plus a `today` ring. Cells are
-  text-first, never cards; fixed 7 columns; 5-row vs 6-row months reserve
-  identical geometry.
-- **Weekday template header sits BELOW the date grid**, inside the same
-  `#calendarGrid` so both delegated editors keep working. The
-  `SUN–SAT` buttons stage into `pendingDays` (never persisted); the
-  `#monthEditor` strip (per-context Present/Late cutoffs + Save/Cancel)
-  composes staged days + cutoffs in one persist. Cancel drops the stage.
-  The solid per-context editor (`#classDetail .sched-solid`, `data-cs-day`
-  toggles + timing + inherit notice, same single persist) edits the
-  saved template directly.
-- **Day window** (`openDaySheet` → `#daySheetModal`): clicking any date
-  cell opens the read-only sheet — resolved badge + source line
-  (global-vs-template) + `Close` + `Add override for this date…`, which
-  swaps to the override form with the date prefilled (door only — the eye
-  tables stay the single editor).
-- **Action Wheel** (`openSetupWheel`, `#setupWheelModal`): center SETUP hub
-  (click closes) + 5 SVG sectors — CLASSES (`+ New`, View, Schedules) ·
-  BATCHES (same trio) · CUTOFFS (timings window, present/late quick-edit
-  via `glassPrompt` + `HH:MM` validation) · EXCEPTIONS (add/view holidays
-  + overrides) · SCHOOL INFO (rules window, academic-year focus, admin
-  PIN focus). Hovering a sector fans its outer action arc; clicking an
-  action closes the wheel and opens the real destination (wheel shortcuts
-  click the same sidebar buttons — one path, no duplicate logic).
-  Openers: rail `Action Wheel` button + toolbar `Wheel` button.
-- **Sidebar actions + eyes**: `ADD HOLIDAY` / `ADD OVERRIDE` build the
-  creation forms into `#holidayModal` / `#overrideModal` (inline
-  validation errors, no red boxes); the eye icons open the *record*
-  popups (`#holidayViewModal` / `#overrideViewModal`) whose tables own all
-  Edit/Remove (`data-edit-holiday` etc., rename moves the range with no
-  orphan, one-date overrides replace by date). `Close` dismisses. Empty
-  tables point at the sidebar action that fills them.
-- **School Information** (`openSchoolInfoBtn` → `#schoolInfoModal`):
-  name, address, academic year, attendance start date, present/late
-  cutoffs (with plain-language threshold hints), Export CSV, Cancel/Save.
-  Save POSTs the whitelisted settings keys, mirrors cutoffs into local
-  state, reloads settings + re-renders. (Backend rejects non-whitelisted
-  keys such as sensor/uart/db — that contract lives in `API.md`.)
-- **Single persist path**: every calendar mutation (holiday, override,
-  weekday stage, cutoff, class/batch schedule) goes through
-  `persistCalendar()` → one `POST /api/settings` (holidays, overrides,
-  workingDays, class/batch schedules) → `cacheSave()` → re-render
-  month + lists. Formats: `YYYY-MM-DD[..YYYY-MM-DD]:type:name`
-  (`holiday|vacation|exam`, exam = working); overrides `date:1|0:note`.
-- **Resolution law** (both paint and counts): specific-date override →
-  holiday range → weekly template; weekly per-student `Grade|Batch` →
-  batch → class → global; default Sunday off, Mon–Sat on.
+- **Month windows**: toolbar rides its own frost bar (legend + Global
+  schedule selector + month nav, dark ink, underline-free selector,
+  uniform 30px control slots, right-docked to the rail, same 1600 cap
+  as the column below, top flush with the rail);
+  SUN–SAT weekday strip owns its own frost window
+  (`#calendarHeadGrid`, `ref-radius`, dark ink) stacked 12px above the
+  date grid (`#calendarGrid` frost card, same padding/columns so headers
+  align with dates); 12px vertical module throughout (strip→month→pager,
+  slim pager row, 4px pager→cards); compact black cards (fixed 190px,
+  breathing room at the pane bottom); cells flat text-only (`64px` fixed rows,
+  transparent, no blur, `0.08` hairline grid both poles, Saturday edge
+  open); headers display-only in a slim 44px strip (editing lives in the schedule popup);
+  thin `#monthEditor` strip below (mono cutoffs + Save/Cancel,
+  hairline top, fixed label/value slots).
+- **Classes / Batches**: two near-black cards (`.cb-table`,
+  `--ref-black`, `ref-radius`, white text both inks); rows hover white
+  `0.06` wash, active directional wash; pager arrows ride above the cards.
+- **Holidays / overrides**: list tables own all editing — holiday
+  ranges and single-date overrides are added via the sidebar
+  (`ADD HOLIDAY`, `ADD OVERRIDE`) and edited/removed via table
+  Edit/Remove (`#holidayModal` / `#overrideModal` forms with the
+  holiday validators). Tables live in eye popups (same frost
+  modals as creation; `Close` dismisses). Every month
+  day cell opens a read-only day window (resolved badge +
+  global-vs-template source line + Close) — no editing verbs.
+  Setup views, popup edits. Single-POST persist throughout. Validated `YYYY-MM-DD[..YYYY-MM-DD]:type:name`
+  (`holiday|vacation|exam`, exam = working). Precedence:
+  override → holiday/vacation/exam → weekly; weekly per-student
+  Grade|Batch → batch → class → global; default Sun off, Mon–Sat on.
 
 ## 8. Backup pane
 
-- **Action column law**: statuses sit right (`READY`, `NOT CONNECTED`,
-  `ON`); action rows (Telegram pair, USB trio, schedule pair) are one
-  left-aligned system — `10.5/500/0.04em`, `16px` gaps.
-- **File row**: `Last backup: Never` left; `RESTORE DB | DOWNLOAD DB`
-  right as baseline-locked text (`inline-flex`, `line-height:1`,
-  shared padding/type, `16px` gap, no boxes/bars).
-- Checkboxes custom-drawn (`14px`, hairline box + check; dark-flipped).
-  Schedule time/freq/interval: dark text, idle underlines dark `0.35`,
-  focus near-black.
-- **Audit history**: editorial table, header `9.5px/500/uppercase`
-  (`0.8` dark), rows `0.07`; Export/Clear are text actions; scrollbars
-  ink-aware. (Backend contracts — destinations, scheduler, restore
-  validation — live in `API.md` / `docs/OPERATIONS.md`, untouched by this
-  file.)
+- **Manager** = frost window (`#backupManagerCard`, `ref-radius`, dark
+  ink); **audit** = twin frost window (`:has(#auditBody)`, dark ink). Inner
+  boxes/dividers transparent, bars gone.
+- **Pill hierarchy**: `.primary` black, everything else transparent
+  outline — all interactive states pinned, no square/flash.
+- Checkboxes graphite (black when checked, silver tick); scheduler
+  time/freq/interval soft filled slots, dark text; audit rows graphite
+  hover wash; errors/destructive stay red.
+- **Audit history**: editorial table on white, header `9.5px/500/uppercase`;
+  Export/Clear actions; scrollbars ink-aware (D9).
 
 ## 9. Custom frost date/time picker (replaces native popups)
 
@@ -360,48 +249,384 @@ trust the code, then fix this file.
 | `#correctionModal` | row Correct buttons | veil¹, `Esc` | fix a record (reason required) |
 | `.gconfirm` | any `glassConfirm/Alert/Prompt` | verbs, `Esc`/`Enter`/`Tab` | confirm / notice / input |
 
-¹ **Veil rule**: dismiss needs press AND release on the veil (`mousedown`
-+ `click` both targeting the overlay) — a drag ending outside, e.g.
-finishing a text selection, must never close the window. Enrollment veil
-also aborts the capture loop.
-
-**Esc order** (topmost first): enroll → holiday-view → override-view →
-holiday → override → school-info → wheel → correction → close Admin.
-Enrollment `Esc` while Admin is open aborts capture but keeps Admin.
-
-## 11. Values & formats (single list — no other copy)
-
-- Present cutoff default `08:00` (scan at/before = Present, else Late);
-  late cutoff default `08:30` (absence reconciliation after this).
-- Holiday string: `YYYY-MM-DD[..YYYY-MM-DD]:type:name`,
-  `type = holiday|vacation|exam` (`exam` counts as working).
-- Override string: `YYYY-MM-DD:1|0:note` (`1` working, `0` holiday).
-- Schedule context: `""` global · `class:Name` · `batch:Name`
-  (`Grade|Batch` composites + bare legacy names still parse).
-- Attendance presets: `today · yesterday · custom_day · custom_range ·
-  week(7d) · month · academic` + Clear.
-- Status law: `PRESENT → Present/Late · DUPLICATE → Already recorded
-  (muted) · NOT_SCHEDULED → muted, never absent · ABSENT → post-cutoff
-  reconcile only`.
-- Rail: 248px, hairline left boundary, 44px nav rows, 40px control rows,
-  24px side padding; reveal 12px / 160ms `cubic-bezier(0.16,1,0.3,1)`.
-
-## 12. Known residuals (current state — fix in redesign, not in secret)
-
-- Attendance Refresh / Print / Export CSV are wired to hidden buttons
-  (presence, not visible — E2E asserts exactly this). No visible trigger
-  exists in the sidebar shell.
-- Attendance class / batch / student / status / sort filters are hidden
-  truth (value + `change` driven). Surface them in the rail when this
-  pane is redesigned — do not build a second filter system.
-- `#daySheetModal` is missing from the `Esc` chain: with only the day
-  sheet open, `Esc` falls through and closes Admin. Add it at the top of
-  the chain (below enroll) when touching overlays.
-- Screenshots trail fixes by a turn: hard-reload (`Ctrl+Shift+R`) +
-  Flask restart before judging; Pi needs `tools/deploy.ps1`.
-- Calendar tiles use `12px` (not 24px) blur deliberately for Pi perf.
+- Screenshots can trail fixes by a turn: hard-reload (`Ctrl+Shift+R`)
+  + Flask restart before judging; Pi needs `tools/deploy.ps1`.
+- Interactive control borders outside setup/backup flip per-case on
+  request (pattern established: idle dark `0.35`, focus `#0A0A0A`).
+- D10 flattens structural alphas to one dark `0.14` (1px-negligible).
+- Month cells are flat text-only (transparent, no blur) by the flat-cell
+  law; outer windows keep their blur. The old `12px` tile-blur note is
+  retired.
+- The `0.12 admin-layer` veil watch-item is retired:
+  `#adminLayer.open` is transparent; kiosk idle chrome hides in Admin.
 
 ## 13. Standing rule
 
 - **Sibling rule**: fixing one instance obliges auditing every sibling
   (all panes, all modals, both ink modes) in the same turn.
+- Log:
+  1. Segment blue survived in holiday/override date fields — scope was
+     `#adminLayer` only; extended to all three modals, both poles.
+  2. Same turn: modal text/date/select/textarea underlines had zero
+     dark coverage (setup D11 pattern) — flipped idle `0.35` + focus
+     premium charcoal for holiday/override/correction.
+  3. Override/holiday dropdown (gsel-btn) underline likewise unflipped —
+     fixed idle + hover/open poles.
+4. Opposite-pole hover law: white hover `#0A0A0A`, dark hover
+   `#FFFFFF` (D4b), all 14+ dialog verbs + pane saves + picker.
+5. Rail search palette bled the bright rail nav through its sheer
+   `0.08` fill (ghost Students/Attendance/Setup/Backup + side
+   controls behind results; hover bar buried white text; `ara`/`ad`
+   rows collided in the 248px rail; native autocomplete bubble
+   covered the field). Fixed in place: graphite scrim image over
+   the verbatim frost fill + `1px frost-line` border + `2px`
+   radius + `isolation` (both inks), rows rebuilt as a fixed
+   two-slot grid with ellipsis (uniform 400), highlight retuned
+   to the directional wash, input hardened
+   (`autocorrect/capitalize off`, `spellcheck false`,
+   `aria-autocomplete`), options carry `cmdOpt-N` ids with
+   `aria-selected`/`aria-activedescendant`. Covered by
+   `test_rail_search_palette_opaque_grouped_and_hardened` +
+   E2E `test_16`.
+6. Palette follow-up: fat native scrollbar + percentage-squeezed hint
+   slivers ("a…"/"s…") broke the frost look. Bar hidden on all
+   engines (`scrollbar-width:none` + `::-webkit-scrollbar{display:none}`,
+   same precedent as `.side-ctx`; wheel/arrows still scroll, gutter
+   reserve removed) and hints moved to a fixed 64px right-aligned slot.
+   Locked by `cmd-pal::-webkit-scrollbar` (unit) + computed
+   `scrollbar-width` (E2E `test_16`).
+7. User-ordered frosted finish: the dark scrim read as off-theme, so it
+   was retired — palette is now two coats of the verbatim frost fill
+   (no new color) + blur + frost-line border, i.e. the reference
+   popover voice; rail text behind melts into the blur. Unit + E2E
+   assertions retuned to the frost coats (`test_16` renamed
+   `…_frosted_…`).
+8. Frosted-but-legible: ghost rail text still read through the 24px
+   reference blur, so the palette (and only the palette) carries a
+   heavier frost — `blur(32px) saturate(1.3) brightness(0.9)` — which
+   melts background text into a smudge while the ambient stays
+   visible. Locked by `brightness(0.9)` (unit) + computed
+   `backdrop-filter` (E2E `test_16`).
+9. Reference-mirror (user order — palette must equal the other
+   popups): audited `.gsel-pop` §4345 / `.gsel-opt` §4394 / `.dt-pop`
+   §10167 and copied verbatim — single-coat frost fill + reference
+   blur, no border, 2px radius, `4px 0` pad, token row rhythm
+   (11.5px/400 secondary, `frost-opt` pad/min-h), `0.06` hover wash,
+   reference group type. Scrim, double-coat, heavy blur, and border
+   all retired. Palette-only keeps: absolute anchor, 300px cap,
+   isolation, hidden scrollbar, 64px hint slot. Assertions retuned
+   (computed fill `rgba(242,243,246,0.08)`, `border 0px`,
+   `blur(24px)`).
+11. Dense frost (user order — sheer reference let giant workspace
+   headlines read through the results): same popup voice/hue, but one
+   extra frost coat (~0.43 total, token hue only) + 44px melt blur, so
+   the ambient glows through while background content dissolves.
+   Locked by coat + blur strings (unit) and computed `blur(44px)`
+   (E2E `test_16`).
+12. Ambient swapped, round 1 (superseded): black gold-spheres render
+   as `bg-spheres.jpg` (JPG q82 88KB) over a `#080A0D` base.
+13. Ambient swapped, round 2 (current): light desert render
+   overwrites `bg-spheres.jpg` (JPG q82, 420KB) with the 0.38
+   near-black pass + `#050507` base; `glass-bg.png` fully
+   unreferenced (locked by unit asserts); prior spheres recoverable
+   from the user's D:\ original.
+   Watch-item: `.admin-layer.open` still lays its 0.12 white veil
+   over admin — may read foggy; tune only on request.
+14. Pass lightened 0.38 → 0.22 (user: scene read dimmed). Measured
+   ambient luminance 0.69; 0.22 leaves it at ~0.54 — desert glows,
+   and all text still sits under the dark `.terminal` glass, so
+   contrast is carried by the window, not the ambient.
+16. Black-window audit (user: admin reads dim) — computed-style probe
+   in real Chromium: `.terminal` transparent + no blur, `.admin-layer`
+   open transparent + no blur, panes transparent; only dimmer left is
+   the 0.12 ambient pass. Verdict: no black window exists. If the
+   screen still reads dim, suspect a stale build (redeploy +
+   hard-reload), not the code.
+15. Pass 0.22 → 0.12 (user: whole admin read dim). Stack audit:
+   ambient 0.69 → 0.61 after pass → ~0.33 under the 0.46 `.terminal`
+   window — the window is the dimmer, but it also protects all
+   white ink, so it stays; reserve lever is window 0.46 → 0.38 with
+   stated contrast cost.
+10. Search moved rail → top-center (user order): same node/IDs into
+   `.admin-top`, absolute-centered (retired nav pattern) at
+   `min(520px,44vw)` (`min(320px,50vw)` ≤900px); palette rules
+   re-scoped `#adminSide` → `#adminLayer`, anchored `+6px` under the
+   box. Two topbar traps fixed: `overflow:visible` (unclip) and
+   `z-index:30` — the centering transform makes a stacking context,
+   so without it pane content painted over the results (caught by
+   `elementFromPoint` probe; E2E `test_16` click went red, now
+   green). Stays below modals (40) / confirms (90) / pickers (120).
+17. Reference rollout (user order — full-UI theme, current):
+    desert ambient + warm frost windows (`--ref-*`, `24px`) + white
+    Students-detail / Backup-audit cards (dark ink forced both modes)
+    + near-black Classes/Batches cards + black-pill primaries /
+    outline pills everywhere (sidebar ONE-pill block is the single
+    truth; `:not()` rivals deleted). Rail + roster + attendance +
+    month + backup windows per `docs/UI_TOKENS.md`. Everywhere-sharp law
+    later retired (log 18); flat text-only month cells (`56px`, `0.08`
+    hairline grid) stay.
+    `#adminLayer.open` transparent (veil retired), kiosk chrome
+    hidden in Admin. Old text-first / zero-card language retired —
+    §§1,4–8 rewritten to match.
+18. Everywhere-sharp retired + dark popup fill (user order — sharp
+    white box + washed-out class/batch/status popups in dark mode):
+    the G4 sharp law's `:is(#adminLayer…)` chain (1,2,1) outranked the
+    ID-scoped 24px window rules and squared the white detail card,
+    rail, roster, attendance frost, and backup cards (pills/black
+    cards/month survived on 3–4-ID selectors) — law deleted, narrow
+    sharpness (day pills, cells, rows, errors) untouched. Dark-mode
+    `.gsel-pop` kept the sheer 0.08 coat while text flipped graphite,
+    so rail rows ghosted through — same dense-coat cure as log 11
+    (extra token-hue coat ~0.43 + 44px melt blur). Braces balanced
+    (1306/1306); no unit/E2E radius locks exist.
+19. White-card ink gaps + rail chevron (user order — monogram, status
+    line, trash, empty text invisible on the white card in white mode;
+    dropdown chevrons clipped specks): monogram/badges/trash/empty wear
+    silver-white base paint for dark glass with no both-pole forcing —
+    dark mode was saved by the D1 blanket alone. Pinned after every
+    rival (`#pane-students .detail-pane …`, both poles): plain badges /
+    monogram / trash / empty → `#181A20`; status badges keep their
+    light-surface colors (present `ok`, late amber, absent danger,
+    not-scheduled ink-2; unknown/duplicate near-black). In dark mode D1
+    still wins (graphite, readable). Rail `.gsel-chev` had silver-only
+    paint — reserved slot (`flex:none` + `8px`, label keeps ellipsis)
+    and graphite dark twin. Paint-only, no geometry; no unit locks;
+    braces 1313/1313.
+20. Fixed frost both poles (user order — dark roster/rail turned opaque
+    milky while white mode stayed sheer): the two dark-only fill swaps
+    (rail, roster → `ref-frost`) are pinned back to the sheer
+    `frost-bg`/`frost-blur`/`frost-line` in dark mode too. Only the text
+    pole flips now (sheer + graphite = dark-on-light, ambient visible).
+    Attendance/month/manager already wear `ref-frost` both poles —
+    untouched. No unit locks; braces 1313/1313.
+21. Roster window kept + dark dropdown underlines off (user order):
+    frosted roster window stays (sheer both poles); rail dropdown
+    resting underlines retired in dark mode to match white
+    (`transparent`; hover keeps its pole-mirrored underline).
+    Paint-only; no unit locks; braces 1313/1313.
+22. Roster row fade wash removed, window restored (user correction —
+    "not a window": the target was the selected-row directional fade,
+    not the frosted panel): de-card reverted, sheer frost window back
+    both poles; active-row gradients (white + dark twin) → transparent.
+    Selection reads via 500 name + full-ink text only. Base row fills
+    can't resurface (no `!important`, lower specificity). Paint-only;
+    braces 1313/1313.
+23. Fade washes deleted GLOBALLY (user order — checklist): zero
+    `linear-gradient(90deg,…)` remain. Removed: rail nav active,
+    rail-search bed + focus deepen, G3 + black-card actives (+ inset
+    markers), weekday base/hover/working/off + 4 dark twins, dead
+    cube-grid actives, dead cube-add bed, orphan pane-search bed.
+    Reads kept: 500 nav/roster/cube names (added 500 to G3 + black
+    active names, ellipsis-contained), weekday WORKING/OFF words,
+    legend/admin underlines. Kept (not faded): solid hover fills,
+    1px indicators. Roster marker slot → `border-left:none` both
+    poles; roster bars hidden all engines (wheel/touch scroll kept).
+    Paint-only; no unit locks; braces 1307/1307.
+37. Borderless filter popups (my call — user deferred): the frost-line
+    pin drew a visible square over milky cards, so `.gsel-pop` joins
+    the palette at `border:none` (+ `2px`). Pale options over milky in
+    white mode deliberately left — legible, airy, reference-light.
+    Tokens doc updated. Paint-only; braces 1373/1373.
+34. Frosted-slot highlight (user order — slots read flat matte, not
+    frosted): blur melts nothing over the opaque black card, so the
+    frost read now comes from a lit top edge (`inset 0 1px 0 0.12`,
+    `0.18` on focus) over the smoky fill. No gradients (90deg lock
+    holds), no geometry. Braces balanced.
+30. Edit/Enroll modal reference pass (user order — fat card bars +
+    underline maze + broken photo + jammed buttons vs frosted-login
+    reference): card bars hidden all engines (scroll kept), card air
+    `28`→`34/34/38`; fields become filled slots (`0.10` fill,
+    `999px`, `44px`, brighter on focus; micro-labels kept for `*` +
+    a11y); SAVE → black pill `42px` (CANCEL stays text); preview
+    renders only when a photo exists (kills broken-img box) with
+    rounded frameless thumb; dropzone joins slots + CHOOSE black
+    mini-pill. Scoped `#enrollModal` (shared New/Edit form);
+    labels/IDs untouched — validation, gsel, photo paths intact
+    (all preview/clear lookups null-guarded). Note: screenshot field
+    order ≠ tree markup → served build stale; hard-reload + redeploy
+    Pi. Braces 1308/1308.
+29. Reference-air detail pass (user order — detail "not look good" vs
+    the frosted-login/white/black reference): sweep extended to `tr`,
+    `.table-wrap > div`, `.detail-grid` (kills header-row + NO RECORDS
+    box + field-grid lines with double-ID finality); detail scroll
+    padding `28/32`→`36/40`, grid gap `14/20`→`20/28`, history margin
+    `24`→`32`, action-row `16/8`→`22/10` (JS inline), field gap `3`→`5`;
+    action pills `30px/12px/600`→`34px/18px/500` (inline 22px table
+    buttons untouched). All internal — panel geometry frozen. Note:
+    per-cascade most lines were already dead, so stale screenshots
+    likely predate the sweep — hard-reload + redeploy Pi before
+    judging. Braces 1307/1307.
+31. Enroll buttons + card shade (user order — text CANCEL/CONTINUE,
+    blank CHOOSE oval, blotchy card): root cause of the blank CHOOSE =
+    the D1 graphite blanket (2 IDs) repainting silver pill labels —
+    added triple-ID dark guards (established pill-guard pattern) for
+    `.btn.primary` + `.photo-choose`. CANCEL (`ns`/`ed`) graduates to
+    outline pills (dark twins included); SAVE/CONTINUE black pill
+    stands (was already black in tree — screenshots showing text SAVE
+    prove a STALE viewed build, see below). Card fill `0.08`→`0.14`
+    luminous so desert contrast melts even instead of blotchy (blur
+    stays token; enroll-only exception). STALENESS WARNING: text-SAVE
+    screenshots cannot come from this tree — hard-reload AND redeploy
+    Pi before judging; self-check: top search must be a white pill.
+25. White cards → frost twins (user order): Students detail + Backup
+    audit leave `--ref-white` for the warm `--ref-frost` family
+    (fill/blur/edge, 24px kept) — same windows as Attendance/manager.
+    Dark-text forcing untouched (dense data stays readable both
+    poles); pills/checkboxes/hovers keep working on frost. Zero
+    `ref-white` paint remains (vars stay defined). Paint-only; no
+    unit locks; braces 1308/1308.
+24. Instant Admin open (user order — frost flashed crystal-clear then
+    frosted on open): the 320ms opacity+translate transition on
+    `.admin-layer` faded the translucent frost itself, so the sharp
+    background showed through mid-fade; plus an 80ms `0.6`-opacity
+    pane staging in `openAdmin`. Killed the transition/transform
+    (both states final, frost full strength frame one — easier on Pi
+    repaint) and dropped the pane flicker + dead tab-alias vars
+    (timeout still calls `updateTabs()`). E2E waits on the `open`
+    class only — compatible. HTML braces 1308/1308; JS off-by-one is
+    a pre-existing string-artifact (HEAD identical).
+33. Frosted slots + guaranteed pills (user order — slots flat, CONTINUE
+    bare text): slots/dropzone gain milky glow (`0.16`/`0.22` + 12px
+    blur, same position/size, both inks). CONTINUE mystery: cascade
+    audit shows the white rule unopposed — screenshot predates it, but
+    an end-of-cascade 3-ID pin (`#nsSave`/`#edSave` white,
+    `#nsCancel`/`#edCancel` outline) now guarantees both buttons past
+    every legacy rule + ink blanket; ID-count re-verified vs D1
+    (`(3,0,1)` beats `(2,1,2)`). Retired graphite cancel twins
+    confirmed absent (never landed). Paint-only; braces balanced.
+32. Enroll/Edit BLACK card (user order — reference "New in": black +
+    frost merge, not frosted): card is solid `ref-black`, no blur,
+    `24px`, floating over ambient; light slots + silver labels/inputs
+    (double-ID prefix beats D1/D2 both poles, zero twins); SAVE white
+    pill w/ dark text, CANCEL/Clear outline silver pills, CHOOSE white
+    mini-pill. Dropdowns anchored in the card get `.on-dark` from
+    `openPop` (JS, both branches) + near-black pop CSS — sheer pop
+    over black would unreadably flip graphite-on-dark. Test retargeted
+    (`#daySheetModal` keeps the frost-blur assert). HTML balanced;
+    JS statements brace-neutral.
+28. Dark popup fill reverted to sheer (user order — dark dropdown read
+    near-opaque white, white-mode sheer is the reference): my log-18
+    dense coat (extra 0.38 + 44px) stacked opaque over the rail on small
+    popups. Deleted — dark `.gsel-pop` now wears the identical sheer
+    frost; only option text flips pole (graphite rows/washes kept).
+    Sole dense survivor: palette (both poles, large-type cure).
+    Sched card radius `0` → `3px` (all 8 modal cards uniform).
+    Paint-only; braces 1307/1307.
+26. Barless filter popups + white search pill (user order): `.gsel-pop`
+    (the All Classes/Batches/Status dropdowns) hides bars on all
+    engines (`scrollbar-width:none` + webkit `display:none`, palette
+    precedent; wheel/touch/arrows still scroll). Top search rebuilt as
+    a solid white `999px` pill, `40px` tall, `13px` dark text both
+    poles (input/icon/placeholder re-inked; dark wash twins now pin
+    the same white). Absolutely centered — nothing around it moves.
+    Only palette scrollbar lock exists in tests — untouched. Paint +
+    contained height; braces 1308/1308.
+27. Frost tokens unified + locked (user order — same values in popups
+    and fixed windows): audit found every live frosted surface already
+    on tokens; the last 4 literal blurs (enroll/sched modal cards) →
+    `var(--frost-blur)`. System: popovers/small = sheer `--frost-*`
+    (`2px`); fixed content windows = warm `--ref-*` (`24px`);
+    documented exceptions only (palette + dark `.gsel-pop` dense
+    coats). Veils: all modal veils transparent (base dark veil dead).
+    Locked by new `test_frost_tokens_unified_across_popups_and_windows`
+    (tokens defined, tier selectors present, zero `90deg` slabs).
+    Could not execute the suite — no Python runtime in this shell;
+    every assert string grep-verified against the served HTML.
+38. Student pills dock rail-bottom (user order — dead gap under the
+    actions): `margin:auto 16px 4px` on `#newStudentToolbarBtn` inside
+    the flex column settles all three pills into the bottom gap; zero
+    markup change, tab switching untouched (stays in
+    `#sideCtx-students`), ≤900px strip docks them right. Caution
+    logged: an edit briefly overwrote the `[hidden]` mapping rule —
+    restored and deduped (single copy verified). Braces 1374/1374.
+36. Horizontal enroll modal + unified actions + soft thumb (user order):
+    card `max-width 520`→`880` (2-col grid finally breathes; ≤640px
+    collapses single-column); Edit actions `:has(#edSave)` joins the
+    New row rule — both forms render the identical compact
+    right-aligned CANCEL + black-pill pair (Edit stacked because its
+    container fell back to column). Thumb loses its hairline for a
+    frosted mini (white `0.35` + blur + `14px`, graphite glyph).
+    Paint + contained geometry; braces balanced.
+35. Enroll FROSTED window (user order — black retired, reference login
+    card): milky `ref-frost` card, `24px`, dark ink both poles
+    (double-ID prefix, zero twins); white `0.35/0.5` slot pills w/ dark
+    text; dropzone white slot + black CHOOSE mini; SAVE black pill,
+    CANCEL + Clear graphite outlines, errors danger-red. `.on-dark`
+    pop variant + JS tags deleted (sheer pops read fine over milky);
+    obsolete black-era end pins deleted. Hover states verified held by
+    resting specs. Braces 1370/1370.
+39. Student black action box (user order — reference "New in" pair;
+    log-38 rail dock retired): the three pills leave `#sideCtx-students`
+    (rail keeps filters only) for a new `#studentActionsCard` black
+    window under the roster — frost card on top, `ref-black` box below,
+    `12px` apart. `list-pane` goes transparent full-height stack
+    (`align-self:stretch`, frost coat moves to `list-scroll` which fills
+    + scrolls internally); compact top-align retired, desert gap gone.
+    Buttons share `40px/999px/11px/500/uppercase` metrics: New = white
+    pill, Import/Export = silver hairline outlines, all states
+    identical (ONE-pill philosophy). IDs unchanged so JS wiring holds;
+    legacy rail button rules now match nothing (harmless). Markup +
+    paint; braces 1378/1378.
+40. Students top-lock + one-frost + borderless (user order — roster sat
+    lower than detail; roster frost differed and flipped per pole; thin
+    edges everywhere): `split-view` goes `align-items:stretch` with a
+    `> .list-pane / > .detail-pane` child pin (`margin-top/bottom 0`,
+    `align-self:stretch`) — identical top AND bottom by construction.
+    Roster window takes the exact detail coat (`ref-frost/blur`, both
+    inks) so the two read as one continuous frost; both window edge
+    lines deleted (detail innards were already stripped — tables,
+    table-wrap, cards, photo). Roster ink pinned both poles
+    (names/monograms `#181A20`, meta/roll/empty `0.6` graphite,
+    selected full-ink + 500 name; `#studentList` ID outranks the
+    white-mode white-active rule, dark twins agree). Pill-button
+    outlines kept — they are controls, not frames. Paint (+ flex-align
+    lock); braces 1381/1381.
+41. Roster luminous exception (user order — shade still off; full audit:
+    tokens were identical, every rival eliminated, blur confirmed
+    working): frost is translucent, so the dark foliage + orange rock
+    behind the roster always mixed darker than detail/rail over light
+    beige, and saturate(1.25) amplified the orange. Same warm hue at
+    `0.65` alpha, plain `blur(22px)` — log-31 exception pattern. Note:
+    brace count drifted 1381→1394 from outside churn (balanced, block
+    re-verified present). Paint-only.
+42. Roster 0.65 to 0.85 (user order — mottling + mode-shift survived):
+    full audit closed every value lead — vars defined once (`:root`,
+    never redefined), ambient `body::before` has no ink qualifier,
+    veil retired unconditionally both modes, rows transparent, no
+    background/opacity rival on the frost element. Verdict: nothing
+    roster-owned changes with the pole; the dark foliage/orange slice
+    breathed through translucency against flipping chrome. Same warm
+    hue at 0.85 (about 15 percent backdrop): mottling and mode-travel
+    stop. Text pins, blur, borderless untouched. Paint-only; braces
+    balanced.
+43. REAL root cause (headless ground truth — logs 41/42 backdrop theory
+    retracted): white-mode computed roster bg was TRANSPARENT. The old
+    scrollbar-clip rule's `#pane-students #studentList` (2 IDs) beat the
+    frost block's 1-ID white selector; only the 3-ID dark twin won —
+    hence color travel with the pole (plus 10px vs 24px radius split).
+    Fix: `#studentList` selectors (both poles) joined the frost block —
+    tie goes to later order. Re-rendered headless both modes:
+    identical `0.85` bg, even milky roster matching detail. Paint-only;
+    braces balanced.
+44. Roster back to exact detail tokens (user order — 0.85 read flat
+    cream, "too much white", no glass feel): `ref-frost` +
+    `ref-frost-blur`, borderless, both poles. Headless re-render both
+    modes: translucent frost with desert melting through, same family
+    as detail; reads a touch deeper over its darker slice, which is
+    honest frost. Exception retired. Paint-only; braces balanced.
+45. Black action card retired (user order — window gone, bars stay):
+    `#studentActionsCard` transparent (same padding/gap, zero position
+    shift); Import/Export graduate to dark `0.6` bars, white text;
+    New Enrollment white pill untouched. Headless render confirms the
+    three pills floating on ambient in place. Paint-only; braces
+    balanced.
+46. Floating pills match EDIT INFORMATION type (user order — mine were
+    40px/11px translucent, reference is 34px/10px/0.08em solid):
+    all three pills to 34px/999px/10px/500/0.08em; Import/Export solid
+    `ref-pill` black, white text; New Enrollment white pill same
+    metrics. Headless render confirms one button type. Paint-only;
+    braces balanced.
+47. Push rebase (remote `af63bbc` rebuilt docs): conflict merge keeps
+    remote curation (ADMIN Setup/Attendance, SKILL shell/presets/wheel,
+    UI_COMPONENTS values/residuals) + this log; Students action
+    locations corrected to floating pills (rail holds filters only).

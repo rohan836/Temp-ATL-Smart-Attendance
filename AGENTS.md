@@ -2,7 +2,7 @@
 
 This file is the first source of rules for any coding agent. Read it before changing code. It points to the right doc for each task.
 
-Production release: `v1.2.0` (`bf575451`). Current `main`: Unified Attendance workspace (Today default + historical + single-student metrics + streaming CSV + Apply action) + Unified Setup (Global/Class/Batch scheduling + Month View) + Unified Backup Manager (Google Drive, Telegram, USB) with 116 backend tests + 14 Playwright E2E tests. Historical rollback tags: `v1.1.0` (`da89bdf`), `v1.0.1` (`32e5ef7`), `v1.0.0` (`c0fe411`). For new work, start from current `main`. Never modify historical release tags. See `docs/VERSIONS.md`.
+Production release: `v1.2.0` (`bf575451`). Current `main`: Unified Attendance workspace (Today default + historical + single-student metrics + streaming CSV + Apply action) + Unified Setup (Global/Class/Batch scheduling + Month View) + Unified Backup Manager (Google Drive, Telegram, USB) with 121 backend tests + 16 Playwright E2E tests. Historical rollback tags: `v1.1.0` (`da89bdf`), `v1.0.1` (`32e5ef7`), `v1.0.0` (`c0fe411`). For new work, start from current `main`. Never modify historical release tags. See `docs/VERSIONS.md`.
 
 ## What this project is
 
@@ -43,20 +43,22 @@ Fingerprint kiosk:
 - **Deploy:** `powershell -File tools/deploy.ps1` or `bash tools/deploy.sh` — never copies `attendance.db`, `config.json`, or `*.backup.html`
 - **SSH:** `ssh -i C:\Users\LaNcer\.ssh\id_ed25519 lancer@192.168.1.8` (user `lancer`, not `pi`)
 - **Verify:** `curl http://192.168.1.8:5000/` → title `ATL Smart Attendance Terminal — Complete School System`, `pane-backup` + `#FCFBF7`, spliced `ui_app.js`, no `__SSR_DATA__` · `curl /api/health` → `db_ok: true` (`sensor offline` expected when `sensor:real` without hardware) · Routes `/` + `/assets/<path>` + `/api/*`; unknown non-API paths serve UI; dead `/legacy|/terminal|/perfect|/css|/js` stay gone
-- **Tests:** `python -m unittest backend.test_app -v` (116 backend unit tests) · `python -m unittest backend.test_ui_e2e -v` (14 Playwright E2E browser tests)
+- **Tests:** `python -m unittest backend.test_app -v` (121 backend unit tests) · `python -m unittest backend.test_ui_e2e -v` (16 Playwright E2E browser tests)
 
 ## UI design baseline — locked visual language (restyle only on explicit instruction)
 
-- **Reference:** saved frosted reference image is canonical; approved direction = Weekly Schedule / dropdown / enrollment modal treatment.
-- **Surfaces:** warm ambient background stays visible through the UI; subtle translucent/frosted neutral fills; 1px translucent white hairlines for structural separation only; no unnecessary card/window containers, no borders around every element, no heavy shadows/borders, no opaque white cards, no colored badges/status chips (orange/red belong to the ambient background, never to controls).
-- **Controls:** text-first clickable actions; subtle frosted contained treatment only for genuinely important primary actions.
-- **Type:** `var(--sans)` for normal interface text; `var(--mono)` only for dates, times, IDs, technical/numeric data; serif/editorial only for major titles where appropriate. Weight 400 normal / 500 important-active; avoid 600/700; soft, light, restrained; no excessive letter-spacing, no forced-everything-uppercase, no text shadows. Color hierarchy: primary white → secondary translucent white → tertiary softer translucent white.
+- **Reference:** desert ambient render is canonical; approved direction = warm frost windows (`--ref-*`, 24px) + near-black Classes/Batches cards + black-pill primaries / outline pills + flat text-only month cells (white cards retired — detail/audit are frost twins now).
+- **Surfaces:** desert ambient (`bg-spheres.jpg`, 0.12 pass, `#050507`) stays visible; frost windows for rail/roster/detail/attendance/month/manager/audit (no opaque white left); near-black for Classes/Batches. No shadows, no per-cell boxes, no colored badges/status chips. `#adminLayer.open` is transparent (veil retired).
+- **Controls:** pills (`999px`) — black primary vs transparent outline secondary; rail Apply/actions are black pills (ONE-pill block is the single truth). Popover dropdowns keep frost + 2px.
+- **Type:** `var(--sans)` for normal interface text; `var(--mono)` only for dates, times, IDs, technical/numeric data; serif/editorial only for major titles where appropriate. Weight 400 normal / 500 important-active; avoid 600/700; soft, light, restrained; no excessive letter-spacing, no forced-everything-uppercase, no text shadows. Light surfaces force `--ref-ink` dark text in both ink modes; top chrome over ambient uses `--on-img` inks.
 - **Screenshot tasks:** compare the request against this baseline first, then modify only the specific element asked about; never invent a new style for an individual screen/component. Baseline stands unless the user explicitly orders a theme change.
 - **Understand intent before implementing:** when the user points at a working pattern elsewhere in the UI ("like the tabs", "like the reference"), rebuild on that pattern's *architecture*, not a nearby approximation. Restate their mechanism in plain words; if it doesn't fit, say so before editing.
 - **Project UI skill:** `skills/atl-frosted-ui/SKILL.md` holds the full enforceable version of this language (values, components, diagnoses, workflow, intent guide). Any coding agent doing UI work must read and follow it.
 - **Canonical frost values:** `docs/UI_TOKENS.md` is the single source of truth (copied from the approved dropdown treatment). Copy values exactly — never approximate.
 - **UI-change risk check (mandatory before any UI edit):** assess layout-shift risk first — dynamic text lengths, font-weight changes (400↔500 alters width), flex centering dependencies, scrollbar/overflow changes, and cross-tab/pane differences. Prefer shift-proof construction (fixed slots, absolute centering, uniform weights, reserved space) so switching states never moves surrounding UI.
-- **Hard-won diagnoses (check these first):** milky modal = usually the overlay veil + blur stack, not the card fill (don't chase fill toward 0); ghost/doubled select text = a global `opacity:1` rule re-showing the native `<select>` hidden by the custom-dropdown system; tab-switch jumps = dynamic title lengths re-centering flex content + active-tab weight change. Verify with evidence (read the cascade, compare screenshots) before editing.
+- **Hard-won diagnoses (check these first):** milky modal = usually the overlay veil + blur stack, not the card fill (don't chase fill toward 0); ghost/doubled select text = a global `opacity:1` rule re-showing the native `<select>` hidden by the custom-dropdown system; tab-switch jumps = dynamic title lengths re-centering flex content + active-tab weight change; square pills/cards = rival `:not()` rules fighting the ONE-pill block
+  or a stray global radius-zero (the everywhere-sharp law is retired —
+  delete, don't stack). Verify with evidence (read the cascade, compare screenshots) before editing.
 
 ## Constraints — must not break
 

@@ -18,8 +18,8 @@ powershell -File tools/dev.ps1
 # Or directly via Python:
 python backend/app.py          # http://127.0.0.1:5000/
 # Run tests:
-python -m unittest backend.test_app -v       # 116 backend unit tests
-python -m unittest backend.test_ui_e2e -v    # 14 Playwright E2E browser tests
+python -m unittest backend.test_app -v       # 121 backend unit tests
+python -m unittest backend.test_ui_e2e -v    # 16 Playwright E2E browser tests
 ```
 Open `http://127.0.0.1:5000/`. UI changes in `ATL-Smart-Attendance-Production.html` and `backend/ui_app.js` take effect immediately on browser refresh (`F5` / `Ctrl+R`) without restarting the server or deploying to the Pi.
 

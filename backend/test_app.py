@@ -84,6 +84,10 @@ class ApiTest(unittest.TestCase):
         self.assertNotIn('alert("Enrolled', body)
         self.assertNotIn("selectStudent(res.id)", body)
         self.assertNotIn("__dev_reload", body)
+        self.assertIn("bg-spheres.jpg", body)
+        self.assertIn("rgba(5, 5, 8, 0.12)", body)
+        self.assertIn("padding: 16px clamp(16px, 3vw, 32px) 24px", body)
+        self.assertNotIn("glass-bg.png", body)
         self.assertNotIn("function resumeSensorScan(){\n  if(_scanLoopActive) return;", body)
 
     def test_does_not_expose_backend_files(self):
@@ -1767,7 +1771,7 @@ class ApiTest(unittest.TestCase):
 
     def test_backup_restore_ui_uses_api_header(self):
         import pathlib
-        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text()
+        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text(encoding="utf-8")
         self.assertIn('api("/api/backup"', ui)
         self.assertIn('responseType', ui)
         self.assertIn('api("/api/restore"', ui)
@@ -1778,7 +1782,7 @@ class ApiTest(unittest.TestCase):
 
     def test_bridge_does_not_call_handleRealScan_while_enroll_open(self):
         import pathlib
-        app_text = pathlib.Path(atl.ROOT / "backend" / "app.py").read_text()
+        app_text = pathlib.Path(atl.ROOT / "backend" / "app.py").read_text(encoding="utf-8")
         self.assertIn('enrollModal', app_text)
         self.assertIn('scanModal', app_text)
         self.assertIn('enrollOpen', app_text)
@@ -1786,7 +1790,7 @@ class ApiTest(unittest.TestCase):
 
     def test_reconcile_background_no_prompt(self):
         import pathlib
-        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text()
+        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text(encoding="utf-8")
         self.assertIn('api("/api/reconcile"', ui)
         self.assertIn('_noPrompt', ui)
         old_pin = atl.cfg.get("adminPin", "")
@@ -1801,12 +1805,62 @@ class ApiTest(unittest.TestCase):
 
     def test_closing_admin_resumes_scan(self):
         import pathlib
-        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text()
+        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text(encoding="utf-8")
         self.assertIn('adminClose', ui)
         self.assertIn('resumeSensorScan', ui)
         self.assertIn('openAdmin', ui)
         self.assertIn('pauseSensorScan', ui)
         self.assertIn('api("/api/audit"', ui)
+
+    def test_rail_search_palette_frosted_grouped_and_hardened(self):
+        """Rail palette must float over the rail on a frosted surface with
+        grouped rows, and the input must suppress native autocomplete bubbles."""
+        import pathlib
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        body = r.get_data(as_text=True)
+        # input hardening: no native suggestion bubble over the palette
+        self.assertIn('id="searchInput"', body)
+        self.assertIn('autocapitalize="off"', body)
+        self.assertIn('spellcheck="false"', body)
+        self.assertIn('aria-autocomplete="list"', body)
+        # dense frost voice: token-hue coats only, no border
+        self.assertIn('id="cmdPal"', body)
+        self.assertIn('background-image: linear-gradient(0deg, rgba(242, 243, 246, 0.38), rgba(242, 243, 246, 0.38))', body)
+        self.assertIn('backdrop-filter: blur(44px) saturate(1.25)', body)
+        self.assertIn('border-radius: var(--frost-radius)', body)
+        self.assertIn('isolation: isolate', body)
+        self.assertIn('cmd-pal::-webkit-scrollbar', body)
+        # behavior: grouped results with keyboard-tracked highlight
+        ui = pathlib.Path(atl.ROOT / "backend" / "ui_app.js").read_text(encoding="utf-8")
+        self.assertIn('cmd-grp', ui)
+        self.assertIn('aria-activedescendant', ui)
+        self.assertIn('aria-selected', ui)
+
+    def test_frost_tokens_unified_across_popups_and_windows(self):
+        """Every frosted surface (popups + fixed windows) must reference the
+        canonical :root tokens — no literal fills/blurs, no fade slabs."""
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        body = r.get_data(as_text=True)
+        # single source of truth is defined once
+        for tok in ('--frost-bg:', '--frost-blur:', '--frost-line:',
+                    '--ref-frost:', '--ref-frost-blur:', '--ref-edge:'):
+            self.assertIn(tok, body)
+        # popups wear the sheer token set
+        for sel in ('.gsel-pop', '.dt-pop', '.gconfirm'):
+            self.assertIn(sel, body)
+        self.assertIn('background: var(--frost-bg)', body)
+        # fixed windows wear the warm token set
+        for sel in ('#backupManagerCard', '#calendarGrid', '.cb-table'):
+            self.assertIn(sel, body)
+        self.assertIn('background: var(--ref-frost)', body)
+        # Modal cards use the token blur, never a literal (enroll card is
+        # solid black by design — excluded from the frost rule).
+        self.assertIn('#daySheetModal .modal-card', body)
+        self.assertIn('backdrop-filter: var(--frost-blur)', body)
+        # all 90-degree fade slabs are retired
+        self.assertNotIn('linear-gradient(90deg', body)
 
     def test_run_reconciliation_before_cutoff_rejected(self):
         """When date is today and now < lateCutoff, run_reconciliation returns BEFORE_CUTOFF without DB mutations."""

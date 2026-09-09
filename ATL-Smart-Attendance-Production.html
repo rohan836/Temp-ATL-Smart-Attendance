@@ -36,6 +36,19 @@
       --frost-radius: 2px;
       --frost-opt-pad: 8px 14px;
       --frost-opt-min-h: 32px;
+      /* Reference rollout (user-ordered full-UI theme): warm frost card,
+         white card, pill actions, shared radius. Every phase reads these —
+         never literals. */
+      --ref-frost: rgba(228, 219, 208, 0.45);
+      --ref-frost-blur: blur(22px) saturate(1.25);
+      --ref-edge: rgba(255, 255, 255, 0.4);
+      --ref-radius: 24px;
+      --ref-white: #FFFFFF;
+      --ref-white-line: rgba(24, 26, 32, 0.08);
+      --ref-pill: #181A20;
+      --ref-black: #141414;
+      --ref-ink: #181A20;
+      --ref-ink-2: rgba(24, 26, 32, 0.55);
       --blob-1: #E8A37A;
       --blob-2: #D97A4A;
       --on-img: #F2F3F6;
@@ -1469,9 +1482,13 @@
       line-height: 1.4
     }
 
-    /* Frosted glass overlay — surfaces only, no layout change */
+    /* Frosted glass overlay — surfaces only, no layout change.
+       Ambient: desert image + 0.12 near-black pass + #050507 base.
+       The pass stays light because all text sits under the dark
+       .terminal glass window — the ambient only needs to glow, not
+       to carry contrast. */
     body {
-      background: #A79B90
+      background: #050507
     }
 
     .terminal {
@@ -1485,7 +1502,10 @@
       z-index: 0;
       pointer-events: none;
       opacity: 1;
-      background: url("/assets/images/ui/glass-bg.png") center/cover no-repeat, #A79B90
+      background:
+        linear-gradient(rgba(5, 5, 8, 0.12), rgba(5, 5, 8, 0.12)),
+        url("/assets/images/ui/bg-spheres.jpg") center/cover no-repeat,
+        #050507
     }
 
     .admin-layer.open {
@@ -2678,6 +2698,11 @@
        the expanded page section (.side-ctx) scrolls internally beneath
        it, so opening a section can never push nav off or jump the
        248px main-workspace boundary. */
+    /* Reference frost card (user-ordered full-UI theme): the rail floats
+       as a compact frosted panel — the reference "Thu" strip equivalent.
+       Fixed sheer frost in BOTH inks (no milky swap — user order);
+       only the text pole flips. Card edge replaces the old left
+       hairline boundary. */
     #adminLayer .admin-side {
       flex: 0 0 248px !important;
       width: 248px !important;
@@ -2685,16 +2710,26 @@
       align-self: stretch !important;
       display: flex !important;
       flex-direction: column !important;
-      background: transparent !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      border: none !important;
-      border-left: 1px solid var(--hairline) !important;
-      border-radius: 0 !important;
+      background: var(--frost-bg) !important;
+      backdrop-filter: var(--frost-blur) !important;
+      -webkit-backdrop-filter: var(--frost-blur) !important;
+      border: 1px solid var(--frost-line) !important;
+      border-radius: var(--ref-radius) !important;
       box-shadow: none !important;
+      margin: 0 16px 16px 0 !important;
       padding: 18px 0 !important;
       overflow-y: hidden !important;
       overflow-x: hidden !important;
+    }
+    /* Fixed frost, both inks (user order): the rail keeps the sheer
+       white-mode frost in dark mode too — backgrounds frozen per
+       UI_TOKENS. Dark text still flips per the pole law (sheer +
+       graphite reads dark-on-light, ambient stays visible). */
+    html[data-ink="dark"] #adminLayer#adminLayer .admin-side {
+      background: var(--frost-bg) !important;
+      backdrop-filter: var(--frost-blur) !important;
+      -webkit-backdrop-filter: var(--frost-blur) !important;
+      border-color: var(--frost-line) !important;
     }
 
     /* Vertical nav: same node, same buttons — the horizontal bar
@@ -2861,9 +2896,11 @@
       text-align: left !important;
     }
 
-    /* Dark twins of the retired students-toolbar filter rules. */
+    /* Dark twins of the retired students-toolbar filter rules: resting
+       rows stay underline-free like white mode (user order) — hover
+       keeps its pole-mirrored underline below. */
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn {
-      border-bottom-color: rgba(24, 26, 32, 0.35) !important;
+      border-bottom-color: transparent !important;
     }
 
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn:hover {
@@ -2877,6 +2914,24 @@
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel.open .gsel-btn {
       color: #181A20 !important;
+    }
+    /* Dark-ink dropdown text: every custom dropdown sits on light frost or
+       light ambient in dark mode, so the value reads graphite — beats the
+       stronger light-ink .gsel-btn rules (same blanket-guard pattern). */
+    html[data-ink="dark"] #adminLayer#adminLayer .gsel-btn {
+      color: #181A20 !important;
+    }
+    /* Rail chevron: reserved slot + pole ink. The glyph wore silver-only
+       paint, so it washed out on the milky rail in dark mode and read as
+       a clipped speck at the edge. Fixed slot (no shift, label keeps its
+       ellipsis), graphite in dark ink. */
+    #adminLayer #adminSide .side-ctx .gsel-btn .gsel-chev {
+      flex: none !important;
+      margin-left: 8px !important;
+      color: rgba(242, 243, 246, 0.7) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .gsel-btn .gsel-chev {
+      color: rgba(24, 26, 32, 0.7) !important;
     }
 
     /* Action rows: same borderless text actions as the toolbar (their
@@ -2940,6 +2995,54 @@
       color: #F2F3F6 !important;
     }
 
+    /* Reference sidebar language (user-ordered): no separator bars —
+       text only. Active nav reads via 500 only (washes retired
+       globally); vertical stack, left-aligned: no shift possible. */
+    #adminLayer #adminSide .side-sep {
+      display: none !important;
+    }
+    #adminLayer #adminSide #adminNav button.active {
+      font-weight: 500 !important;
+      background: transparent !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide #adminNav button.active {
+      background: transparent !important;
+    }
+    /* Reference pills: sidebar actions become compact centered pills —
+       black primary, outline secondary. Later order + equal-or-higher
+       specificity beats the ALL-TEXT twin above. */
+    #adminLayer #adminSide .side-ctx .btn,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn,
+    #adminLayer #adminSide .side-ctx #attApplyBtn {
+      width: auto !important;
+      margin: 4px 16px !important;
+      height: 36px !important;
+      min-height: 36px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      padding: 0 16px !important;
+      border-radius: 999px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    /* RETIRED outline-pill rivals (black-pill decision): the :not() rule
+       below packed 4 IDs and beat the ONE-pill block in every state.
+       Deleted — the ONE-pill block near .side-act-row is now the single
+       sidebar-action truth. */
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover,
+    #adminLayer #adminSide .side-ctx #attApplyBtn {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      color: #F2F3F6 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+    }
+    /* (dark twin of the retired rival above — deleted with it.) */
+
     /* Sidebar context mapping: hidden wins over the flex shell above.
        updateTabs() toggles [hidden]; without this the
        display:flex !important rule would keep the inactive page's
@@ -2947,6 +3050,9 @@
     #adminLayer #adminSide .side-ctx[hidden] {
       display: none !important;
     }
+    /* (Retired rail-bottom dock, log 38 — actions moved to the black
+       #studentActionsCard under the roster; the margin:auto pin no
+       longer applies. Rail keeps filters only.) */
 
     /* Leftover Attendance bar: hidden truth (filters/actions stay wired,
        render nothing). Beats the #pane-attendance .tab-toolbar
@@ -3111,61 +3217,122 @@
       color: #181A20 !important;
     }
 
-    /* Setup entry points join the sidebar text language. Same defect
-       class New Enrollment had: the base .btn bordered box matches
-       here (no toolbar override ever covered these two). Text-first
-       with sibling row metrics; no underline (seg-row voice). */
+    /* Setup entry points: covered by the ONE-pill block below (single
+       sidebar-action truth, all states, both inks) — no local paint,
+       geometry, hover, or dark twins here. Their old transparent/hover/
+       graphite rules were state-split rivals (rest transparent, press
+       black with unreadable text) and are retired. */
+
+    /* ONE pill, EVERY state, EVERY panel (user-ordered): the rounded
+       black pill + white text is the only sidebar action treatment —
+       rest, hover, press, and keyboard focus render identically, so no
+       state can flash a square or any other shape. Later order + 3-ID
+       scope beats all legacy button rivals. */
+    #adminLayer #adminSide .side-ctx .btn,
+    #adminLayer #adminSide .side-ctx .btn:hover,
+    #adminLayer #adminSide .side-ctx .btn:active,
+    #adminLayer #adminSide .side-ctx .btn:focus,
+    #adminLayer #adminSide .side-ctx .btn:focus-visible,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:active,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:focus,
+    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:focus-visible,
+    #adminLayer #adminSide .side-ctx #attApplyBtn,
+    #adminLayer #adminSide .side-ctx #attApplyBtn:hover,
+    #adminLayer #adminSide .side-ctx #attApplyBtn:active,
+    #adminLayer #adminSide .side-ctx #attApplyBtn:focus,
+    #adminLayer #adminSide .side-ctx #attApplyBtn:focus-visible,
     #adminLayer #adminSide .side-ctx #addHolidayBtn,
-    #adminLayer #adminSide .side-ctx #addOverrideBtn,
     #adminLayer #adminSide .side-ctx #addHolidayBtn:hover,
-    #adminLayer #adminSide .side-ctx #addOverrideBtn:hover {
-      background: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
+    #adminLayer #adminSide .side-ctx #addHolidayBtn:active,
+    #adminLayer #adminSide .side-ctx #addHolidayBtn:focus,
+    #adminLayer #adminSide .side-ctx #addHolidayBtn:focus-visible,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn:hover,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn:active,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn:focus,
+    #adminLayer #adminSide .side-ctx #addOverrideBtn:focus-visible,
+    #adminLayer #adminSide .side-ctx #sideAddClassBtn,
+    #adminLayer #adminSide .side-ctx #sideAddClassBtn:hover,
+    #adminLayer #adminSide .side-ctx #sideAddClassBtn:active,
+    #adminLayer #adminSide .side-ctx #sideAddClassBtn:focus,
+    #adminLayer #adminSide .side-ctx #sideAddClassBtn:focus-visible,
+    #adminLayer #adminSide .side-ctx #sideAddBatchBtn,
+    #adminLayer #adminSide .side-ctx #sideAddBatchBtn:hover,
+    #adminLayer #adminSide .side-ctx #sideAddBatchBtn:active,
+    #adminLayer #adminSide .side-ctx #sideAddBatchBtn:focus,
+    #adminLayer #adminSide .side-ctx #sideAddBatchBtn:focus-visible,
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn,
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn:hover,
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn:active,
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn:focus,
+    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn:focus-visible {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      outline: none !important;
       box-shadow: none !important;
       text-decoration: none !important;
       transition: none !important;
-    }
-    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn,
-    #adminLayer #adminSide .side-ctx #addHolidayBtn,
-    #adminLayer #adminSide .side-ctx #addOverrideBtn {
-      height: 40px !important;
-      min-width: 0 !important;
-      width: 100% !important;
-      margin-left: 0 !important;
-      padding: 0 24px !important;
+      width: auto !important;
+      margin: 4px 16px !important;
+      height: 36px !important;
+      min-height: 36px !important;
+      padding: 0 16px !important;
       display: flex !important;
       align-items: center !important;
-      justify-content: flex-start !important;
-      text-align: left !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      font-family: var(--sans) !important;
-      font-size: 11px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      cursor: pointer !important;
-      white-space: nowrap !important;
+      justify-content: center !important;
+      text-align: center !important;
     }
-    #adminLayer #adminSide .side-ctx #openSchoolInfoBtn:hover,
-    #adminLayer #adminSide .side-ctx #addHolidayBtn:hover,
-    #adminLayer #adminSide .side-ctx #addOverrideBtn:hover {
-      color: #181A20 !important;
-    }
-    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn,
+    /* Dark-ink lock (4-ID chain beats the graphite paint twins): the
+       pill stays black + white text in both inks, like the reference. */
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .btn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .btn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .btn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .btn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx .btn:focus-visible,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn:focus-visible,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #attApplyBtn:focus-visible,
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn,
-    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn {
-      color: rgba(24, 26, 32, 0.8) !important;
-    }
-    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn:hover,
     html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn:hover {
-      color: #181A20 !important;
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addHolidayBtn:focus-visible,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #addOverrideBtn:focus-visible,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddClassBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddClassBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddClassBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddClassBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddClassBtn:focus-visible,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddBatchBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddBatchBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddBatchBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddBatchBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #sideAddBatchBtn:focus-visible,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn:hover,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn:active,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn:focus,
+    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #openSchoolInfoBtn:focus-visible {
+      background: var(--ref-pill) !important;
+      border-color: var(--ref-pill) !important;
+      color: #F2F3F6 !important;
+      outline: none !important;
     }
-
-    /* Setup action rows: label (existing creation entry point) takes
-       the row; the eye is a fixed view affordance at its side. Same
-       40px row metrics and neutral voice as every sibling row. */
     #adminLayer #adminSide .side-ctx .side-act-row {
       display: flex !important;
       align-items: stretch !important;
@@ -3256,6 +3423,174 @@
       }
     }
 
+    /* Top-center command bar: the rail search relocated verbatim (same
+       node, same IDs) into .admin-top. Absolute centering — the retired
+       header-nav pattern — keeps the title left and INK/Esc/Close right
+       fixed, so the box can never push them and tab switches can never
+       move it. Topbar overflow is opened so the results popover is never
+       clipped by the 48px bar. */
+    #adminLayer .admin-top {
+      overflow: visible !important;
+      z-index: 30 !important;
+    }
+    #adminLayer .admin-top .rail-search {
+      position: absolute !important;
+      left: 50% !important;
+      top: 50% !important;
+      transform: translateX(-50%) translateY(-50%) !important;
+      width: min(520px, 44vw) !important;
+      flex: none !important;
+      padding: 0 !important;
+      border: none !important;
+    }
+    /* Top search: solid white pill (user order) — rounded both ends,
+       taller, dark text in both inks. Absolutely centered, so the new
+       height moves nothing around it; palette still anchors +6px under. */
+    #adminLayer .rail-search .search-wrap {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      background: var(--ref-white) !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      height: 40px !important;
+      padding: 0 18px !important;
+    }
+    #adminLayer .rail-search .search-wrap:focus-within {
+      background: var(--ref-white) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer .rail-search .search-wrap {
+      background: var(--ref-white) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer .rail-search .search-wrap:focus-within {
+      background: var(--ref-white) !important;
+    }
+    #adminLayer .rail-search .search-ico {
+      color: rgba(24, 26, 32, 0.55) !important;
+      font-size: 14px !important;
+      line-height: 1 !important;
+      flex: none !important;
+    }
+    #adminLayer .rail-search input {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #181A20 !important;
+      font-size: 13px !important;
+      height: 28px !important;
+      padding: 0 !important;
+    }
+    #adminLayer .rail-search input::placeholder {
+      color: rgba(24, 26, 32, 0.45) !important;
+    }
+    /* Rail command palette: frosted voice of the reference popups
+       (.gsel-pop §4345, .gsel-opt §4394 — same hue, no border, 2px
+       radius, token row rhythm, 0.06 hover wash), but with a DENSER
+       frost: the reference sheer coat was drawn for small dropdowns
+       over dim fields, while this box floats over large bright
+       workspace type (giant serif headlines) that punched straight
+       through it. So one extra frost coat (~0.43 total, token hue
+       only, no new color) plus a 44px melt blur: the ambient still
+       glows through, but background content dissolves instead of
+       reading. Only palette-own geometry stays (absolute anchor,
+       300px cap, stacking isolation) plus two explicit user orders:
+       hidden scrollbar and a fixed 64px hint slot. */
+    #adminLayer .cmd-pal {
+      position: absolute !important;
+      top: calc(100% + 6px) !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 70 !important;
+      isolation: isolate !important;
+      max-height: 300px !important;
+      overflow-y: auto !important;
+      overscroll-behavior: contain !important;
+      scrollbar-width: none !important;
+      background-color: var(--frost-bg) !important;
+      background-image: linear-gradient(0deg, rgba(242, 243, 246, 0.38), rgba(242, 243, 246, 0.38)) !important;
+      backdrop-filter: blur(44px) saturate(1.25) !important;
+      -webkit-backdrop-filter: blur(44px) saturate(1.25) !important;
+      border: none !important;
+      border-radius: var(--frost-radius) !important;
+      box-shadow: none !important;
+      color: #F2F3F6 !important;
+      padding: 4px 0 !important;
+    }
+    #adminLayer .cmd-pal::-webkit-scrollbar {
+      display: none !important;
+    }
+    #adminLayer .cmd-pal[hidden] {
+      display: none !important;
+    }
+    #adminLayer .cmd-grp {
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: rgba(242, 243, 246, 0.45) !important;
+      padding: 8px 14px 4px 14px !important;
+    }
+    /* Palette rows: .gsel-opt metrics verbatim (11.5px/400 secondary
+       text, token pad + min-height, transparent, no border) on the fixed
+       two-slot grid (flexible label + 64px hint) so long names ellipsize
+       instead of colliding with the roll hint at any width. Hover/keyboard wash is the
+       reference 0.06 lift to full white. */
+    #adminLayer .cmd-opt {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) auto !important;
+      align-items: center !important;
+      column-gap: 12px !important;
+      font-family: var(--sans) !important;
+      font-size: 11.5px !important;
+      font-weight: 400 !important;
+      letter-spacing: normal !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      padding: var(--frost-opt-pad) !important;
+      min-height: var(--frost-opt-min-h) !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+    }
+    #adminLayer .cmd-opt > span:first-child {
+      min-width: 0 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    /* Hint slot: fixed 64px right-aligned reserve (fits "action" and
+       rolls like 10A-08 / EP-01#d1; longer values ellipsis). Never a
+       percentage squeeze — that rendered as unreadable "a…"/"s…" slivers
+       in the narrow rail. */
+    #adminLayer .cmd-opt .k {
+      font-family: var(--mono) !important;
+      font-size: 10px !important;
+      color: rgba(242, 243, 246, 0.5) !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+      min-width: 64px !important;
+      max-width: 64px !important;
+      text-align: right !important;
+    }
+    /* Highlight: the reference 0.06 lift to full white, shared by hover
+       and keyboard position — exactly like .gsel-opt. */
+    #adminLayer .cmd-opt:hover,
+    #adminLayer .cmd-opt.hi {
+      background: rgba(242, 243, 246, 0.06) !important;
+      color: #F2F3F6 !important;
+    }
+    @media (max-width: 900px) {
+      #adminLayer .admin-top .rail-search {
+        width: min(320px, 50vw) !important;
+      }
+    }
+
     /* 3. Universal Structural Hairlines */
     tr,
     .student-row,
@@ -3276,14 +3611,14 @@
 
     /* Roster rows: flat editorial list, same language as the Setup
        rail. Transparent, hairline-separated; selection is type-only
-       (400 → 500) plus a 1px marker in a reserved left slot. */
+       (400 → 500). No side marker in either ink (slot retired). */
     #pane-students .student-row {
       background: transparent !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
       border: none !important;
       border-bottom: 1px solid rgba(242, 243, 246, 0.08) !important;
-      border-left: 1px solid transparent !important;
+      border-left: none !important;
       border-radius: 0 !important;
       margin-bottom: 0 !important;
       padding-left: 7px !important;
@@ -3309,14 +3644,13 @@
       background: transparent !important;
     }
 
-    /* Selected row: marker + 500 name + a soft localized wash.
-       The wash is the locked directional fade (solid at the leading
-       edge, dissolving toward the end) — illumination, not a card:
-       no border, no radius, no shadow, no blur, no motion. Pole law
+    /* Selected row: 500 name + full-ink text only (user order — the
+       directional fade wash is retired; selection never paints a fade).
+       No border, no radius, no shadow, no blur, no motion. Pole text
        follows the ink, same as the Setup rail. */
     #pane-students .student-row.active,
     #pane-students .student-row.active:hover {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.14), rgba(242, 243, 246, 0) 80%) !important;
+      background: transparent !important;
       border-left-color: #F2F3F6 !important;
       box-shadow: none !important;
       transform: none !important;
@@ -3339,7 +3673,7 @@
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active:hover {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.18), rgba(24, 26, 32, 0) 80%) !important;
+      background: transparent !important;
       border-left-color: #181A20 !important;
     }
 
@@ -3401,34 +3735,8 @@
     /* Search magnifier: static text glyph, never interactive.
        Wrapper keeps the full-width search row so icon + field
        always share one line (zero layout change elsewhere). */
-    /* Search field: no underline bar — a directional frost wash, solid
-       at the leading edge dissolving toward the end */
-    #pane-students .search-wrap {
-      flex: 1 1 100% !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-      max-width: 584px !important;
-      min-width: 200px !important;
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.1), rgba(242, 243, 246, 0) 80%) !important;
-      border: none !important;
-      border-radius: 4px !important;
-      box-shadow: none !important;
-      padding: 4px 12px !important;
-      transition: none !important;
-    }
-
-    #pane-students .search-wrap:focus-within {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.16), rgba(242, 243, 246, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #pane-students .search-wrap {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.1), rgba(24, 26, 32, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #pane-students .search-wrap:focus-within {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0) 80%) !important;
-    }
+    /* (Retired pane-toolbar search wash removed with the heuristically
+       dead node — the box lives top-center now; see .rail-search.) */
 
     #pane-students .search-ico {
       color: rgba(242, 243, 246, 0.55) !important;
@@ -3484,25 +3792,375 @@
       flex: 1 1 0% !important;
       min-height: 0 !important;
       overflow: hidden !important;
-      padding: 0 clamp(16px, 3vw, 32px) !important;
+      /* Floating cards: even insets on all four sides (top tucks just
+         under the search bar) so the white card's 24px round shows
+         instead of clipping full-bleed at the viewport edges. */
+      padding: 16px clamp(16px, 3vw, 32px) 24px !important;
       box-sizing: border-box !important;
+      /* Geometry lock (user order — roster sat lower than detail):
+         both columns stretch, so identical top AND bottom by
+         construction; the child pin below zeroes any wedging margin. */
+      align-items: stretch !important;
+    }
+    #pane-students .split-view > .list-pane,
+    #pane-students .split-view > .detail-pane {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      align-self: stretch !important;
     }
 
+    /* Phase 1 reference-window exception (user-ordered): the Students
+       roster left rail becomes the reference "Log in" frosted window —
+       separate rounded panel floating over the ambient spheres. Scoped to
+       #pane-students only; detail pane stays containerless. Radius 24px
+       is the reference match (canonical --frost-radius stays 2px). */
     #pane-students .list-pane,
     #studentListWrap {
-      border-right: 1px solid var(--hairline) !important;
-      padding-right: 24px !important;
+      background: var(--frost-bg) !important;
+      backdrop-filter: var(--frost-blur) !important;
+      -webkit-backdrop-filter: var(--frost-blur) !important;
+      border: 1px solid var(--frost-line) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 14px !important;
+      margin-right: 24px !important;
       min-width: 320px !important;
       max-width: 400px !important;
       box-sizing: border-box !important;
+      display: flex !important;
+      flex-direction: column !important;
+      /* Compact card like the reference: wrap content, top-aligned, scroll
+         internally at max-height — no giant empty frost tail. */
+      flex: 0 0 auto !important;
+      align-self: flex-start !important;
+      max-height: 100% !important;
+      overflow: hidden !important;
     }
 
+    /* Clip inner scroll to the rounded window; rows stay transparent
+       (no per-row frost/blur — that stacks milky). Roster bars stay
+       hidden on all engines (user order — no slide bar); wheel and
+       touch still scroll. */
+    #pane-students .list-pane .list-scroll,
+    #pane-students #studentList {
+      background: transparent !important;
+      border-radius: 10px !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    #pane-students .list-pane .list-scroll::-webkit-scrollbar,
+    #pane-students #studentList::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    /* Fixed frost, both inks (user order): the roster keeps the sheer
+       white-mode frost in dark mode too — no milky swap. Dark text
+       still flips per the pole law; rows stay transparent (no per-row
+       frost/blur — that stacks milky). */
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .list-pane,
+    html[data-ink="dark"] #adminLayer#adminLayer #studentListWrap {
+      background: var(--frost-bg) !important;
+      backdrop-filter: var(--frost-blur) !important;
+      -webkit-backdrop-filter: var(--frost-blur) !important;
+      border-color: var(--frost-line) !important;
+    }
+
+    /* Students action dock (user order — reference "New in" black box):
+       the three pills leave the far-left rail for their own black
+       window under the roster: frost card on top, black box below,
+       12px apart, like the reference pair. list-pane becomes a
+       transparent full-height stack (roster fills, card anchors bottom);
+       the frost coat moves from list-pane to list-scroll. Compact
+       top-align retired by this order — no more desert gap below. */
+    #pane-students .list-pane,
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .list-pane {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      gap: 12px !important;
+      align-self: stretch !important;
+    }
+    /* Unified frost + borderless roster (user order — roster wore
+       frost-bg/frost-line while detail wears ref-frost/ref-edge, and its
+       text flipped per pole): roster takes the detail hue with no edge
+       line; dark-ink text pinned both poles below makes it identical
+       white/dark. Roster-only luminous exception (log-31 pattern):
+       audit proved tokens identical yet render darker — the desert
+       behind the roster is dark foliage + orange rock while detail/rail
+       sit over light beige, and translucent frost always mixes its
+       backdrop. Same warm hue at 0.85 alpha (0.65 still let the dark
+       slice dominate); saturate dropped (it only amplified the orange
+       bed). Mode-shift root cause: every roster value is constant or
+       both-pole pinned (vars defined once at :root, body::before has
+       no ink qualifier, veil retired unconditionally) — what "moves"
+       with the pole is the dark slice breathing through translucency
+       against flipping page chrome. At 0.85 it contributes ~15%: the
+       window stops moving.
+       CORRECTION (log 43): the backdrop theory was wrong — headless
+       ground truth showed white-mode computed bg TRANSPARENT: the old
+       clip rule's `#pane-students #studentList` (2 IDs) beat this
+       block's 1-ID white selector, while the 3-ID dark twin won. The
+       #studentList selectors above close that gap (tie → later wins);
+       radius unifies at 24px both modes too.
+       CORRECTION 2 (log 44): with the rival dead, the 0.85 exception
+       overshoots — flat cream, no glass feel. The roster never truly
+       wore the detail coat (transparent in white all along), so back
+       to exact detail tokens; the darker slice may read a touch
+       deeper, which is honest frost. */
+    #pane-students .list-pane .list-scroll,
+    #pane-students #studentList,
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .list-pane .list-scroll,
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-students #studentList {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: none !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 14px !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+    }
+    /* Roster ink pins, both poles (detail-editorial language): names +
+       monograms near-black, meta/roll graphite, selected rows full-ink
+       with the 500 name — never flipping with the mode. The #studentList
+       ID outranks the white-mode white-active rule; dark twins agree. */
+    html #pane-students #studentList .student-row .student-thumb-fallback,
+    html #pane-students #studentList .student-row .student-name,
+    html #pane-students #studentList .student-row.active .student-name,
+    html #pane-students #studentList .student-row.active .student-meta,
+    html #pane-students #studentList .student-row.active .student-meta span,
+    html #pane-students #studentList .student-row.active .student-roll {
+      color: #181A20 !important;
+    }
+    html #pane-students #studentList .student-row .student-meta,
+    html #pane-students #studentList .student-row .student-meta span,
+    html #pane-students #studentList .student-row .student-roll,
+    html #pane-students #studentList .empty,
+    html #pane-students #studentList .empty b {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    /* Floating action pills (user order — black card retired, bars stay
+       put): no window behind them, just the three pills on the ambient
+       in the same stack/position. Same type as EDIT INFORMATION
+       (34px/999px/10px/500/0.08em): New Enrollment = white pill,
+       Import/Export = solid black pills, white text. Every state
+       identical — no shape flash (ONE-pill philosophy). */
+    #pane-students #studentActionsCard {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 14px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      flex: 0 0 auto !important;
+    }
+    html #pane-students #studentActionsCard #newStudentToolbarBtn,
+    html #pane-students #studentActionsCard #newStudentToolbarBtn:hover,
+    html #pane-students #studentActionsCard #newStudentToolbarBtn:active,
+    html #pane-students #studentActionsCard #newStudentToolbarBtn:focus {
+      background: #F2F3F6 !important;
+      border: 1px solid #F2F3F6 !important;
+      border-radius: 999px !important;
+      color: #181A20 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 18px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      box-shadow: none !important;
+      outline: none !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+    }
+    html #pane-students #studentActionsCard #importStudentsBtn,
+    html #pane-students #studentActionsCard #importStudentsBtn:hover,
+    html #pane-students #studentActionsCard #importStudentsBtn:active,
+    html #pane-students #studentActionsCard #importStudentsBtn:focus,
+    html #pane-students #studentActionsCard #exportStudentsBtn,
+    html #pane-students #studentActionsCard #exportStudentsBtn:hover,
+    html #pane-students #studentActionsCard #exportStudentsBtn:active,
+    html #pane-students #studentActionsCard #exportStudentsBtn:focus {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 18px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      box-shadow: none !important;
+      outline: none !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+    }
+
+    /* Text-only rows: no separator bars, no side marker — selection reads
+       via the soft wash + 500 name only. */
+    #pane-students .student-row {
+      border-bottom: none !important;
+    }
+    #pane-students .student-row,
+    #pane-students .student-row.active,
+    #pane-students .student-row.active:hover {
+      border-left-color: transparent !important;
+    }
+
+    /* Text-only chrome: no header/nav divider bars, all panes. */
+    #adminLayer .admin-top,
+    #adminLayer .admin-nav {
+      border-bottom: none !important;
+    }
+
+    /* Full-UI theme: sharp ambient everywhere, cards frost locally.
+       (Retires the Students-scoped blur lift — one global rule.) */
+    #adminLayer.admin-layer.open {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    /* Instant Admin open (user order — no fade/slide): the 320ms
+       opacity+translate transition faded the translucent frost itself,
+       so every open flashed crystal-clear before the blur arrived.
+       Both states sit at final geometry with no transition; frost is
+       full strength on the first frame. Easier on Pi repaint too. */
+    #adminLayer.admin-layer,
+    #adminLayer.admin-layer.open {
+      transition: none !important;
+      transform: none !important;
+    }
+    /* Admin is a mode: the kiosk idle chrome (PLACE YOUR FINGER prompt +
+       bottom ADMIN trigger) must not ghost through the transparent panes.
+       Returns automatically when Admin closes. */
+    body:has(#adminLayer.admin-layer.open) .prompt,
+    body:has(#adminLayer.admin-layer.open) .left-bottom {
+      display: none !important;
+    }
+
+    /* Student information section = warm frost window (user-ordered):
+       same family as Attendance/Backup-manager frost. Dark text stays
+       forced in BOTH ink modes for the dense data. Detail pane keeps
+       its own scroll clipped to the round. No bars — text only.
+       Borderless (user order — just frosted background, no edge line). */
     #pane-students .detail-pane,
     #studentDetailWrap {
-      padding-left: 28px !important;
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: none !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 0 !important;
       flex: 1 1 0% !important;
       min-width: 0 !important;
       box-sizing: border-box !important;
+      align-self: stretch !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      color: #181A20 !important;
+    }
+    #pane-students .detail-pane .detail-scroll,
+    #pane-students #detailScroll {
+      background: transparent !important;
+      padding: 36px 40px !important;
+    }
+    /* Dark-ink text inside the frost card (beats white-ink inheritance). */
+    #pane-students .detail-pane .pf-title-row div,
+    #pane-students .detail-pane .detail-field span,
+    #pane-students .detail-pane table th,
+    #pane-students .detail-pane table td,
+    #pane-students .detail-pane .empty,
+    #pane-students .detail-pane .empty b {
+      color: #181A20 !important;
+    }
+    #pane-students .detail-pane .detail-field label,
+    #pane-students .detail-pane .table-wrap > div:first-child > span {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+    #pane-students .detail-pane .empty {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    /* White-card ink gaps (both poles): monogram, badges, trash, and
+       empty text wear silver-white base paint drawn for dark glass and
+       have no both-pole forcing — dark mode is saved by the D1 blanket
+       while white mode leaves them invisible on the white card. Pin them
+       here, after every rival. Status badges keep their light-surface
+       colors (drawn for light editorial bg); plain badges, monogram,
+       trash, and empty read near-black. */
+    #pane-students .detail-pane .detail-photo-fallback,
+    #pane-students .detail-pane .badge,
+    #pane-students .detail-pane .badge.unknown,
+    #pane-students .detail-pane .badge.duplicate,
+    #pane-students .detail-pane .btn.icon-del,
+    #pane-students .detail-pane .empty,
+    #pane-students .detail-pane .empty b {
+      color: #181A20 !important;
+    }
+    #pane-students .detail-pane .badge.present { color: var(--ok) !important; }
+    #pane-students .detail-pane .badge.late { color: #8A6A2A !important; }
+    #pane-students .detail-pane .badge.absent { color: var(--danger) !important; }
+    #pane-students .detail-pane .badge.not-scheduled { color: var(--ink-2) !important; }
+    /* No bars: strip table + section divider lines inside the card. */
+    #pane-students .detail-pane table th,
+    #pane-students .detail-pane table td,
+    #pane-students .detail-pane .table-wrap > div:first-child {
+      border: none !important;
+    }
+    #pane-students .detail-pane .table-wrap,
+    #pane-students .detail-pane .detail-card {
+      background: transparent !important;
+      border: none !important;
+    }
+    /* Frameless photo with soft inner rounding (echoes reference inset). */
+    #pane-students .detail-pane .detail-photo {
+      border: none !important;
+      border-radius: 12px !important;
+    }
+    /* Reference pill buttons: airy black primary + outline pills. */
+    #pane-students .detail-pane .btn:not(.icon-del) {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.25) !important;
+      border-radius: 999px !important;
+      color: #181A20 !important;
+      box-shadow: none !important;
+      height: 34px !important;
+      padding: 0 18px !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+    }
+    #pane-students .detail-pane .btn.primary:not(.icon-del) {
+      background: var(--ref-pill) !important;
+      border-color: var(--ref-pill) !important;
+      color: #F2F3F6 !important;
+    }
+    /* Dark-ink blanket guard: the 2-ID universal graphite rule would paint
+       this white-on-black text graphite (invisible). 3-ID chain wins. */
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .detail-pane .btn.primary:not(.icon-del) {
+      color: #F2F3F6 !important;
     }
 
     /* Empty states: quiet, minimal, high-contrast */
@@ -3715,10 +4373,10 @@
     #detailScroll .detail-grid {
       display: grid !important;
       grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-      gap: 14px 20px !important;
-      margin-top: 14px !important;
-      padding-top: 12px !important;
-      border-top: 1px solid rgba(242, 243, 246, 0.1) !important;
+      gap: 20px 28px !important;
+      margin-top: 22px !important;
+      padding-top: 0 !important;
+      border-top: none !important;
     }
 
     @media (max-width: 1000px) {
@@ -3730,7 +4388,7 @@
     .detail-field {
       display: flex !important;
       flex-direction: column !important;
-      gap: 3px !important;
+      gap: 5px !important;
       min-width: 0 !important;
     }
 
@@ -3843,11 +4501,11 @@
       color: #F2F3F6 !important;
     }
 
-    /* Profile Attendance History Table: Clean rows with hairlines */
+    /* Profile Attendance History Table: clean rows, no hairlines */
     #detailScroll .table-wrap {
-      margin-top: 24px !important;
-      padding-top: 18px !important;
-      border-top: 1px solid rgba(242, 243, 246, 0.12) !important;
+      margin-top: 32px !important;
+      padding-top: 0 !important;
+      border-top: none !important;
     }
 
     #detailScroll .table-wrap > div:first-child {
@@ -4194,13 +4852,16 @@
       color: #F2F3F6 !important;
       padding: 4px 0 !important;
       max-height: 260px !important;
-      scrollbar-width: thin !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
       scrollbar-color: rgba(242, 243, 246, 0.2) transparent !important;
       scrollbar-gutter: auto !important;
     }
 
     .gsel-pop::-webkit-scrollbar {
-      width: 3px !important;
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
     }
 
     .gsel-pop::-webkit-scrollbar-track {
@@ -4354,11 +5015,11 @@
     }
 
     #enrollModal .modal-card {
-      background: var(--frost-bg) !important;
-      backdrop-filter: blur(24px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(24px) saturate(1.2) !important;
+      background: var(--ref-black) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       border: none !important;
-      border-radius: 3px !important;
+      border-radius: var(--ref-radius) !important;
       box-shadow: none !important;
     }
 
@@ -4528,8 +5189,11 @@
       text-decoration: none !important;
     }
 
-    /* Button row pinned explicitly (immune to error-div DOM order) */
-    #enrollModal .form-field:has(#nsSave) {
+    /* Button row pinned explicitly (immune to error-div DOM order).
+       Covers BOTH forms — New (nsSave) and Edit (edSave) render the
+       identical compact right-aligned pair. */
+    #enrollModal .form-field:has(#nsSave),
+    #enrollModal .form-field:has(#edSave) {
       flex-direction: row !important;
       align-items: center !important;
       justify-content: flex-end !important;
@@ -4707,6 +5371,168 @@
     #enrollModal #nsCancel:hover,
     #enrollModal .btn:not(.primary):hover {
       color: #181A20 !important;
+      opacity: 1 !important;
+    }
+
+    /* Edit/Enroll reference pass (user order — frosted-login inspiration):
+       hidden card bars, airy card, filled-slot fields, black-pill SAVE.
+       Scoped #enrollModal (shared New + Edit form); labels/IDs untouched
+       so validation, gsel enhance, and photo read paths keep working. */
+    #enrollModal .modal-card {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+      padding: 34px 34px 38px !important;
+    }
+    #enrollModal .modal-card::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    #enrollModal .form-grid {
+      gap: 16px !important;
+    }
+    /* Filled slots (reference login inputs): soft fill + full pill
+       radius replace the underline maze. Micro-caps labels stay above
+       (required markers + a11y preserved). */
+    #enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    #enrollModal .modal-card .form-field select,
+    #enrollModal .modal-card .form-field textarea,
+    #enrollModal .modal-card .form-field .gsel-btn {
+      background: rgba(242, 243, 246, 0.10) !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      padding: 0 18px !important;
+      min-height: 44px !important;
+      color: #F2F3F6 !important;
+    }
+    #enrollModal .modal-card .form-field input:focus,
+    #enrollModal .modal-card .form-field select:focus,
+    #enrollModal .modal-card .form-field textarea:focus,
+    #enrollModal .modal-card .form-field .gsel-btn:focus,
+    #enrollModal .modal-card .form-field .gsel.open .gsel-btn {
+      background: rgba(242, 243, 246, 0.16) !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+    /* SAVE/CONTINUE = white pill (inverted primary on the black card). */
+    #enrollModal .btn.primary {
+      background: #F2F3F6 !important;
+      border: 1px solid #F2F3F6 !important;
+      border-radius: 999px !important;
+      color: #181A20 !important;
+      height: 42px !important;
+      padding: 0 26px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+    }
+    /* Photo preview: rounded frameless thumb; dropzone joins the slots;
+       CHOOSE becomes a black mini-pill (no underline text). */
+    #enrollModal #edPhotoPreview img {
+      border: none !important;
+      border-radius: 16px !important;
+    }
+    #enrollModal .modal-card .photo-drop {
+      background: rgba(242, 243, 246, 0.10) !important;
+      border: none !important;
+      border-radius: 18px !important;
+      padding: 14px 16px !important;
+      box-shadow: none !important;
+    }
+    #enrollModal .modal-card .photo-choose {
+      background: #F2F3F6 !important;
+      border: 1px solid #F2F3F6 !important;
+      border-radius: 999px !important;
+      color: #181A20 !important;
+      text-decoration: none !important;
+      padding: 8px 18px !important;
+      box-shadow: none !important;
+    }
+    /* Black-card light text (both inks, no twins): `html
+       #enrollModal#enrollModal` (2 IDs) beats the D1/D2 graphite
+       blankets, so silver holds in white AND dark mode. */
+    html #enrollModal#enrollModal #enrollTitle {
+      color: #FFFFFF !important;
+    }
+    html #enrollModal#enrollModal #enrollSub {
+      color: rgba(242, 243, 246, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field label {
+      color: rgba(242, 243, 246, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #enrollModal#enrollModal .modal-card .form-field select,
+    html #enrollModal#enrollModal .modal-card .form-field textarea,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn {
+      color: #F2F3F6 !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field input::placeholder,
+    html #enrollModal#enrollModal .modal-card .form-field textarea::placeholder {
+      color: rgba(242, 243, 246, 0.4) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn .gsel-chev {
+      color: rgba(242, 243, 246, 0.7) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-name {
+      color: #F2F3F6 !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-sub {
+      color: rgba(242, 243, 246, 0.6) !important;
+    }
+    html #enrollModal#enrollModal #edPhotoPreview div {
+      color: rgba(242, 243, 246, 0.55) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-remove {
+      color: rgba(242, 243, 246, 0.7) !important;
+    }
+    /* Frosted slots on black (user order): the shaded pills keep
+       position/size and gain a milky glow + lit top edge, so they read
+       frosted-glass against the opaque black card in both inks (blur
+       alone melts nothing over flat black — the inset highlight does
+       the work). */
+    html #enrollModal#enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #enrollModal#enrollModal .modal-card .form-field select,
+    html #enrollModal#enrollModal .modal-card .form-field textarea,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn,
+    html #enrollModal#enrollModal .modal-card .photo-drop {
+      background: rgba(242, 243, 246, 0.16) !important;
+      backdrop-filter: blur(12px) saturate(1.2) !important;
+      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+      box-shadow: inset 0 1px 0 rgba(242, 243, 246, 0.12) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field input:focus,
+    html #enrollModal#enrollModal .modal-card .form-field select:focus,
+    html #enrollModal#enrollModal .modal-card .form-field textarea:focus,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn:focus,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel.open .gsel-btn {
+      background: rgba(242, 243, 246, 0.22) !important;
+      backdrop-filter: blur(12px) saturate(1.2) !important;
+      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+      box-shadow: inset 0 1px 0 rgba(242, 243, 246, 0.18) !important;
+    }
+    html #enrollModal#enrollModal .btn.primary,
+    html #enrollModal#enrollModal .modal-card .photo-choose {
+      color: #181A20 !important;
+    }
+    html #enrollModal#enrollModal #nsCancel,
+    html #enrollModal#enrollModal #edCancel,
+    html #enrollModal#enrollModal #edClearPhoto {
+      color: #F2F3F6 !important;
+    }
+    /* CANCEL + Clear photo = light outline pills (beat the older text
+       rules by IDs + order). */
+    html #enrollModal#enrollModal #nsCancel,
+    html #enrollModal#enrollModal #edCancel,
+    html #enrollModal#enrollModal #edClearPhoto {
+      background: transparent !important;
+      border: 1px solid rgba(242, 243, 246, 0.35) !important;
+      border-radius: 999px !important;
+      height: 42px !important;
+      padding: 0 22px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
       opacity: 1 !important;
     }
 
@@ -5585,219 +6411,6 @@
     }
 
     /* ============================================================
-       SETUP ACTION WHEEL — Radial HUD Menu
-       Translates tactical wheel pattern to monochrome frosted UI.
-       ============================================================ */
-    #setupWheelModal.modal {
-      background: transparent !important;
-      backdrop-filter: blur(16px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
-      z-index: 50 !important;
-    }
-
-    .setup-wheel-wrap {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      pointer-events: auto;
-      transform: scale(0.96);
-      opacity: 0;
-      transition: transform 220ms var(--ease), opacity 220ms var(--ease);
-    }
-
-    #setupWheelModal.open .setup-wheel-wrap {
-      transform: scale(1);
-      opacity: 1;
-    }
-
-    .setup-wheel-svg {
-      width: 500px;
-      height: 500px;
-      max-width: 90vw;
-      max-height: 82vh;
-      overflow: visible;
-      filter: drop-shadow(0 18px 48px rgba(0, 0, 0, 0.4));
-    }
-
-    .wheel-slice {
-      cursor: pointer;
-      transition: opacity 160ms var(--ease);
-    }
-
-    .wheel-slice path.slice-arc {
-      fill: var(--frost-bg);
-      stroke: var(--frost-line);
-      stroke-width: 1px;
-      transition: fill 140ms ease, stroke 140ms ease;
-    }
-
-    .wheel-slice:hover path.slice-arc,
-    .wheel-slice.active path.slice-arc {
-      fill: rgba(242, 243, 246, 0.16) !important;
-      stroke: rgba(242, 243, 246, 0.4) !important;
-    }
-
-    .wheel-slice.action-slice path.slice-arc {
-      fill: rgba(242, 243, 246, 0.05);
-      stroke: rgba(242, 243, 246, 0.18);
-    }
-
-    .wheel-slice.action-slice:hover path.slice-arc {
-      fill: rgba(242, 243, 246, 0.18) !important;
-      stroke: #F2F3F6 !important;
-    }
-
-    .wheel-slice .slice-icon-wrap {
-      stroke: rgba(242, 243, 246, 0.9);
-      fill: none;
-      stroke-width: 1.8px;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      pointer-events: none;
-    }
-
-    .wheel-slice text {
-      font-family: var(--sans);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    .wheel-slice .slice-title {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      fill: #F2F3F6;
-      text-anchor: middle;
-      dominant-baseline: central;
-    }
-
-    .wheel-slice .slice-sub {
-      font-size: 8.5px;
-      font-weight: 400;
-      letter-spacing: 0.02em;
-      fill: rgba(242, 243, 246, 0.65);
-      text-anchor: middle;
-      dominant-baseline: central;
-    }
-
-    .wheel-slice .slice-icon {
-      font-size: 14px;
-      fill: rgba(242, 243, 246, 0.9);
-      text-anchor: middle;
-      dominant-baseline: central;
-    }
-
-    .wheel-hub-circle {
-      fill: rgba(242, 243, 246, 0.09);
-      stroke: var(--frost-line);
-      stroke-width: 1.2px;
-      cursor: pointer;
-      transition: fill 140ms ease, stroke 140ms ease;
-    }
-
-    .wheel-hub-circle:hover {
-      fill: rgba(242, 243, 246, 0.16);
-      stroke: rgba(242, 243, 246, 0.4);
-    }
-
-    .wheel-hub text.hub-title {
-      font-family: var(--sans);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      fill: #F2F3F6;
-      text-anchor: middle;
-      dominant-baseline: central;
-      pointer-events: none;
-    }
-
-    .wheel-hub text.hub-sub {
-      font-family: var(--sans);
-      font-size: 8px;
-      font-weight: 400;
-      letter-spacing: 0.04em;
-      fill: rgba(242, 243, 246, 0.65);
-      text-anchor: middle;
-      dominant-baseline: central;
-      pointer-events: none;
-    }
-
-    .setup-wheel-hint {
-      margin-top: 14px;
-      font-size: 9.5px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(242, 243, 246, 0.55);
-      font-weight: 400;
-      text-align: center;
-    }
-
-    /* Dark Mode Twins */
-    html[data-ink="dark"] .wheel-slice path.slice-arc {
-      fill: rgba(24, 26, 32, 0.08) !important;
-      stroke: rgba(24, 26, 32, 0.14) !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice:hover path.slice-arc,
-    html[data-ink="dark"] .wheel-slice.active path.slice-arc {
-      fill: rgba(24, 26, 32, 0.16) !important;
-      stroke: rgba(24, 26, 32, 0.38) !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice.action-slice path.slice-arc {
-      fill: rgba(24, 26, 32, 0.05) !important;
-      stroke: rgba(24, 26, 32, 0.18) !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice.action-slice:hover path.slice-arc {
-      fill: rgba(24, 26, 32, 0.18) !important;
-      stroke: #181A20 !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice .slice-icon-wrap {
-      stroke: #181A20 !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice .slice-title {
-      fill: #181A20 !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice .slice-sub {
-      fill: rgba(24, 26, 32, 0.65) !important;
-    }
-
-    html[data-ink="dark"] .wheel-slice .slice-icon {
-      fill: #181A20 !important;
-    }
-
-    html[data-ink="dark"] .wheel-hub-circle {
-      fill: rgba(24, 26, 32, 0.09) !important;
-      stroke: rgba(24, 26, 32, 0.14) !important;
-    }
-
-    html[data-ink="dark"] .wheel-hub-circle:hover {
-      fill: rgba(24, 26, 32, 0.16) !important;
-      stroke: rgba(24, 26, 32, 0.4) !important;
-    }
-
-    html[data-ink="dark"] .wheel-hub text.hub-title {
-      fill: #181A20 !important;
-    }
-
-    html[data-ink="dark"] .wheel-hub text.hub-sub {
-      fill: rgba(24, 26, 32, 0.65) !important;
-    }
-
-    html[data-ink="dark"] .setup-wheel-hint {
-      color: rgba(24, 26, 32, 0.55) !important;
-    }
-
-    /* ============================================================
        CLASS/BATCH SCHEDULE EDITOR — the single solid schedule editor.
        Same locked dialog treatment (veil, card, type, actions);
        weekday buttons reuse .weekly-day-card both inks, so only
@@ -5988,6 +6601,59 @@
     #pane-attendance .detail-scroll {
       padding: 20px clamp(16px, 3vw, 32px) 36px clamp(16px, 3vw, 32px) !important;
       background: transparent !important;
+    }
+
+    /* Attendance frost window (user-ordered): the workspace becomes ONE
+       inset frosted card with the login-card blur — warm milky frost in
+       both inks, dark text forced (beats the white-ink rule above via the
+       extra .detail-scroll scope). Even spacing on all four sides; the
+       scroll clips to the round. Not full-bleed. */
+    #pane-attendance .detail-scroll {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      margin: 16px 24px 24px !important;
+      padding: 24px 28px !important;
+    }
+    /* Dark text on the frost (badges keep their own colors). */
+    #pane-attendance .detail-scroll,
+    #pane-attendance .detail-scroll th,
+    #pane-attendance .detail-scroll td,
+    #pane-attendance .detail-scroll span:not(.badge),
+    #pane-attendance .detail-scroll div,
+    #pane-attendance .detail-scroll .stat b {
+      color: var(--ref-ink) !important;
+    }
+    /* Muted secondary text — reference hierarchy. */
+    #pane-attendance .detail-scroll .stat label,
+    #pane-attendance .detail-scroll #attDateLabel,
+    #pane-attendance .detail-scroll .empty,
+    #pane-attendance .detail-scroll .empty b {
+      color: var(--ref-ink-2) !important;
+    }
+    /* Text only: no table/section/stat divider bars; badge box → plain. */
+    #pane-attendance .detail-scroll th,
+    #pane-attendance .detail-scroll td,
+    #pane-attendance .detail-scroll .stats-row > *,
+    #pane-attendance .detail-scroll #attUnknownWrap > div:first-child {
+      border: none !important;
+    }
+    #pane-attendance .detail-scroll #attModeBadge {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      color: var(--ref-ink) !important;
+    }
+    /* Table action buttons → small outline pills. */
+    #pane-attendance .detail-scroll .btn {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.25) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      box-shadow: none !important;
     }
 
     #pane-attendance .tab-toolbar {
@@ -7212,12 +7878,166 @@
       scrollbar-color: rgba(242, 243, 246, 0.12) transparent !important;
     }
 
+    /* ============ BACKUP CARDS (user-ordered full-UI theme) ============
+       Twin frost windows (manager + audit). Retires the "zero cards"
+       direction and the white audit card. 4-ID chains beat the
+       single-ID contained rules (~7063), the ALL-TEXT block (~10075),
+       and the dark hover twins — in both inks, with every interactive
+       state pinned (sidebar lesson). No JS/markup changes. */
+    /* Manager = frost window, milky both inks, dark text. */
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 24px 28px !important;
+      color: var(--ref-ink) !important;
+    }
+    /* Audit = twin frost window, dark text. */
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 28px 32px !important;
+      color: var(--ref-ink) !important;
+    }
+    /* Dark text on both cards (badges/errors/danger keep their own). */
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard div,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard span:not(.pill),
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard label,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard th,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard td,
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) div,
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) span,
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) th,
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) td {
+      color: var(--ref-ink) !important;
+    }
+    /* Muted secondary text. */
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard .pill,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard #backupSchedStatus,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard #backupNowStatus,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard #backupStatus,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard #backupLastInfo,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard #gdriveStatusMsg,
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(3),
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(4),
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) .empty {
+      color: var(--ref-ink-2) !important;
+    }
+    html #adminLayer#adminLayer #pane-backup .detail-card:has(#auditBody) .empty b {
+      color: var(--ref-ink) !important;
+    }
+    /* Errors + destructive stay red. */
+    html #adminLayer#adminLayer #pane-backup #telegramLastError,
+    html #adminLayer#adminLayer #pane-backup #usbLastError,
+    html #adminLayer#adminLayer #pane-backup #gdriveDisconnectBtn,
+    html #adminLayer#adminLayer #pane-backup #gdriveDisconnectBtn:hover,
+    html #adminLayer#adminLayer #pane-backup #gdriveDisconnectBtn:active,
+    html #adminLayer#adminLayer #pane-backup #gdriveDisconnectBtn:focus {
+      color: var(--danger) !important;
+    }
+    /* Boxes → transparent, bars → gone (destinations paper box, detail
+       boxes, snapshot box, code display, scheduler/local-tools dividers). */
+    html #adminLayer#adminLayer #pane-backup #gdriveAuthBox,
+    html #adminLayer#adminLayer #pane-backup #gdriveActionBox,
+    html #adminLayer#adminLayer #pane-backup #telegramDetailsBox,
+    html #adminLayer#adminLayer #pane-backup #usbDetailsBox,
+    html #adminLayer#adminLayer #pane-backup #gdriveActionBox .table-wrap,
+    html #adminLayer#adminLayer #pane-backup #gdriveUserCodeDisplay,
+    html #adminLayer#adminLayer #pane-backup #backupManagerCard div[style*="border-top"] {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    /* Graphite checkboxes, black tick-box when checked. */
+    html #adminLayer#adminLayer #pane-backup input[type="checkbox"] {
+      border-color: rgba(24, 26, 32, 0.4) !important;
+      background: transparent !important;
+    }
+    html #adminLayer#adminLayer #pane-backup input[type="checkbox"]:checked {
+      background: var(--ref-pill) !important;
+      border-color: var(--ref-pill) !important;
+    }
+    html #adminLayer#adminLayer #pane-backup input[type="checkbox"]:checked::after {
+      border-color: #F2F3F6 !important;
+    }
+    /* Scheduler fields: soft filled slots, dark text. */
+    html #adminLayer#adminLayer #pane-backup #backupSchedTime,
+    html #adminLayer#adminLayer #pane-backup #backupSchedFreq,
+    html #adminLayer#adminLayer #pane-backup #backupSchedInterval {
+      background: rgba(24, 26, 32, 0.06) !important;
+      border: 1px solid rgba(24, 26, 32, 0.12) !important;
+      border-radius: 6px !important;
+      color: var(--ref-ink) !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+    /* Buttons — hierarchy: primaries black, everything else outline.
+       All five states pinned (no square/flash possible). */
+    html #adminLayer#adminLayer #pane-backup .btn.primary,
+    html #adminLayer#adminLayer #pane-backup .btn.primary:hover,
+    html #adminLayer#adminLayer #pane-backup .btn.primary:active,
+    html #adminLayer#adminLayer #pane-backup .btn.primary:focus,
+    html #adminLayer#adminLayer #pane-backup .btn.primary:focus-visible {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      outline: none !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      transition: none !important;
+    }
+    html #adminLayer#adminLayer #pane-backup .btn:not(.primary),
+    html #adminLayer#adminLayer #pane-backup .btn:not(.primary):hover,
+    html #adminLayer#adminLayer #pane-backup .btn:not(.primary):active,
+    html #adminLayer#adminLayer #pane-backup .btn:not(.primary):focus,
+    html #adminLayer#adminLayer #pane-backup .btn:not(.primary):focus-visible,
+    html #adminLayer#adminLayer #pane-backup label.btn,
+    html #adminLayer#adminLayer #pane-backup label.btn:hover,
+    html #adminLayer#adminLayer #pane-backup label.btn:active,
+    html #adminLayer#adminLayer #pane-backup label.btn:focus {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.25) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      outline: none !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      transition: none !important;
+    }
+    /* Audit rows: graphite hover wash on white. */
+    html #adminLayer#adminLayer #pane-backup #auditBody tr:hover {
+      background: rgba(24, 26, 32, 0.04) !important;
+    }
+
     /* 6. Setup Tab: Seamless Editorial Interface (No Boxed Windows/Cards) */
     #pane-setup .detail-scroll {
-      padding: clamp(16px, 2.5vw, 32px) clamp(16px, 3vw, 32px) 48px clamp(16px, 3vw, 32px) !important;
-      background: transparent !important;
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      overflow-y: hidden !important;
       overflow-x: hidden !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+      scrollbar-gutter: auto !important;
+      padding: 12px clamp(12px, 2vw, 20px) 8px clamp(12px, 2vw, 20px) !important;
+      background: transparent !important;
       box-sizing: border-box !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    #pane-setup .detail-scroll::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
     }
 
     /* Fluid 3-Column Editorial Grid separated only by thin translucent hairlines */
@@ -7229,10 +8049,12 @@
       gap: 0 !important;
       align-items: stretch !important;
       border-bottom: none !important;
-      padding-bottom: 28px !important;
-      margin-bottom: 28px !important;
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
       width: 100% !important;
       box-sizing: border-box !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
     }
 
     /* Responsive wrap on zoom or narrower viewports */
@@ -8081,6 +8903,175 @@
       color: #181A20 !important;
     }
 
+    /* G. Full-calendar workspace: the left roster, its inline add
+       footer, and the CLASSES|BATCHES tabs retire — schedule
+       creation/editing lives in the sidebar popup (#schedModal).
+       The month owns the full width; the weekday template row sits
+       on TOP as display-only text (never clickable); the inline
+       cutoff strip stays hidden (cutoffs live in the popup too). */
+    #pane-setup .setup-toolbar-left {
+      display: none !important;
+    }
+    /* (Workspace overrides live in G2 below — after the roster /
+       month-editor rules they retire, since ties break by order.) */
+    /* Top weekday row is resolved-template display only: no pointer,
+       no toggle — editing happens in the popup day pills. */
+    #pane-setup #calendarGrid .weekly-day-card {
+      cursor: default !important;
+    }
+    /* Popup schedule editor: seven text-only days in one flex row
+       (no boxes — state is the WORKING / OFF word under each name).
+       Tapping a day flips its own word only. */
+    #schedModalBody .pb-days {
+      display: flex !important;
+      gap: 8px !important;
+    }
+    #schedModalBody .pb-days .weekly-day-card {
+      cursor: pointer !important;
+    }
+    /* Popup day pills go fully text-only (same approved law as the
+       #csDays editor row): no fill, border, blur, motion, or hover
+       answer — state reads ONLY through the WORKING / OFF word
+       swapping under the day name. paintPbDays() already swaps
+       text only, so no JS change. Narrow #id scope beats every
+       rival wash (base, G4, 9246 directional fade). */
+    #schedModalBody .pb-days .weekly-day-card,
+    #schedModalBody .pb-days .weekly-day-card.working,
+    #schedModalBody .pb-days .weekly-day-card.off,
+    #schedModalBody .pb-days .weekly-day-card:hover,
+    #schedModalBody .pb-days .weekly-day-card:focus,
+    #schedModalBody .pb-days .weekly-day-card.working:hover,
+    #schedModalBody .pb-days .weekly-day-card.off:hover {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      transform: none !important;
+      transition: none !important;
+      height: auto !important;
+      min-width: 0 !important;
+      padding: 2px 0 !important;
+    }
+    #schedModalBody .pb-days .weekly-day-card .w-name,
+    #schedModalBody .pb-days .weekly-day-card .w-status {
+      color: #F2F3F6 !important;
+    }
+    html[data-ink="dark"] #schedModalBody .pb-days .weekly-day-card .w-name,
+    html[data-ink="dark"] #schedModalBody .pb-days .weekly-day-card .w-status {
+      color: #181A20 !important;
+    }
+
+    /* H. Schedule popup joins the approved enrollment-modal pole.
+       Mistake fixed: the popup shipped on the generic light veil
+       (0.38 wash + blur) under the enroll-block 0.10 card, so veil +
+       card stacked milky and the inherited white modal text washed
+       out in default ink (dark ink only read by accident of the D1
+       graphite blanket). Transparent veil + 0.08 frost card —
+       the same sheet as #enrollModal — so white text reads. */
+    #schedModal.modal {
+      background: transparent !important;
+    }
+    #schedModal .modal-card {
+      background: var(--frost-bg) !important;
+      backdrop-filter: var(--frost-blur) !important;
+      -webkit-backdrop-filter: var(--frost-blur) !important;
+      border: none !important;
+      border-radius: 3px !important;
+      box-shadow: none !important;
+    }
+
+    /* Schedule popup speaks the enrollment-window language
+       (user-ordered): warm frost window, dark ink in both poles, pill
+       fields, black-pill primary + outline-pill cancel — copied from
+       the enrollModal values above. Applies to Add AND Edit modes. */
+    html #schedModal#schedModal .modal-card {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      color: var(--ref-ink) !important;
+    }
+    html #schedModal#schedModal #schedModalTitle {
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.01em !important;
+      text-transform: none !important;
+      color: #181A20 !important;
+    }
+    html #schedModal#schedModal #schedModalSub {
+      color: rgba(24, 26, 32, 0.6) !important;
+      font-size: 11px !important;
+      font-weight: 400 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-field label {
+      color: rgba(24, 26, 32, 0.6) !important;
+      font-size: 9.5px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-field input:not([type=file]):not([type=checkbox]) {
+      background: rgba(255, 255, 255, 0.35) !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      padding: 0 18px !important;
+      min-height: 44px !important;
+      color: #181A20 !important;
+      font-size: 13px !important;
+      font-weight: 400 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-field input::placeholder {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-field input:focus {
+      background: rgba(255, 255, 255, 0.5) !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+    /* Day pills go dark-ink (same values as their dark-pole rules):
+       white text would wash out on the warm frost. */
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card .w-name {
+      color: #181A20 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card .w-status {
+      color: rgba(24, 26, 32, 0.8) !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.off .w-name {
+      color: rgba(24, 26, 32, 0.45) !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.off .w-status {
+      color: rgba(24, 26, 32, 0.32) !important;
+    }
+    html #schedModal#schedModal #pbSave {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 42px !important;
+      padding: 0 26px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+    }
+    html #schedModal#schedModal #pbCancel {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.35) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      height: 42px !important;
+      padding: 0 22px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+    }
+
     /* Hidden add row stays hidden against the flex !important base */
     #pane-setup .setup-card-classes .setup-add-row[hidden] {
       display: none !important;
@@ -8213,11 +9204,8 @@
       background: transparent !important;
     }
 
-    #pane-setup .class-cube.active,
-    #pane-setup .class-cube.active:hover {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.14), rgba(242, 243, 246, 0) 80%) !important;
-      transform: none !important;
-    }
+    /* (Retired cube-grid active wash removed — #cubeGrid is display:none
+       via G2; selection lives on the bottom strip now.) */
 
     #pane-setup #cubeGrid .cube-name {
       font-size: 12px !important;
@@ -8241,10 +9229,7 @@
       color: rgba(24, 26, 32, 0.9) !important;
     }
 
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .class-cube.active,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup .class-cube.active:hover {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.18), rgba(24, 26, 32, 0) 80%) !important;
-    }
+    /* (Retired cube-grid dark active wash removed — same G2 retirement.) */
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #cubeGrid .class-cube.active .cube-name,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #cubeGrid .class-cube.active .cube-count {
@@ -8337,9 +9322,11 @@
     /* GEOMETRY RESTORE — reference month-view proportions (CSS-only,
        no DOM/JS change): compact top offset, narrow left column,
        shared toolbar row + row-for-row cube/cell alignment via grid,
-       caption below grid, 160px truncated context slot. */
+       caption below grid, 160px truncated context slot. Top breathing
+       comes from the scroll padding alone (12px module), so the grid
+       itself carries no top margin. */
     #pane-setup .setup-grid {
-      margin-top: 12px !important;
+      margin-top: 0 !important;
     }
 
     /* One workspace geometry: fixed 240px left rail, remaining
@@ -8381,29 +9368,8 @@
       margin-left: 0 !important;
     }
 
-    /* Add row borrows the Students search wash verbatim (same stops,
-       both inks): bare text input + text action on a directional
-       fade — the underline bar is retired. Focus deepens the wash
-       head, never draws a line. */
-    #pane-setup .cube-add-head .setup-add-row {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.10), rgba(242, 243, 246, 0) 80%) !important;
-      border: none !important;
-      border-radius: 4px !important;
-      box-shadow: none !important;
-      padding: 4px 12px !important;
-    }
-
-    #pane-setup .cube-add-head .setup-add-row:focus-within {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.16), rgba(242, 243, 246, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #pane-setup .cube-add-head .setup-add-row {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.10), rgba(24, 26, 32, 0) 80%) !important;
-    }
-
-    html[data-ink="dark"] #pane-setup .cube-add-head .setup-add-row:focus-within {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0) 80%) !important;
-    }
+    /* (Retired cube-add wash removed — .cube-add-head is display:none
+       via G2; creation lives in the sidebar popup.) */
 
     #pane-setup .cube-add-head .setup-input-compact,
     #pane-setup .cube-add-head .setup-input-compact:focus {
@@ -8436,14 +9402,15 @@
       background: transparent !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
-      /* Stable footprint: 7 uniform rows (headers + 6 weeks) × 56px,
-         gapless so hairlines join into continuous guides = 392px
-         reserved. Shorter months leave quiet invisible space; 5-row
-         vs 6-row never moves the page. */
+      /* Stable footprint: 6 uniform body rows (weeks) × 64px = 384px
+         reserved, gapless so hairlines join into continuous guides.
+         The SUN–SAT header row lives in its own window above
+         (#calendarHeadGrid, 44px + 12px gap). Shorter months leave
+         quiet invisible space; 5-row vs 6-row never moves the page. */
       gap: 0 !important;
-      grid-auto-rows: 56px !important;
+      grid-auto-rows: 64px !important;
       align-content: start !important;
-      min-height: 392px !important;
+      min-height: 384px !important;
     }
 
     /* Month header cards match cube height so rows line up exactly.
@@ -8479,14 +9446,10 @@
       min-width: 0 !important;
     }
 
-    #pane-setup #classDetail #calTemplateLegend {
-      grid-column: 2 !important;
-      grid-row: 3 !important;
-      margin: 8px 0 0 !important;
-    }
-
-    #pane-setup .setup-card-classes .setup-caption {
-      grid-column: 1 / -1 !important;
+    #pane-setup #classDetail #calTemplateLegend,
+    #pane-setup .setup-card-classes .setup-caption,
+    #pane-setup .setup-caption {
+      display: none !important;
     }
 
     #pane-setup #calClassSelect {
@@ -8515,19 +9478,117 @@
         display: flex !important;
         flex-direction: column !important;
       }
+      #pane-setup #classDetail #calendarHeadGrid {
+        order: 0 !important;
+      }
       #pane-setup #classDetail #calendarGrid {
         order: 1 !important;
       }
-      #pane-setup #classDetail #monthEditor {
+
+    #pane-setup #classDetail #monthEditor {
         order: 2 !important;
       }
       #pane-setup #classDetail #calTemplateLegend {
-        order: 3 !important;
+        display: none !important;
       }
       #pane-setup .cube-wall {
         width: 100% !important;
         height: 1px !important;
       }
+    }
+
+    /* Month-view frost windows (user-ordered): the weekday strip
+       (#calendarHeadGrid) and the date grid (#calendarGrid) are two
+       stacked frosted cards with a 12px gap — warm frost in both
+       inks, dark text forced. Geometry: head 44px row, body 6×64px
+       rows (384px footprint); #monthEditor and #cbStrip below are
+       NOT touched. Cell divider lines already gone via the no-bars
+       sweep; state tints (working/off/holiday/override) keep working.
+       Lives at top level (NOT in the narrow media query above) so it
+       applies at every viewport width. */
+    #pane-setup #classDetail #calendarGrid {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 18px !important;
+      margin-bottom: 12px !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+    }
+    #pane-setup #calendarGrid .calendar-cell,
+    #pane-setup #calendarGrid .calendar-cell .day,
+    #pane-setup #calendarGrid .calendar-cell .tag,
+    #pane-setup #calendarGrid .weekly-day-card {
+      color: var(--ref-ink) !important;
+    }
+    #pane-setup #calendarGrid .calendar-cell.head {
+      color: var(--ref-ink-2) !important;
+      background: transparent !important;
+    }
+
+    /* WEEKDAY-STRIP WINDOW (user-ordered split): SUN–SAT headers own a
+       frost window ABOVE the month — same position as before, only a
+       12px gap separates the two. Same tokens/padding/edge/columns as
+       the month window so the 7 text columns align row-for-row with
+       the date cells below. Head = row 1, month = row 2, strip = row 3
+       (see G3); #monthEditor stays hidden. Gaps follow the 12px module
+       exactly: the workspace grid carries row-gap 0, so each gap reads
+       from one margin only (head mb 12, month mb 12, strip mt 0).
+       Header cards keep the flat text-only law (transparent, no
+       wash/blur/radius). */
+    #pane-setup .setup-card-classes .setup-subcard-section {
+      row-gap: 0 !important;
+    }
+    #pane-setup #classDetail #calendarHeadGrid {
+      grid-column: 1 !important;
+      grid-row: 1 !important;
+      display: grid !important;
+      grid-template-columns: repeat(7, 1fr) !important;
+      gap: 0 !important;
+      grid-auto-rows: 44px !important;
+      align-content: start !important;
+      min-height: 44px !important;
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 18px !important;
+      margin: 0 0 12px !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      cursor: default !important;
+    }
+    #pane-setup #classDetail #calendarGrid {
+      grid-column: 1 !important;
+      grid-row: 2 !important;
+    }
+    #pane-setup #calendarHeadGrid .weekly-day-card {
+      height: 44px !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      transition: none !important;
+      cursor: default !important;
+      color: var(--ref-ink) !important;
+    }
+    #pane-setup #calendarHeadGrid .weekly-day-card.working,
+    #pane-setup #calendarHeadGrid .weekly-day-card.off,
+    #pane-setup #calendarHeadGrid .weekly-day-card:hover {
+      background: transparent !important;
+    }
+    html[data-ink="dark"] #pane-setup #calendarHeadGrid .weekly-day-card,
+    html[data-ink="dark"] #pane-setup #calendarHeadGrid .weekly-day-card.working,
+    html[data-ink="dark"] #pane-setup #calendarHeadGrid .weekly-day-card.off,
+    html[data-ink="dark"] #pane-setup #calendarHeadGrid .weekly-day-card:hover {
+      background: transparent !important;
     }
 
     /* MONTH INLINE EDITOR — weekday headers toggle staged working days;
@@ -8665,6 +9726,432 @@
 
     html[data-ink="dark"] #pane-setup #monthEditor .me-actions .btn:hover {
       color: #181A20 !important;
+    }
+
+    /* Zoom-out stability (80% zoom = very wide CSS viewport): cap the
+       setup column so the 7 month columns stop stretching and the
+       cards stop stranding — 80% then keeps the composed 100%/110%
+       geometry instead of going sparse. 1600px sits just under the
+       ~1630px natural width at 100% on 1920 screens, so 100%/110%
+       render near-identical; only wider viewports are capped. The
+       column right-docks to the rail (one gutter; left absorbs slack)
+       so the month holds the rail instead of centering away from it.
+       Narrow screens unaffected (cap only, no minimum). */
+    #pane-setup .detail-scroll > .setup-grid {
+      max-width: 1600px !important;
+      margin: 0 0 0 auto !important;
+    }
+
+    /* G2. Full-calendar workspace overrides — placed AFTER the roster
+       and month-editor rules they retire (equal specificity ties break
+       by order, so these must come last). Roster, inline add footer,
+       and class/batch tabs are gone: creation lives only in the
+       sidebar popup. The month owns the single column; the inline
+       cutoff strip stays hidden (cutoffs live in the popup too). */
+    #pane-setup .setup-card-classes .setup-subcard-section {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+    #pane-setup #cubeGrid,
+    #pane-setup .setup-card-classes .cube-add-head {
+      display: none !important;
+    }
+    #pane-setup #classDetail #calendarGrid {
+      grid-column: 1 !important;
+    }
+    #pane-setup #classDetail #monthEditor {
+      display: none !important;
+      grid-column: 1 !important;
+    }
+
+    /* G3. Bottom strip: classes & batches tables. Hairline-separated
+       from the month, two text-first columns with a vertical hairline
+       between. Fixed 190px footprint (28px head + scrolling rows) so
+       5-row vs 6-row months never move surrounding UI. Rows are
+       stable slots (flexible name + fixed mono count); selection reads
+       through wash + inset marker at constant weight (no shift). Gap
+       above comes from the month margin alone (12px module), so the
+       strip itself carries no top margin. */
+    #pane-setup #classDetail #cbStrip {
+      grid-column: 1 !important;
+      grid-row: 3 !important;
+      position: relative !important;
+      display: flex !important;
+      flex-direction: column !important;
+      border-top: none !important;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+      margin-bottom: 8px !important;
+      height: 190px !important;
+      min-height: 190px !important;
+      max-height: 190px !important;
+      box-sizing: border-box !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+    /* Board pages: identical 2-column geometry, instant toggle (no
+       motion) — switching pages never moves surrounding UI. */
+    #pane-setup #classDetail #cbStrip .cb-page {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+      column-gap: 20px !important;
+      min-width: 0 !important;
+      padding: 0 36px !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-page[hidden] {
+      display: none !important;
+    }
+    /* Holidays/overrides rows carry dates: wider mono meta slot. */
+    #pane-setup #classDetail #cbStrip .cb-page-ho .cb-row {
+      grid-template-columns: minmax(0, 1fr) 92px 28px !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-pager {
+      flex: none !important;
+      height: 20px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    /* Board arrows ride the strip's vertical middle at both edges
+       (out of flow, in reserved 36px gutters so rows never slide
+       under them); the footer keeps only the centered board label. */
+    #pane-setup #classDetail #cbStrip .cb-arrow {
+      position: absolute !important;
+      top: calc(50% - 13px) !important;
+      transform: translateY(-50%) !important;
+      z-index: 2 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: rgba(242, 243, 246, 0.85) !important;
+      font-size: 16px !important;
+      font-weight: 500 !important;
+      line-height: 1 !important;
+      padding: 2px 10px !important;
+      cursor: pointer !important;
+    }
+    #pane-setup #classDetail #cbStrip #cbPrev {
+      left: 0 !important;
+    }
+    #pane-setup #classDetail #cbStrip #cbNext {
+      right: 0 !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-arrow:hover {
+      color: #F2F3F6 !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-page-label {
+      font-family: var(--sans) !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.12em !important;
+      color: rgba(242, 243, 246, 0.65) !important;
+      white-space: nowrap !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-table {
+      min-width: 0 !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-table + .cb-table {
+      border-left: 1px solid var(--hairline) !important;
+      padding-left: 20px !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-head {
+      flex: none !important;
+      display: flex !important;
+      align-items: baseline !important;
+      gap: 8px !important;
+      height: 28px !important;
+      min-width: 0 !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-title {
+      font-family: var(--sans) !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+      white-space: nowrap !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-count {
+      font-family: var(--mono) !important;
+      font-size: 10.5px !important;
+      color: rgba(242, 243, 246, 0.5) !important;
+      margin-left: auto !important;
+      flex: none !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-rows {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-rows::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-row {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 36px 28px !important;
+      align-items: center !important;
+      column-gap: 12px !important;
+      min-height: 34px !important;
+      padding: 0 14px !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+      cursor: pointer !important;
+      overflow: hidden !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-row:hover {
+      background: rgba(242, 243, 246, 0.06) !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-row.active {
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-row.active .cb-name {
+      font-weight: 500 !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-name {
+      font-family: var(--sans) !important;
+      font-size: 12px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: #F2F3F6 !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-num {
+      font-family: var(--mono) !important;
+      font-size: 10.5px !important;
+      text-align: right !important;
+      color: rgba(242, 243, 246, 0.75) !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-row.dim .cb-name,
+    #pane-setup #classDetail #cbStrip .cb-row.dim .cb-num {
+      color: rgba(242, 243, 246, 0.4) !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-empty {
+      padding: 12px 0 !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      color: rgba(242, 243, 246, 0.45) !important;
+    }
+    /* Header actions + per-row remove: text-first micro verbs in
+       reserved slots (never only one row, never shifting). */
+    #pane-setup #classDetail #cbStrip .cb-act {
+      flex: none !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: rgba(242, 243, 246, 0.55) !important;
+      font-family: var(--sans) !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      padding: 2px 4px !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-act:hover {
+      color: #F2F3F6 !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-del {
+      flex: none !important;
+      width: 28px !important;
+      padding: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: rgba(242, 243, 246, 0.4) !important;
+      font-size: 14px !important;
+      line-height: 1 !important;
+      text-align: center !important;
+      cursor: pointer !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-del:hover {
+      color: #F2F3F6 !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-title {
+      color: rgba(24, 26, 32, 0.7) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-count {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-name {
+      color: rgba(24, 26, 32, 0.9) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-num {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-row:hover {
+      background: rgba(24, 26, 32, 0.05) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-row.active {
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-row.active .cb-name {
+      font-weight: 500 !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-row.dim .cb-name,
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-row.dim .cb-num {
+      color: rgba(24, 26, 32, 0.45) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-empty {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-act {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-act:hover {
+      color: #181A20 !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-del {
+      color: rgba(24, 26, 32, 0.45) !important;
+    }
+    html[data-ink="dark"] #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-del:hover {
+      color: #181A20 !important;
+    }
+
+    /* Black cards for Classes & Batches (user-ordered, reference "New in"
+       card): two separate near-black rounded windows. Geometry locks to
+       the month window above — cards span the strip edge-to-edge (page
+       gutters removed) so outer corners align with the month's left/right
+       corners. Compact 190px with breathing below. White text in BOTH
+       inks — the reference card doesn't flip. Holidays/Overrides page
+       shares the component, so it follows automatically. */
+    #pane-setup #classDetail #cbStrip {
+      border-top: none !important;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+      margin-bottom: 8px !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-page {
+      padding: 0 !important;
+      column-gap: 12px !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-table {
+      background: var(--ref-black) !important;
+      border: none !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      padding: 16px 20px 12px !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-table + .cb-table {
+      border-left: none !important;
+      padding-left: 20px !important;
+    }
+    /* Reference type: big light title, muted count, Discover-style verbs. */
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-title {
+      font-size: 20px !important;
+      font-weight: 500 !important;
+      letter-spacing: -0.01em !important;
+      text-transform: none !important;
+      color: #FFFFFF !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-count {
+      color: rgba(255, 255, 255, 0.5) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-name {
+      color: #F2F3F6 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-num {
+      color: rgba(255, 255, 255, 0.6) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-row.dim .cb-name,
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-row.dim .cb-num,
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-empty {
+      color: rgba(255, 255, 255, 0.4) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-act,
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-del {
+      color: rgba(255, 255, 255, 0.6) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-act:hover,
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-del:hover {
+      color: #FFFFFF !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-row:hover {
+      background: rgba(255, 255, 255, 0.06) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-row.active {
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-row.active .cb-name {
+      font-weight: 500 !important;
+    }
+    /* Pager arrows ride ABOVE the cards, in the gap between the month
+       window and the black cards (markup order: pager first). They join
+       the flow — spread to the outer edges so they align with the cards'
+       left/right corners; label stays centered (label text hidden). */
+    #pane-setup #classDetail #cbStrip .cb-arrow {
+      position: static !important;
+      transform: none !important;
+      top: auto !important;
+      z-index: auto !important;
+    }
+    #pane-setup #classDetail #cbStrip .cb-pager {
+      gap: 12px !important;
+      justify-content: space-between !important;
+      margin-bottom: 4px !important;
+    }
+    /* The board label text is unneeded chrome — arrows alone switch boards. */
+    #pane-setup #classDetail #cbStrip .cb-page-label {
+      display: none !important;
+    }
+    @media (max-width: 1160px) {
+      #pane-setup #classDetail #cbStrip {
+        order: 3 !important;
+      }
+    }
+
+    /* G4. Text-only day pills (global user law).
+       Pills: no boxes, no motion, no hover feedback — state reads ONLY
+       through the WORKING / OFF word + text brightness. The html
+       prefix outranks the base fills so every pill (popup, calendar
+       header, anywhere) goes flat. */
+    html .weekly-day-card,
+    html .weekly-day-card.working,
+    html .weekly-day-card.off,
+    html .weekly-day-card:hover,
+    html .weekly-day-card:focus {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+    /* Rounded windows restored (user order): the everywhere-sharp law is
+       retired — its :is(#adminLayer…) chain outranked the ID-scoped 24px
+       window rules and squared the white detail card, rail, roster,
+       attendance frost, and backup cards. Day pills stay flat via the
+       block above; validation errors stay sharp via the block below. */
+    /* (Retired black-card pop variant removed — sheer frost pops read
+       correctly over the milky card; openPop no longer tags .on-dark.) */
+    /* Popover pin: borderless frost + 2px radius (palette-matched).
+       The 1px frost edge drew a visible square over milky cards. */
+    body > .gsel-pop.gsel-pop {
+      border: none !important;
+      border-radius: var(--frost-radius) !important;
+    }
+    html #enrollModal #scanErr,
+    html #enrollModal #nsErr,
+    html #correctionModal #corrErr,
+    html #holidayModal #holidayErr {
+      border-radius: 0 !important;
     }
 
     /* FLAT EDITORIAL CELLS — text only, no containers: transparent,
@@ -8894,17 +10381,10 @@
        Weekly Template: Seamless Editorial Section (No Boxed Card)
        ------------------------------------------------------------- */
     #pane-setup .setup-weekly-card {
-      background: transparent !important;
-      background-color: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
+      display: none !important;
+      margin: 0 !important;
       padding: 0 !important;
-      margin-bottom: 32px !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
-      padding-bottom: 28px !important;
+      border: none !important;
     }
 
     #calClassSelect {
@@ -8941,7 +10421,7 @@
       height: 52px !important;
       border: none !important;
       border-radius: 4px !important;
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.10), rgba(242, 243, 246, 0) 80%) !important;
+      background: transparent !important;
       backdrop-filter: blur(12px) saturate(1.2) !important;
       -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
       display: flex !important;
@@ -8960,12 +10440,12 @@
     }
 
     .weekly-day-card:hover {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.12), rgba(242, 243, 246, 0) 80%) !important;
+      background: transparent !important;
     }
 
     /* Working state: clearer white text, subtle translucent layer */
     .weekly-day-card.working {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.12), rgba(242, 243, 246, 0) 80%) !important;
+      background: transparent !important;
     }
 
     .weekly-day-card.working .w-name {
@@ -8989,26 +10469,26 @@
       text-transform: uppercase !important;
     }
 
-    /* Off state: softer translucent white text, quietest wash */
+    /* Off state: softer translucent white text, no wash */
     .weekly-day-card.off {
-      background: linear-gradient(90deg, rgba(242, 243, 246, 0.06), rgba(242, 243, 246, 0) 80%) !important;
+      background: transparent !important;
     }
 
-    /* Dark pole mirror: graphite stops, same heads/tails */
+    /* Dark pole mirror: transparent like white — state reads via text */
     html[data-ink="dark"] #pane-setup .weekly-day-card {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.10), rgba(24, 26, 32, 0) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .weekly-day-card:hover {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.14), rgba(24, 26, 32, 0.02) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .weekly-day-card.working {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.16), rgba(24, 26, 32, 0.02) 80%) !important;
+      background: transparent !important;
     }
 
     html[data-ink="dark"] #pane-setup .weekly-day-card.off {
-      background: linear-gradient(90deg, rgba(24, 26, 32, 0.06), rgba(24, 26, 32, 0.02) 80%) !important;
+      background: transparent !important;
     }
 
     /* Dark pole text: graphite mirror of the light opacities above —
@@ -9051,14 +10531,7 @@
     }
 
     .setup-weekly-footer {
-      display: flex !important;
-      justify-content: space-between !important;
-      align-items: center !important;
-      font-size: 10.5px !important;
-      color: rgba(242, 243, 246, 0.45) !important;
-      flex-wrap: wrap !important;
-      gap: 8px !important;
-      margin-top: 6px !important;
+      display: none !important;
     }
 
     /* Weekly token alignment — values copied from docs/UI_TOKENS.md */
@@ -9078,7 +10551,7 @@
       box-shadow: none !important;
       border-radius: 0 !important;
       padding: 0 !important;
-      margin-bottom: 32px !important;
+      margin-bottom: 0 !important;
     }
 
     .setup-monthview-legend {
@@ -9194,6 +10667,95 @@
       color: #F2F3F6 !important;
       min-width: 110px !important;
       text-align: center !important;
+    }
+
+    /* G5. Toolbar recreation: same controls, same order — hierarchy
+       only. Legend filters speak the admin-nav language (active =
+       full-white + underline, uniform 500 weight so filtering never
+       shifts the bar); the month label joins the mono law (dates are
+       mono); the context selector owns a fixed 240px slot so its
+       sentence always reads whole without moving siblings. */
+    button.setup-legend-item[aria-pressed="true"] {
+      box-shadow: inset 0 -1px 0 currentColor !important;
+    }
+    #calMonthLabel {
+      font-family: var(--mono) !important;
+      font-variant-numeric: tabular-nums !important;
+    }
+    #pane-setup .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn {
+      width: 240px !important;
+      max-width: 240px !important;
+    }
+    /* Toolbar frost bar (user-ordered): the whole month bar — legend +
+       context selector + month nav — floats as one frosted window, a
+       separate section above the weekday strip. Same window tokens as
+       the month (warm frost, edge, 24px, no shadow); outer edges match
+       the capped content column below exactly (same 1600 cap + same
+       side gutters). Dark ink forced both poles (frost-window law);
+       every control centers in a uniform 30px slot so all bar text
+       shares one height. */
+    #pane-setup .setup-toolbar {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      box-sizing: border-box !important;
+      /* Top edge flush with the rail top (rail carries no top margin):
+         no top margin here. Right edge docked to the rail with one
+         gutter (left margin absorbs the slack at wide zooms), so the
+         bar holds the rail instead of centering away from it. */
+      width: min(1600px, calc(100% - 2 * clamp(12px, 2vw, 20px))) !important;
+      margin: 0 clamp(12px, 2vw, 20px) 0 auto !important;
+      padding: 9px 20px !important;
+      min-height: 48px !important;
+    }
+    #pane-setup .setup-toolbar .setup-monthview-legend {
+      margin-inline: auto !important;
+    }
+    #pane-setup .setup-toolbar .setup-monthview-title {
+      color: var(--ref-ink-2) !important;
+    }
+    #pane-setup .setup-toolbar .setup-legend-item,
+    #pane-setup .setup-toolbar button.setup-legend-item,
+    #pane-setup .setup-toolbar button.setup-legend-item[aria-pressed="true"] {
+      color: var(--ref-ink) !important;
+    }
+    #pane-setup .setup-toolbar #calMonthLabel {
+      color: var(--ref-ink) !important;
+    }
+    #pane-setup .setup-toolbar #calPrevBtn,
+    #pane-setup .setup-toolbar #calNextBtn,
+    #pane-setup .setup-toolbar #calTodayBtn {
+      color: var(--ref-ink-2) !important;
+    }
+    #pane-setup .setup-toolbar #calPrevBtn:hover,
+    #pane-setup .setup-toolbar #calNextBtn:hover,
+    #pane-setup .setup-toolbar #calTodayBtn:hover {
+      color: var(--ref-ink) !important;
+      background: transparent !important;
+    }
+    #pane-setup .setup-toolbar .gsel-btn {
+      color: var(--ref-ink) !important;
+    }
+    #pane-setup .setup-toolbar .gsel-chev {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+    #pane-setup .setup-monthview-legend .gsel:has(> select#calClassSelect) {
+      border-left-color: rgba(24, 26, 32, 0.15) !important;
+    }
+    /* One height for every bar control: legend items, selector, and
+       month nav all center in uniform 30px slots — no staggered
+       baselines at any zoom. */
+    #pane-setup .setup-toolbar .setup-monthview-legend > *,
+    #pane-setup .setup-toolbar .setup-monthview-nav > * {
+      min-height: 30px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+    }
+    #pane-setup .setup-toolbar .setup-monthview-nav > * {
+      justify-content: center !important;
     }
 
     /* ============================================================
@@ -9707,10 +11269,23 @@
       color: rgba(24, 26, 32, 0.8) !important;
     }
 
-    /* Portal popups live outside #adminLayer: gsel options join the pole */
-    html[data-ink="dark"] .gsel-pop.gsel-pop .gsel-opt:hover {
+    /* Portal popups live outside #adminLayer: gsel options join the pole.
+       Resting, hover, and selected rows all read graphite in dark mode
+       (white text would vanish on the light frost). The popup FILL stays
+       the sheer white-mode frost in both inks (user order — the dense
+       dark coat stacked opaque over the rail); only text flips pole. */
+    html[data-ink="dark"] .gsel-pop.gsel-pop .gsel-opt,
+    html[data-ink="dark"] .gsel-pop.gsel-pop .gsel-grp {
+      color: rgba(24, 26, 32, 0.8) !important;
+    }
+    html[data-ink="dark"] .gsel-pop.gsel-pop .gsel-opt:hover,
+    html[data-ink="dark"] .gsel-pop.gsel-pop .gsel-opt.hi {
       background: rgba(24, 26, 32, 0.12) !important;
-      color: #F2F3F6 !important;
+      color: #181A20 !important;
+    }
+    html[data-ink="dark"] .gsel-pop.gsel-pop .gsel-opt.sel {
+      background: rgba(24, 26, 32, 0.12) !important;
+      color: #181A20 !important;
     }
 
     /* D5 — native clock/calendar indicators are retired: the custom
@@ -9730,7 +11305,9 @@
     #schoolInfoModal input[type="time"]::-webkit-calendar-picker-indicator,
     #schoolInfoModal input[type="date"]::-webkit-calendar-picker-indicator,
     #classDetail .sched-solid input[type="time"]::-webkit-calendar-picker-indicator,
-    #schedModal .sched-solid input[type="time"]::-webkit-calendar-picker-indicator {
+    #schedModal .sched-solid input[type="time"]::-webkit-calendar-picker-indicator,
+    #schedModal input[type="time"]::-webkit-calendar-picker-indicator,
+    #schedModal input[type="date"]::-webkit-calendar-picker-indicator {
       display: none !important;
     }
 
@@ -9754,7 +11331,9 @@
     #overrideModal#overrideModal input[type="time"],
     #overrideModal#overrideModal input[type="date"],
     #classDetail#classDetail .sched-solid input[type="time"],
-    #schedModal#schedModal .sched-solid input[type="time"] {
+    #schedModal#schedModal .sched-solid input[type="time"],
+    #schedModal#schedModal input[type="time"],
+    #schedModal#schedModal input[type="date"] {
       color-scheme: light !important;
       accent-color: #181A20 !important;
     }
@@ -9791,6 +11370,18 @@
       padding: 4px !important;
       cursor: pointer !important;
       pointer-events: auto !important;
+    }
+
+    /* No picker glyphs anywhere: the custom trigger retires alongside
+       the native indicators (D5) — the field itself still opens the
+       frost picker on click and typing stays native. Hiding the
+       trigger also reclaims its 22px right reservation, so values sit
+       on the full hairline with no trailing gap. */
+    .dt-trig {
+      display: none !important;
+    }
+    .dt-wrap > input {
+      padding-right: 0 !important;
     }
 
     /* (dark resting/hover live with the pole-flash block below) */
@@ -10240,6 +11831,16 @@
       border-bottom-color: rgba(24, 26, 32, 0.35) !important;
     }
 
+    /* Month-bar selector: NO underline in any state or pole — the bar
+       reads quiet text-only. 2-ID + legend scope beats the D14
+       underline (and its dark variant) above. */
+    #adminLayer #pane-setup .setup-monthview-legend .gsel > .gsel-btn,
+    #adminLayer #pane-setup .setup-monthview-legend .gsel > .gsel-btn:hover,
+    #adminLayer #pane-setup .setup-monthview-legend .gsel.open > .gsel-btn,
+    #adminLayer #pane-setup .setup-monthview-legend .gsel > .gsel-btn:focus-visible {
+      border-bottom-color: transparent !important;
+    }
+
     html[data-ink="dark"] #adminLayer .gsel-btn:hover {
       border-bottom-color: rgba(24, 26, 32, 0.6) !important;
     }
@@ -10436,6 +12037,242 @@
       border-bottom-color: #181A20 !important;
     }
 
+    /* ================= NO-BARS SWEEP (user-ordered) =================
+       Every thin divider/separator line in the UI is removed — text only.
+       Card/pill/popover/input/tab-indicator edges are deliberately NOT
+       touched (they define the windows and controls). Placed last with
+       double-ID specificity so it beats all 80+ legacy divider rules
+       above without editing each one. */
+    #adminLayer#adminLayer table thead th,
+    #adminLayer#adminLayer table tbody td,
+    #adminLayer#adminLayer .table-wrap,
+    #adminLayer#adminLayer .table-scroll,
+    #adminLayer#adminLayer .exc-table-wrap,
+    #adminLayer#adminLayer .stats-row > *,
+    #adminLayer#adminLayer .calendar-cell,
+    #adminLayer#adminLayer .weekly-day-card,
+    #adminLayer#adminLayer .setup-card,
+    #adminLayer#adminLayer .sched-solid,
+    #adminLayer#adminLayer .setup-section,
+    #adminLayer#adminLayer .detail-card,
+    #adminLayer#adminLayer tr,
+    #adminLayer#adminLayer .table-wrap > div,
+    #adminLayer#adminLayer .detail-grid {
+      border: none !important;
+    }
+    #adminLayer#adminLayer .tab-toolbar,
+    #adminLayer#adminLayer .setup-toolbar,
+    #adminLayer#adminLayer .admin-top,
+    #adminLayer#adminLayer .admin-nav {
+      border-top: none !important;
+      border-bottom: none !important;
+    }
+    #adminLayer#adminLayer .admin-pane::after {
+      display: none !important;
+    }
+    #adminLayer#adminLayer hr {
+      display: none !important;
+    }
+    /* Enroll/Edit FROSTED window (user order — reference login card;
+       the black era below is retired by order, not deleted). Warm milky
+       frost, dark ink both poles, white slots, black-pill SAVE. */
+    html #enrollModal#enrollModal .modal-card {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      color: var(--ref-ink) !important;
+      max-width: 880px !important;
+    }
+    @media (max-width: 640px) {
+      html #enrollModal#enrollModal .form-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+    }
+    html #enrollModal#enrollModal #enrollTitle {
+      color: #181A20 !important;
+    }
+    html #enrollModal#enrollModal #enrollSub {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field label {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #enrollModal#enrollModal .modal-card .form-field select,
+    html #enrollModal#enrollModal .modal-card .form-field textarea,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn {
+      background: rgba(255, 255, 255, 0.35) !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      padding: 0 18px !important;
+      min-height: 44px !important;
+      color: #181A20 !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field input::placeholder,
+    html #enrollModal#enrollModal .modal-card .form-field textarea::placeholder {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn .gsel-chev {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field input:focus,
+    html #enrollModal#enrollModal .modal-card .form-field select:focus,
+    html #enrollModal#enrollModal .modal-card .form-field textarea:focus,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn:focus,
+    html #enrollModal#enrollModal .modal-card .form-field .gsel.open .gsel-btn {
+      background: rgba(255, 255, 255, 0.5) !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+    html #enrollModal#enrollModal .btn.primary {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 42px !important;
+      padding: 0 26px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+    }
+    html #enrollModal#enrollModal #nsCancel,
+    html #enrollModal#enrollModal #edCancel,
+    html #enrollModal#enrollModal #edClearPhoto {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.35) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      height: 42px !important;
+      padding: 0 22px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      opacity: 1 !important;
+    }
+    html #enrollModal#enrollModal #edPhotoPreview div {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-drop {
+      background: rgba(255, 255, 255, 0.25) !important;
+      border: none !important;
+      border-radius: 18px !important;
+      padding: 14px 16px !important;
+      box-shadow: none !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-thumb {
+      border: none !important;
+      background: rgba(255, 255, 255, 0.35) !important;
+      backdrop-filter: blur(8px) saturate(1.2) !important;
+      -webkit-backdrop-filter: blur(8px) saturate(1.2) !important;
+      border-radius: 14px !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-thumb span {
+      color: rgba(24, 26, 32, 0.55) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-name {
+      color: #181A20 !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-sub {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-choose {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      text-decoration: none !important;
+      padding: 8px 18px !important;
+      box-shadow: none !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-remove {
+      color: rgba(24, 26, 32, 0.65) !important;
+    }
+    html #enrollModal#enrollModal .inline-error,
+    html #enrollModal#enrollModal #nsErr,
+    html #enrollModal#enrollModal #edErr {
+      color: var(--danger) !important;
+      border-color: rgba(138, 58, 58, 0.4) !important;
+    }
+
+    /* NOTICE / CONFIRM / PROMPT dialogs (glassAlert/glassConfirm/
+       glassPrompt — user-ordered): same enrollment-window sheet —
+       warm frost card, dark ink both poles, black-pill OK + outline
+       Cancel, pill prompt field. Doubled .gconfirm-ov outranks the
+       text-first strip; placed after the D1 dark blanket so ties
+       break this way in both poles. */
+    html .gconfirm-ov.gconfirm-ov .gconfirm {
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      border: 1px solid var(--ref-edge) !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      color: var(--ref-ink) !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm h3 {
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.01em !important;
+      text-transform: none !important;
+      color: #181A20 !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm p {
+      font-size: 11px !important;
+      font-weight: 400 !important;
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm .gconfirm-ok,
+    html .gconfirm-ov.gconfirm-ov .gconfirm .gconfirm-ok.danger {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 42px !important;
+      padding: 0 26px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm .gconfirm-cancel {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.35) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      height: 42px !important;
+      padding: 0 22px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm .gconfirm-ok:focus-visible,
+    html .gconfirm-ov.gconfirm-ov .gconfirm .gconfirm-cancel:focus-visible {
+      outline: 2px solid rgba(24, 26, 32, 0.5) !important;
+      outline-offset: 2px !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm input.setup-input-compact {
+      background: rgba(255, 255, 255, 0.35) !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      min-height: 44px !important;
+      padding: 0 18px !important;
+      color: #181A20 !important;
+      font-size: 13px !important;
+    }
+    /* (Retired black-era end pins removed — frost system above owns
+       the buttons now.) */
+    .modal table thead th,
+    .modal table tbody td,
+    .modal .table-wrap {
+      border: none !important;
+    }
+
     @media print {
 
       .terminal,
@@ -10506,6 +12343,7 @@
     <div class="admin-layer" id="adminLayer">
       <div class="admin-top">
         <div class="admin-title" id="adminTitle">Students</div>
+        <div class="rail-search"><div class="search-wrap"><span class="search-ico" aria-hidden="true">⌕</span><input id="searchInput" placeholder="Search students, actions, settings" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="cmdPal"></div><div class="cmd-pal" id="cmdPal" role="listbox" hidden></div></div>
         <div style="display:flex;gap:8px;align-items:center"><button
             class="admin-close close-btn" id="inkToggleBtn" aria-label="Toggle ink">☀</button><span class="esc-hint"
             style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase">Esc</span><button
@@ -10523,7 +12361,11 @@
           <div class="split-view" style="flex:1 1 0%;min-height:0;display:flex;flex-direction:row;overflow:hidden">
             <div class="list-pane">
               <div class="list-scroll" id="studentList"></div>
-              <div class="list-search"><div class="search-wrap"><span class="search-ico" aria-hidden="true">⌕</span><input id="searchInput" placeholder="Search name, roll, class, batch, phone, fingerprint"></div></div>
+              <div class="student-actions-card" id="studentActionsCard" aria-label="Student actions">
+                <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
+                <button class="btn" id="importStudentsBtn">Import CSV</button>
+                <button class="btn" id="exportStudentsBtn">Export CSV</button>
+              </div>
             </div>
             <div class="detail-pane">
               <div class="detail-scroll" id="detailScroll">
@@ -10632,7 +12474,6 @@
             <div class="setup-toolbar-left">
               <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
               <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
-              <button class="cube-tab" id="toolbarSetupWheelBtn" title="Open Setup Action Wheel" style="display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>Wheel</button>
             </div>
             <div class="setup-monthview-legend">
               <span class="setup-monthview-title">Month View</span>
@@ -10673,33 +12514,48 @@
                       </div>
                     </div>
                     <div id="classDetail">
+                      <div class="calendar-grid" id="calendarHeadGrid" aria-hidden="true"></div>
                       <div class="calendar-grid" id="calendarGrid"></div>
                       <div id="monthEditor">
                         <div class="me-field"><span class="me-label" id="csPresentLabel">Present cutoff</span><input type="time" id="csPresentCutoff" value="08:00" aria-labelledby="csPresentLabel"></div>
                         <div class="me-field"><span class="me-label" id="csLateLabel">Late cutoff</span><input type="time" id="csLateCutoff" value="08:30" aria-labelledby="csLateLabel"></div>
                         <div class="me-actions"><button class="btn primary" id="csSaveTiming">Save</button><button class="btn" id="csCancelTiming">Cancel</button></div>
                       </div>
+                      <!-- Bottom strip: two-page board (classes·batches ⇄ holidays·overrides).
+                           Pager arrows ride ABOVE the cards, in the gap
+                           between the month window and the black cards. -->
+                      <div id="cbStrip">
+                        <div class="cb-pager">
+                          <button type="button" class="cb-arrow" id="cbPrev" aria-label="Previous board">‹</button>
+                          <span class="cb-page-label" id="cbPageLabel">CLASSES · BATCHES</span>
+                          <button type="button" class="cb-arrow" id="cbNext" aria-label="Next board">›</button>
+                        </div>
+                        <div class="cb-page" id="cbPageCb">
+                          <div class="cb-table">
+                            <div class="cb-head"><span class="cb-title">Classes</span><span class="cb-count" id="cbClassCount"></span><button type="button" class="cb-act" id="cbEditClass">Edit</button><button type="button" class="cb-act" id="cbAddClass">Add</button></div>
+                            <div class="cb-rows" id="cbClassRows"></div>
+                          </div>
+                          <div class="cb-table">
+                            <div class="cb-head"><span class="cb-title">Batches</span><span class="cb-count" id="cbBatchCount"></span><button type="button" class="cb-act" id="cbEditBatch">Edit</button><button type="button" class="cb-act" id="cbAddBatch">Add</button></div>
+                            <div class="cb-rows" id="cbBatchRows"></div>
+                          </div>
+                        </div>
+                        <div class="cb-page cb-page-ho" id="cbPageHo" hidden>
+                          <div class="cb-table">
+                            <div class="cb-head"><span class="cb-title">Holidays</span><span class="cb-count" id="cbHolidayCount"></span><button type="button" class="cb-act" id="cbEditHoliday">Edit</button><button type="button" class="cb-act" id="cbAddHoliday">Add</button></div>
+                            <div class="cb-rows" id="cbHolidayRows"></div>
+                          </div>
+                          <div class="cb-table">
+                            <div class="cb-head"><span class="cb-title">Overrides</span><span class="cb-count" id="cbOverrideCount"></span><button type="button" class="cb-act" id="cbEditOverride">Edit</button><button type="button" class="cb-act" id="cbAddOverride">Add</button></div>
+                            <div class="cb-rows" id="cbOverrideRows"></div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <div class="setup-caption">Classes are editable; adding a class here also creates it when enrolling a student.</div>
                 </div>
               </div>
-
             </div>
-
-            <div class="setup-weekly-card">
-              <!-- Schedule context lives on the month bar now (middle,
-                   right of OVERRIDE) — header retired, priority stays. -->
-              <!-- Priority note -->
-              <div class="setup-weekly-footer">
-                <div>Evaluation Priority: 1. Date Override → 2. Holiday / Vacation → 3. Weekly Schedule</div>
-                <div>Holidays & Non-working days are never marked absent</div>
-              </div>
-            </div>
-
-            <!-- Record tables live in the Holiday/Override view popups. -->
-
           </div>
           <!-- Record tables and School Information live in the Setup popups below. -->
         </div>
@@ -11015,9 +12871,8 @@
               <option value="all">All</option>
               <option value="inactive">Inactive only</option>
             </select>
-            <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
-            <button class="btn" id="importStudentsBtn">Import CSV</button>
-            <button class="btn" id="exportStudentsBtn">Export CSV</button>
+            <!-- Student actions live in #studentActionsCard under the roster
+                 (reference black-box pair) — IDs unchanged so wiring holds. -->
           </div>
           <div class="side-ctx" id="sideCtx-attendance" data-side="attendance" hidden>
             <div class="side-sep" aria-hidden="true"></div>
@@ -11039,23 +12894,9 @@
           <div class="side-ctx" id="sideCtx-setup" data-side="setup" hidden>
             <div class="side-sep" aria-hidden="true"></div>
             <div class="side-label">Setup actions</div>
-            <button class="btn" id="openSetupWheelBtn" style="font-weight:600;display:flex;align-items:center;gap:6px">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>
-              Action Wheel
-            </button>
+            <button class="btn" id="sideAddClassBtn">Add Class</button>
+            <button class="btn" id="sideAddBatchBtn">Add Batch</button>
             <button class="btn" id="openSchoolInfoBtn">School Information</button>
-            <div class="side-act-row">
-              <button class="btn" id="addHolidayBtn">Add Holiday</button>
-              <button type="button" class="side-eye" id="eyeHolidaysBtn" aria-label="View holidays" title="View holidays">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-            <div class="side-act-row">
-              <button class="btn" id="addOverrideBtn">Add Override</button>
-              <button type="button" class="side-eye" id="eyeOverrideBtn" aria-label="View overrides" title="View overrides">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
           </div>
         </aside>
       </div>
@@ -11088,6 +12929,13 @@
       <h3>Add special date override</h3>
       <p>Specific date overrides weekly schedule. Priority: override → holiday → weekly.</p>
       <div id="overrideModalBody"></div>
+    </div>
+  </div>
+  <div class="modal" id="schedModal">
+    <div class="modal-card">
+      <h3 id="schedModalTitle">Add class</h3>
+      <p id="schedModalSub">Name the class and set its weekly schedule.</p>
+      <div id="schedModalBody"></div>
     </div>
   </div>
   <div class="modal" id="schoolInfoModal">
@@ -11185,12 +13033,6 @@
       <h3>Correct attendance</h3>
       <p>Original status preserved in audit. Reason required.</p>
       <div id="correctionModalBody"></div>
-    </div>
-  </div>
-  <div class="modal" id="setupWheelModal">
-    <div class="setup-wheel-wrap">
-      <svg class="setup-wheel-svg" id="setupWheelSvg" viewBox="-240 -240 480 480"></svg>
-      <div class="setup-wheel-hint">Hover category to fan actions · Click action to open · Esc to close</div>
     </div>
   </div>
   <div class="print-root" id="printRoot"></div>

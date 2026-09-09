@@ -4,16 +4,15 @@ Admin is gated behind the terminal's `Admin` trigger and is organized into four 
 
 ## Students
 
-Owns the roster. Rail holds the class, batch, and status filters (Active only / All / Inactive only) plus New Enrollment, Import CSV, and Export CSV; the workspace is a split view — roster list with pinned bottom search (name, roll, class, batch, phone, fingerprint ID, section, parent) beside the detail pane. First student is always selected. The enrollment form collects name (1-80), roll (1-20 unique lower), grade/class (1-40 required), batch/group (≤40), section (≤20), parent (≤80), phone (≤40 with 8+ digits), address (≤200), and photo as data URL (≤2MB, stored in `IMAGES_DIR` plus `students.photo`). Validation and auto-creation of classes/batches happens in `POST /api/students` and `POST /api/enroll`.
+Owns the roster. Rail holds the class, batch, and status filters (Active only / All / Inactive only); New Enrollment, Import CSV, and Export CSV float as pills under the roster (`#studentActionsCard` — white primary + solid black pair, EDIT-INFORMATION type); the workspace is a split view — roster list with pinned bottom search (name, roll, class, batch, phone, fingerprint ID, section, parent) beside the detail pane. First student is always selected. The enrollment form collects name (1-80), roll (1-20 unique lower), grade/class (1-40 required), batch/group (≤40), section (≤20), parent (≤80), phone (≤40 with 8+ digits), address (≤200), and photo as data URL (≤2MB, stored in `IMAGES_DIR` plus `students.photo`). Validation and auto-creation of classes/batches happens in `POST /api/students` and `POST /api/enroll`.
 
-Detail cards show the last 60 events and actions: Edit (whitelisted `PATCH /api/students/:id`), Re-enroll, Deactivate (`DELETE` → `active=0, roll#d{id}, fingerId=NULL`), Re-activate (`PATCH active=1` restores roll if free), and Print. History bundles `events` 500 and `daily` 500. CSV export includes `batch/section/parent/address/attendance_rate`.
+Detail cards show the last 60 events and actions: Edit (whitelisted `PATCH /api/students/:id`), Re-enroll, Deactivate (`DELETE` → `active=0, roll#d{id}, fingerId=NULL`), Re-activate (`PATCH active=1` restores roll if free), and Print. Presentation: frost roster window + warm frost detail window (dark ink forced both modes) + pill actions (one black primary). History bundles `events` 500 and `daily` 500. CSV export includes `batch/section/parent/address/attendance_rate`.
 
 ## Attendance (Unified Today & Reports Workspace)
 
 Unifies live operations and historical reporting into a single screen:
 - **Default View:** Defaults immediately to today's live attendance upon opening, with a green `LIVE TODAY` badge, working day vs. holiday status, and scheduled vs. not scheduled breakdown.
 - **Rail Controls:** Date presets (Today, Yesterday, Custom Date, Custom Range, Last 7 Days, This Month, Academic Year) render as a segmented strip with hover frost popups for Academic Year / Custom Range, explicit `Apply` for custom dates, and `Clear`; class, batch, student, status, and sort filters stay wired as hidden truth (value + `change` driven) until the rail surfaces them.
-- **Single Student Reporting:** Direct single student selection via the student filter, authoritative student metrics via `/api/reports?studentId`, student-specific 9 KPI cards (`Eligible days`, `Attended`, `Attendance %`), student-specific editorial Print output, and single-student CSV export.
 - **9 KPI Cards:** In both live and historical modes: `Date`, `Total students`, `Present`, `Late`, `Absent`, `Not Scheduled`, `Unknown scans`, `Duplicate scans`, and `Attendance %`.
 - **Dynamic Attendance Table:**
   - *Single-Day Mode:* Columns for Time, Student, Roll, Class, Status with `[Correct]` button, and Fingerprint ID.
@@ -33,7 +32,7 @@ Unifies school settings, classes, batches, rules, calendar, holidays, and schedu
 
 ## Backup
 
-The Admin Backup tab presents a **Unified Backup Manager** (`#backupManagerCard`) consolidating offsite destinations, scheduled automation, and local database tools into a clean, compact interface:
+The Admin Backup tab presents a **Unified Backup Manager** (`#backupManagerCard`) consolidating offsite destinations, scheduled automation, and local database tools into a clean, compact interface. Presentation: twin frost windows (manager + audit, dark ink both modes) + pill hierarchy (black primary, outline rest) + graphite checkboxes + soft filled scheduler slots.
 
 1. **Unified Destinations:** Google Drive, Telegram, and USB are presented in a unified destinations list with live status indicators (`Ready`, `Connected`, `Not connected`, `Disabled`, or `Offline`). Each destination has an independent toggle checkbox (`#destCheckGdrive`, `#destCheckTelegram`, `#destCheckUsb`), and a "Select all" button (`#backupSelectAllBtn`) allows toggling all destinations simultaneously.
 2. **Unified Automatic Backup Scheduler:** One shared scheduler (`#backupSchedBody`) configures backup time (`#backupSchedTime`), frequency (`#backupSchedFreq`: Daily, Every N days, Specific weekdays), and active weekdays. Clicking "Save Schedule" synchronizes the schedule across all three destination engines via `/api/backup/{gdrive,telegram,usb}/schedule`.

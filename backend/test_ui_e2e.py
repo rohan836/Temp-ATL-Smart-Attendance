@@ -312,7 +312,7 @@ class UiE2eTest(unittest.TestCase):
         tabs = [
             ("students", "pane-students", "Students"),
             ("attendance", "pane-attendance", "Today — Attendance"),
-            ("setup", "pane-setup", "Setup — School Configuration & Schedule"),
+            ("setup", "pane-setup", "Setup"),
             ("backup", "pane-backup", "Backup — Audit"),
         ]
 
@@ -772,9 +772,24 @@ class UiE2eTest(unittest.TestCase):
         self.page.wait_for_timeout(400)
         after = "working" in (cs_day.get_attribute("class") or "")
         self.assertNotEqual(before, after)
-        grid_first_cls = self.page.locator("#calendarGrid .weekly-day-card").first.get_attribute("class") or ""
+        grid_first_cls = self.page.locator("#calendarHeadGrid .weekly-day-card").first.get_attribute("class") or ""
         self.assertEqual("working" in grid_first_cls, after)
         self.assertIsNone(self.page.evaluate("document.querySelector('#calendarGrid [data-day]')"))
+        # Weekday strip owns its own window above the month (12px gap, same left edge)
+        head_box = self.page.locator("#calendarHeadGrid").bounding_box()
+        grid_box = self.page.locator("#calendarGrid").bounding_box()
+        self.assertIsNotNone(head_box)
+        self.assertIsNotNone(grid_box)
+        self.assertLess(head_box["y"] + head_box["height"], grid_box["y"])
+        self.assertAlmostEqual(head_box["x"], grid_box["x"], delta=2)
+        # 12px vertical module: strip→month gap, month→pager gap, pager→cards gap
+        self.assertAlmostEqual(grid_box["y"] - (head_box["y"] + head_box["height"]), 12, delta=3)
+        pager_box = self.page.locator("#cbStrip .cb-pager").bounding_box()
+        page_box = self.page.locator("#cbPageCb").bounding_box()
+        self.assertIsNotNone(pager_box)
+        self.assertIsNotNone(page_box)
+        self.assertAlmostEqual(pager_box["y"] - (grid_box["y"] + grid_box["height"]), 12, delta=3)
+        self.assertAlmostEqual(page_box["y"] - (pager_box["y"] + pager_box["height"]), 4, delta=3)
 
         # 4. Set custom timings in the solid editor and save
         self.page.locator("#csPresentCutoff").fill("07:45")
@@ -790,7 +805,7 @@ class UiE2eTest(unittest.TestCase):
         self.assertEqual(self.page.locator("#csPresentCutoff").input_value(), "07:45")
         self.assertEqual(self.page.locator("#csLateCutoff").input_value(), "08:15")
         self.assertIn("CUSTOM BATCH TIMING ACTIVE", self.page.locator("#csTimingNotice").inner_text().upper())
-        grid_first_cls = self.page.locator("#calendarGrid .weekly-day-card").first.get_attribute("class") or ""
+        grid_first_cls = self.page.locator("#calendarHeadGrid .weekly-day-card").first.get_attribute("class") or ""
         self.assertEqual("working" in grid_first_cls, after)
         self.assertIsNone(self.page.evaluate("document.getElementById('classScheduleModal')"))
         self.assertIsNone(self.page.evaluate("document.getElementById('csClose')"))
@@ -1114,6 +1129,78 @@ class UiE2eTest(unittest.TestCase):
         self.page.wait_for_function("document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
         self.page.mouse.click(10, 10)
         self.page.wait_for_function("!document.getElementById('daySheetModal').classList.contains('open')", timeout=3000)
+
+        # Close Admin
+        self.page.click("#adminClose")
+        self.page.wait_for_function("!document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
+
+    def test_16_rail_search_palette_frosted_grouped_and_dismissable(self):
+        """Rail search palette opens over the rail on a frosted surface with grouped
+        Actions/Students rows, tracks keyboard highlight, and dismisses cleanly."""
+        self.page.goto(f"{_BASE_URL}/", wait_until="networkidle")
+
+        self.page.once("dialog", lambda dialog: dialog.accept("1234"))
+        self.page.click("#openAdminBtn")
+        self.page.wait_for_function("document.getElementById('adminLayer').classList.contains('open')", timeout=3000)
+        # Roster must be loaded before the palette can match students
+        self.page.wait_for_function("document.querySelectorAll('.student-row').length > 0", timeout=6000)
+
+        search = self.page.locator("#searchInput")
+        pal = self.page.locator("#cmdPal")
+
+        # Empty query -> palette stays hidden
+        self.page.wait_for_function("document.getElementById('cmdPal').hidden")
+
+        # Student query -> palette opens with the seeded student
+        search.fill("ara")
+        self.page.wait_for_function("!document.getElementById('cmdPal').hidden", timeout=3000)
+        self.assertIn("AARAV SHARMA", pal.inner_text().upper())
+        self.assertIn("STUDENTS", pal.inner_text().upper())
+
+        # Frosted surface: single-coat canonical fill, no border (reference popup voice)
+        self.assertIn(
+            "rgba(242, 243, 246, 0.08)",
+            self.page.evaluate("getComputedStyle(document.getElementById('cmdPal')).backgroundColor"))
+        self.assertEqual(
+            self.page.evaluate("getComputedStyle(document.getElementById('cmdPal')).getPropertyValue('border-top-width')").strip(),
+            "0px")
+        self.assertEqual(
+            self.page.evaluate("getComputedStyle(document.getElementById('cmdPal')).getPropertyValue('isolation')").strip(),
+            "isolate")
+        # No visible scrollbar in the palette (wheel + arrows still scroll)
+        self.assertEqual(
+            self.page.evaluate("getComputedStyle(document.getElementById('cmdPal')).getPropertyValue('scrollbar-width')").strip(),
+            "none")
+        # Dense frost is active (melts workspace content behind the results)
+        self.assertIn(
+            "blur(44px)",
+            self.page.evaluate("getComputedStyle(document.getElementById('cmdPal')).getPropertyValue('backdrop-filter')"))
+
+        # Keyboard highlight tracks the first option for assistive tech
+        first_id = self.page.evaluate("document.querySelector('#cmdPal .cmd-opt').id")
+        self.assertTrue(first_id.startswith("cmdOpt-"))
+        self.assertEqual(
+            self.page.evaluate("document.getElementById('searchInput').getAttribute('aria-activedescendant')"),
+            first_id)
+
+        # Escape dismisses without clearing the query (and keeps Admin open)
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("document.getElementById('cmdPal').hidden", timeout=3000)
+        self.assertEqual(search.input_value(), "ara")
+        self.page.wait_for_function("document.getElementById('adminLayer').classList.contains('open')")
+
+        # Action query -> Actions group renders above Students
+        search.fill("ad")
+        self.page.wait_for_function("!document.getElementById('cmdPal').hidden", timeout=3000)
+        pal_text = pal.inner_text().upper()
+        self.assertIn("ACTIONS", pal_text)
+        self.assertLess(pal_text.index("ACTIONS"), pal_text.index("ADD CLASS"))
+
+        # Clicking a student result selects that student and closes the palette
+        search.fill("ara")
+        self.page.wait_for_function("!document.getElementById('cmdPal').hidden", timeout=3000)
+        pal.locator(".cmd-opt", has_text="Aarav Sharma").first.click()
+        self.page.wait_for_function("document.getElementById('cmdPal').hidden", timeout=3000)
 
         # Close Admin
         self.page.click("#adminClose")

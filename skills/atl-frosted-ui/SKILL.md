@@ -17,30 +17,47 @@ tests, or plans unless explicitly ordered. Never open a browser.
 
 ## The theme (why it looks this way)
 
-Warm ambient background (soft orange/cream blobs) provides all atmosphere and
-color. UI floats over it as thin frosted layers: background must stay visible
-through every surface. Palette is strictly monochrome — white, near-black,
-translucent neutrals. Orange/red belong to the ambient background ONLY, never
-to controls, badges, or text. Structure comes from 1px translucent white
-hairlines, never boxes. Typography is soft, light, restrained — the UI should
-feel like quiet text sitting inside the atmosphere, not windows on top of it.
+Desert ambient (light cactus render, `0.12` pass over `#050507`) provides
+all atmosphere and color. UI floats over it as warm frost windows
+(`--ref-frost`, `22px` blur, `24px` radius), opaque white cards
+(Students detail, Backup audit), and near-black cards (Setup
+Classes/Batches). Primary actions are black pills (`--ref-pill`,
+`999px`); secondary actions are transparent outline pills. Month cells
+are flat text-only with a quiet hairline grid — state reads via text,
+never boxes. Palette is otherwise monochrome — white, near-black,
+translucent neutrals. Orange/red belong to the ambient background ONLY,
+never to controls, badges, or text (errors/destructive stay `danger`
+red). Typography is soft, light, restrained — quiet text inside the
+atmosphere, not windows on top of it.
 
 ## Canonical values (match these, don't invent — source: docs/UI_TOKENS.md)
 
-- Card frost: `background: rgba(242,243,246,0.07)`, `backdrop-filter:
-  blur(24px) saturate(1.2)`, `border: 1px solid rgba(242,243,246,0.14)`,
-  `border-radius: 2–3px`, `box-shadow: none`.
-- Dropdown popover (`.gsel-pop`, the reference treatment):
-  `rgba(242,243,246,0.08)` + same blur/border, radius `2px`, no shadow.
+- Popover frost (`.gsel-pop` reference): `background:
+  rgba(242,243,246,0.08)`, `backdrop-filter: blur(24px) saturate(1.2)`,
+  `border: 1px solid rgba(242,243,246,0.14)` (palette: borderless),
+  `border-radius: 2px`, `box-shadow: none`.
+- Window frost: `background: var(--ref-frost)` (`rgba(228,219,208,0.45)`),
+  `backdrop-filter: var(--ref-frost-blur)` (`blur(22px) saturate(1.25)`),
+  `border: 1px solid var(--ref-edge)`, `border-radius: 24px`, no shadow.
+- White cards (Students detail, Backup audit): `var(--ref-white)` +
+  `1px solid var(--ref-white-line)` + `24px`, dark `--ref-ink` text
+  forced in both ink modes. [RETIRED — both converted to warm frost,
+  log 25; vars stay defined.]
+- Black cards (Setup Classes/Batches): `var(--ref-black)`, no border,
+  `24px`, white text both inks.
+- Pills (`999px`): black primary `var(--ref-pill)` + silver text;
+  secondary transparent + `1px solid rgba(24,26,32,0.25)` + `--ref-ink`.
 - Enrollment modal: card frost above at `0.07`; veil
   `#enrollModal.modal { background: rgba(26,20,16,0.2) }` — deep enough for
   white text to read, light enough to stay luminous. Do NOT return to the
   global milky veil or a dark dialog.
-- Primary contained action (only for genuinely important actions, e.g. New
-  Enrollment, Continue): translucent neutral fill `rgba(242,243,246,0.12–0.14)`,
-  1px `rgba(242,243,246,0.3)` border, radius `3–4px`, no shadow, silver-white 500 text.
-- Everything else actionable = plain clickable text (transparent, no border;
-  underline only where the existing link language uses it).
+- `#adminLayer.open` is transparent (old `0.12` veil retired); kiosk idle
+  chrome hides while Admin is open.
+- Everywhere-sharp law retired (it squared the 24px windows — white
+  card, rail, roster, frost workspaces). Narrow sharpness stays by own
+  rules: day pills, month cells, option rows, validation errors.
+  `body > .gsel-pop.gsel-pop` pins popover frost + `2px`. Month cells
+  flat text-only (`56px`, transparent, `0.08` hairline grid).
 
 ## Typography system
 
@@ -57,14 +74,16 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
 - **Sidebar shell (current):** admin = top bar (title + ink/esc/close)
   + main workspace + fixed 248px right rail (`#adminSide`: vertical
   `#adminNav` stack, then exactly one visible `.side-ctx` per tab —
-  Students filters/actions · Attendance presets · Setup wheel/school/
+  Students filters · Attendance presets · Setup wheel/school/
   holiday/override/eyes · Backup none). Retired `.tab-toolbar` nodes stay
   in the DOM as hidden logic truth (never delete). `updateTabs` toggles
   `[hidden]` sections only.
-- **Students controls:** filters + New Enrollment / Import / Export live in
-  the rail as full-width quiet rows; search lives pinned at the roster
-  list bottom (`.list-search` fade wash, icon + field one line). No
-  toolbar rows anywhere.
+- **Students:** frost roster window (`320–400px`, `ref-frost`,
+  borderless, dark-ink text both poles; transparent text-only rows,
+  selection is 500 name + full-ink text) + warm frost detail window
+  (dark ink forced, bars stripped) + floating pills under the roster
+  (`#studentActionsCard`: white primary + solid black pair, same type
+  as EDIT INFORMATION — `34px/999px/10px/500/0.08em`).
 - **Header nav:** the tab stack lives in the RIGHT RAIL, left-aligned
   44px rows, uniform weight 400 (active reads via opposite-pole color +
   500, no bar, no dot) — per-tab title-length swings can never push it.
@@ -102,7 +121,11 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
 3. Change ONLY the identified element, scoped as narrowly as possible
    (prefer `#id`-scoped selectors so other screens can't regress).
 4. Diagnose before styling: milky surface = veil+blur stack, not card fill;
-   doubled text = unhidden native layer; jumps on switch = moving anchors.
+   doubled text = unhidden native layer; jumps on switch = moving anchors;
+   square pills/cards = rival `:not()` rules or a stray global
+   radius-zero (everywhere-sharp law retired — delete, don't stack);
+   pill rivals = re-added `:not()` rules fighting the ONE-pill block
+   (delete, don't stack).
 5. Verify with evidence: re-read the cascade, grep specificity conflicts,
    confirm no other file changed. No browser, no screenshots of your own.
 
@@ -118,28 +141,21 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
   unless the user names them. One task at a time; report residuals honestly
   instead of expanding scope.
 
-## Directional fade washes (locked pattern)
+## Directional fade washes (RETIRED — do not reintroduce)
 
-- When the user asks to remove an underline bar and wants a "fade,"
-  "translucent fade," or "solid to fade," they mean: a **directional
-  linear-gradient wash** on the control's wrapper — `linear-gradient(90deg,
-  rgba(pole,0.10), rgba(pole,0) 80%)`, no border, no shadow, radius 4px.
-- Solid at the leading edge, dissolving toward the end. Focus never draws
-  a line — `:focus-within` only deepens the wash head (0.10 → 0.16).
-- Type inside stays bare (transparent input, no chrome). Both inks mirror
-  the stops with their own pole (silver / graphite).
-- Paint-only change: flex, widths, and rhythm stay untouched so fixed-slot
-  shift-proofing holds. Retire the dead underline rules, don't leave them.
-- Canonical instance: students `.search-wrap`. Extend elsewhere only when
-  the user names the spot.
+The 90° fade-slab pattern is deleted globally (user order, log 23):
+no selection, state, or input bed may paint a gradient. State reads
+via 500/bold + full-ink text; hover keeps solid fills; indicators
+stay 1px underlines. If a new surface needs emphasis, use the text
+language — never a wash.
 
 ## ATL Smart Attendance UI rules (locked — from the Students/Setup redesign)
 
-1. **Global visual language:** flat editorial interface. Never turn a
-   component into a card/window by default. Structure = typography,
-   spacing, and 1px hairlines. Frost/translucency only for genuinely
-   necessary surfaces (modals, popovers, primary contained action).
-   No unnecessary blur, shadow, radius, glow, or decoration.
+1. **Global visual language:** desert ambient + warm frost windows
+   (`24px`) + white detail/audit cards + near-black Classes/Batches
+   cards + black-pill primaries / outline pills. Never invent a new
+   surface: reuse the window/card/pill systems. No shadows, no colored
+   UI (danger red excepted).
 2. **Typography:** `var(--sans)` interface text; `var(--mono)` only for
    technical/numeric/time values; serif/editorial only for major
    identity/page titles (e.g. profile name). Weights 400 normal /
@@ -149,23 +165,21 @@ feel like quiet text sitting inside the atmosphere, not windows on top of it.
    (`--hairline` adapts per ink) and the `html[data-ink="dark"]`
    override pattern. Never hardcode a one-mode color. No
    browser-blue focus/selection against the monochrome UI.
-4. **Selection:** no large filled cards. Preferred language: stronger
-   text weight + subtle 1px marker in a reserved slot (no layout
-   shift). A restrained neutral localized wash (directional fade,
-   no blur/radius/shadow/motion) only when discoverability demands
-   it. Never colored glow, large blur, movement, or shift. The
-   active item must read instantly in both inks.
+4. **Selection:** stronger text weight + subtle wash in a reserved slot
+   (no layout shift). Rail nav: 500 + directional fade wash. Black-card
+   rows: white `0.06` hover wash, directional active wash. Never colored
+   glow, large blur, movement, or shift. The active item must read
+   instantly in both inks.
 5. **List/row geometry:** stable columns — flexible identity/content
    track (`minmax(0,1fr)` + ellipsis) with fixed count/action slots
    so long names never move controls. Classes, Batches, and Students
    share the pattern where interaction matches. Every deletable row
    renders its own delete control, never only the selected row.
-6. **Calendar/month view:** cells are text-first, never cards. Subtle
-   horizontal/vertical hairlines for structure only (softer than
-   major dividers). No per-cell windows, shadows, hover expansion,
-   or animation. Fixed 7-column grid; reserve maximum height so
-   5-row vs 6-row months never move surrounding UI. Zoom must not
-   stretch, wrap, or shift geometry.
+6. **Calendar/month view:** frost window outside, flat text-only cells
+   inside (`56px` fixed rows, transparent, no blur, `0.08` hairline
+   grid). No per-cell windows, shadows, hover expansion, or animation.
+   Reserve maximum height so 5-row vs 6-row months never move
+   surrounding UI. Zoom must not stretch, wrap, or shift geometry.
 7. **Inline schedule editing:** the selected Class/Batch is edited
    inline at the Month View — clickable SUN–SAT headers, editable
    Present/Late cutoffs, Save/Cancel in one strip. Never reintroduce
