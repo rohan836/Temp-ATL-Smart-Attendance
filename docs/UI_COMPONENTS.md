@@ -631,13 +631,42 @@ trust the code, then fix this file.
     `ref-pill` black, white text; New Enrollment white pill same
     metrics. Headless render confirms one button type. Paint-only;
     braces balanced.
-48. Students content-sized redesign (approved proposal): calm wash bed
-    on split-view only (`0.22` flat, borderless, no blur); roster +
-    detail wrap content (flex-start, max-height cap, inner scroll);
-    rail sheer/text-first while Students active (`:has`, graceful
-    fallback); detail 28/32 pad, labels `0.5`, history margin 24.
-    Pills, JS, backend, other tabs untouched. Headless white+dark
-    verified, 4-tab smoke zero errors. Paint-only; braces balanced.
+48. Single roster window (user order — search + rows + pills in ONE
+    frost container, hairline dividers, minimal outer gaps): frost
+    coat back on `list-pane` (`ref-frost` both poles, `24px`,
+    borderless, `margin-right 12`); `list-scroll` transparent middle;
+    new `#rosterSearch` white slot pill up top (global palette stays
+    top-center for other tabs — roster field writes through the shared
+    input without opening the palette, mirrored back on render);
+    pills docked below the lower divider, same type. Dead
+    `.list-search` CSS retired. Headless both modes + filter test
+    (4→1→4, palette shut, zero errors). Paint + contained wiring.
+49. Fused roster+detail + top search retired (user order): global
+    `.rail-search` hidden on all tabs (node stays for JS `.value`
+    wiring; palette mouse-only so fully retired, roster filter
+    unaffected); roster/detail join edge-to-edge (`margin-right 0`,
+    hairline seam, squared meeting corners, outer 24px kept), both
+    full-height. One continuous frost panel. Headless both modes
+    confirm. Paint-only.
+50. Minimal even top, titles retired globally (user order): tab title
+    hidden on all tabs (`#adminTitle` display none — JS textContent
+    harmless); top bar slims to controls (`auto` height, 12px top
+    pad, no divider); Students insets 12 top / 16 bottom meet the
+    side gaps. Paint-only; braces balanced.
+51. Dead toolbar wedge removed (user order — top gap survived the
+    slimming): `#pane-students .tab-toolbar` forced the empty bar open
+    (`display:flex !important` over inline none + 10px pad + 20px
+    bottom margin). Now true zero (node kept as JS anchor). Top stack
+    is bar (~32) + 12 pad. Paint-only; braces balanced.
+52. System controls to rail foot + even-12 frame (user order): the
+    INK/ESC/CLOSE node moved verbatim into `#sideFoot` (IDs kept,
+    wiring untouched), docked fully-bottom via `margin-top:auto`
+    with a divider hairline; borderless text buttons, all states
+    identical. Top bar gone entirely (`display:none` — zero top
+    cost). Rail `12/12/12/0` + Students split flat `12`: every
+    outer + middle inset is one value; both panels full-height by
+    construction. Widths stay per design (380 roster / 248 rail).
+    Paint + markup move; braces balanced.
 47. Push rebase (remote `af63bbc` rebuilt docs): conflict merge keeps
     remote curation (ADMIN Setup/Attendance, SKILL shell/presets/wheel,
     UI_COMPONENTS values/residuals) + this log; Students action

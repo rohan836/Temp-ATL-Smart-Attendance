@@ -2731,20 +2731,6 @@
       -webkit-backdrop-filter: var(--frost-blur) !important;
       border-color: var(--frost-line) !important;
     }
-    /* Quiet rail while Students is active (redesign — the frost card
-       read as a third competing panel): sheer text-first treatment,
-       whisper fill only, no blur/edge/radius. Scoped via :has() on the
-       visible Students context, so Attendance/Setup/Backup keep their
-       rail untouched. Graceful fallback: unsupported engines keep the
-       frost card. */
-    #adminLayer #adminSide:has(#sideCtx-students:not([hidden])) {
-      background: rgba(242, 243, 246, 0.06) !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-    }
 
     /* Vertical nav: same node, same buttons — the horizontal bar
        language retuned to a left-aligned stack. Paint (400/500 +
@@ -3775,23 +3761,9 @@
       overflow-y: auto !important;
     }
 
-    #pane-students .list-search {
-      flex: none !important;
-      border-top: 1px solid var(--hairline) !important;
-      margin-top: 12px !important;
-      padding-top: 12px !important;
-    }
-
-    #pane-students .list-search .search-wrap {
-      flex: 1 1 auto !important;
-      max-width: none !important;
-      min-width: 0 !important;
-    }
-
-    #pane-students .list-search #searchInput {
-      min-width: 0 !important;
-      flex: 1 1 0% !important;
-    }
+    /* (Dead .list-search retired with the single-window rebuild —
+       roster search is now .roster-search, first section of the
+       list-pane window.) */
 
     /* (Search bar retired: the wrap's fade wash carries both inks now) */
 
@@ -3811,21 +3783,16 @@
          instead of clipping full-bleed at the viewport edges. */
       padding: 16px clamp(16px, 3vw, 32px) 24px !important;
       box-sizing: border-box !important;
-      /* Content-sized columns (redesign — stretch forced tall empty
-         windows): both columns wrap content, top-aligned; internal
-         scroll only when capped by max-height. Calm wash bed behind
-         the windows (Students scope only): flattens the desert so
-         text stops fighting it; flat, borderless, no blur — a zone,
-         not a panel. */
-      align-items: flex-start !important;
-      background: rgba(228, 219, 208, 0.22) !important;
-      border-radius: var(--ref-radius) !important;
+      /* Geometry lock (user order — roster sat lower than detail):
+         both columns stretch, so identical top AND bottom by
+         construction; the child pin below zeroes any wedging margin. */
+      align-items: stretch !important;
     }
     #pane-students .split-view > .list-pane,
     #pane-students .split-view > .detail-pane {
       margin-top: 0 !important;
       margin-bottom: 0 !important;
-      align-self: flex-start !important;
+      align-self: stretch !important;
     }
 
     /* Phase 1 reference-window exception (user-ordered): the Students
@@ -3893,17 +3860,104 @@
        transparent full-height stack (roster fills, card anchors bottom);
        the frost coat moves from list-pane to list-scroll. Compact
        top-align retired by this order — no more desert gap below. */
+    /* Dead Students toolbar stays dead (user order — top gap audit):
+       an old `#pane-students .tab-toolbar` rule forces the empty bar
+       open (`display:flex` beats inline none) with padding + 20px
+       bottom margin. Node stays as JS anchor; renders zero. */
+    #pane-students .tab-toolbar {
+      display: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      min-height: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
+    }
+    /* Minimal even top (user order — titles retired globally, top
+       gap matched to the side/bottom insets): the tab title renders
+       nothing on any tab (JS keeps setting text, harmless); the bar
+       slims to its INK/ESC/CLOSE controls; Students padding goes
+       12 top / 16 bottom to meet the side gaps. */
+    #adminLayer .admin-top #adminTitle {
+      display: none !important;
+    }
+    #adminLayer .admin-top {
+      height: auto !important;
+      min-height: 0 !important;
+      padding: 12px 24px 0 !important;
+      border-bottom: none !important;
+    }
+    #pane-students .split-view {
+      padding-top: 12px !important;
+      padding-bottom: 16px !important;
+    }
+    /* System controls dock (user order — INK/ESC/CLOSE live at the
+       rail's fully-bottom, all tabs): margin-top:auto pins the foot;
+       buttons go borderless text (pole ink inherits); hairline above
+       echoes the roster dividers. IDs/classes/inline styles moved
+       verbatim so wiring holds. */
+    #adminLayer #adminSide .side-foot {
+      margin: auto 12px 0 !important;
+      padding: 12px 0 0 !important;
+      border-top: 1px solid rgba(24, 26, 32, 0.12) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      flex: 0 0 auto !important;
+    }
+    html #adminLayer #adminSide .side-foot .admin-close,
+    html #adminLayer #adminSide .side-foot .admin-close:hover,
+    html #adminLayer #adminSide .side-foot .admin-close:active,
+    html #adminLayer #adminSide .side-foot .admin-close:focus {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      padding: 8px 10px !important;
+      text-decoration: none !important;
+    }
+    /* Even-12 frame (user order — left/right panels matched, middle
+       gaps even): rail meets the workspace at 12 on top/left/bottom;
+       Students split goes flat 12 so every outer + middle inset is
+       one value. Top bar is gone entirely (title/search/controls all
+       relocated or retired) — zero top cost. */
+    #adminLayer #adminSide {
+      margin: 12px 12px 12px 0 !important;
+    }
+    #pane-students .split-view {
+      padding: 12px !important;
+    }
+    #adminLayer .admin-top {
+      display: none !important;
+    }
+    /* Top command search retired everywhere (user order — roster owns
+       its own filter now): node stays in the DOM (JS reads/writes
+       searchInput.value) but renders nothing on any tab. */
+    #adminLayer .admin-top .rail-search {
+      display: none !important;
+    }
+    /* Single roster window (user order — search + rows + pills in
+       ONE frost container with hairline dividers, no separate
+       sections; minimal outer gaps). list-pane is the window
+       (ref-frost both poles, 24px, borderless); list-scroll is the
+       transparent scrolling middle; actions dock below the lower
+       divider. Compact stack: 14px window pad, 12px section rhythm. */
     #pane-students .list-pane,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .list-pane {
-      background: transparent !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
+      background: var(--ref-frost) !important;
+      backdrop-filter: var(--ref-frost-blur) !important;
+      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
       border: none !important;
+      border-radius: var(--ref-radius) !important;
       box-shadow: none !important;
-      padding: 0 !important;
-      gap: 12px !important;
-      align-self: flex-start !important;
-      max-height: 100% !important;
+      padding: 14px !important;
+      margin-right: 0 !important;
+      border-right: 1px solid rgba(24, 26, 32, 0.12) !important;
+      border-radius: var(--ref-radius) 0 0 var(--ref-radius) !important;
+      gap: 0 !important;
+      align-self: stretch !important;
     }
     /* Unified frost + borderless roster (user order — roster wore
        frost-bg/frost-line while detail wears ref-frost/ref-edge, and its
@@ -3931,20 +3985,52 @@
        overshoots — flat cream, no glass feel. The roster never truly
        wore the detail coat (transparent in white all along), so back
        to exact detail tokens; the darker slice may read a touch
-       deeper, which is honest frost. */
+       deeper, which is honest frost.
+       CORRECTION 3 (log 48): single-window rebuild — the frost coat
+       moved back up to list-pane (whole left column = one window);
+       list-scroll is the transparent scrolling middle again. */
     #pane-students .list-pane .list-scroll,
     #pane-students #studentList,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .list-pane .list-scroll,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students #studentList {
-      background: var(--ref-frost) !important;
-      backdrop-filter: var(--ref-frost-blur) !important;
-      -webkit-backdrop-filter: var(--ref-frost-blur) !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       border: none !important;
-      border-radius: var(--ref-radius) !important;
+      border-radius: 12px !important;
       box-shadow: none !important;
-      padding: 14px !important;
+      padding: 2px !important;
       flex: 1 1 auto !important;
       min-height: 0 !important;
+    }
+    /* Roster search row: white slot pill + hairline divider below.
+       Dark ink both poles like the enroll slots. */
+    #pane-students .roster-search {
+      flex: 0 0 auto !important;
+      padding: 0 0 12px !important;
+      margin: 0 0 12px !important;
+      border-bottom: 1px solid rgba(24, 26, 32, 0.12) !important;
+    }
+    #pane-students #rosterSearch {
+      background: rgba(255, 255, 255, 0.35) !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      height: 40px !important;
+      width: 100% !important;
+      padding: 0 18px !important;
+      margin: 0 !important;
+      color: #181A20 !important;
+      font-family: var(--sans) !important;
+      font-size: 12px !important;
+      font-weight: 400 !important;
+    }
+    #pane-students #rosterSearch::placeholder {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    #pane-students #rosterSearch:focus {
+      background: rgba(255, 255, 255, 0.5) !important;
     }
     /* Roster ink pins, both poles (detail-editorial language): names +
        monograms near-black, meta/roll graphite, selected rows full-ink
@@ -3965,18 +4051,20 @@
     html #pane-students #studentList .empty b {
       color: rgba(24, 26, 32, 0.6) !important;
     }
-    /* Floating action pills (user order — black card retired, bars stay
-       put): no window behind them, just the three pills on the ambient
-       in the same stack/position. Same type as EDIT INFORMATION
+    /* Action pills docked below the lower divider (user order — black
+       card retired, then single window): same stack position, now
+       inside the frost. Same type as EDIT INFORMATION
        (34px/999px/10px/500/0.08em): New Enrollment = white pill,
        Import/Export = solid black pills, white text. Every state
        identical — no shape flash (ONE-pill philosophy). */
     #pane-students #studentActionsCard {
       background: transparent !important;
       border: none !important;
+      border-top: 1px solid rgba(24, 26, 32, 0.12) !important;
       border-radius: 0 !important;
       box-shadow: none !important;
-      padding: 14px !important;
+      padding: 12px 0 0 !important;
+      margin: 12px 0 0 !important;
       display: flex !important;
       flex-direction: column !important;
       gap: 8px !important;
@@ -4090,14 +4178,13 @@
       backdrop-filter: var(--ref-frost-blur) !important;
       -webkit-backdrop-filter: var(--ref-frost-blur) !important;
       border: none !important;
-      border-radius: var(--ref-radius) !important;
+      border-radius: 0 var(--ref-radius) var(--ref-radius) 0 !important;
       box-shadow: none !important;
       padding: 0 !important;
       flex: 1 1 0% !important;
       min-width: 0 !important;
       box-sizing: border-box !important;
-      align-self: flex-start !important;
-      max-height: 100% !important;
+      align-self: stretch !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
@@ -4106,7 +4193,7 @@
     #pane-students .detail-pane .detail-scroll,
     #pane-students #detailScroll {
       background: transparent !important;
-      padding: 28px 32px !important;
+      padding: 36px 40px !important;
     }
     /* Dark-ink text inside the frost card (beats white-ink inheritance). */
     #pane-students .detail-pane .pf-title-row div,
@@ -4119,7 +4206,7 @@
     }
     #pane-students .detail-pane .detail-field label,
     #pane-students .detail-pane .table-wrap > div:first-child > span {
-      color: rgba(24, 26, 32, 0.5) !important;
+      color: rgba(24, 26, 32, 0.55) !important;
     }
     #pane-students .detail-pane .empty {
       color: rgba(24, 26, 32, 0.6) !important;
@@ -4524,7 +4611,7 @@
 
     /* Profile Attendance History Table: clean rows, no hairlines */
     #detailScroll .table-wrap {
-      margin-top: 24px !important;
+      margin-top: 32px !important;
       padding-top: 0 !important;
       border-top: none !important;
     }
@@ -12440,10 +12527,6 @@
       <div class="admin-top">
         <div class="admin-title" id="adminTitle">Students</div>
         <div class="rail-search"><div class="search-wrap"><span class="search-ico" aria-hidden="true">⌕</span><input id="searchInput" placeholder="Search students, actions, settings" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="cmdPal"></div><div class="cmd-pal" id="cmdPal" role="listbox" hidden></div></div>
-        <div style="display:flex;gap:8px;align-items:center"><button
-            class="admin-close close-btn" id="inkToggleBtn" aria-label="Toggle ink">☀</button><span class="esc-hint"
-            style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase">Esc</span><button
-            class="admin-close close-btn" id="adminClose">Close</button></div>
       </div>
       <div class="admin-body">
         <div class="admin-main" id="adminMain">
@@ -12456,6 +12539,7 @@
           </div>
           <div class="split-view" style="flex:1 1 0%;min-height:0;display:flex;flex-direction:row;overflow:hidden">
             <div class="list-pane">
+              <div class="roster-search"><input id="rosterSearch" placeholder="Search students" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search students"></div>
               <div class="list-scroll" id="studentList"></div>
               <div class="student-actions-card" id="studentActionsCard" aria-label="Student actions">
                 <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
@@ -12988,6 +13072,10 @@
             <button class="btn" id="sideAddBatchBtn">Add Batch</button>
             <button class="btn" id="openSchoolInfoBtn">School Information</button>
           </div>
+          <div class="side-foot" id="sideFoot" style="display:flex;gap:8px;align-items:center;justify-content:center"><button
+              class="admin-close close-btn" id="inkToggleBtn" aria-label="Toggle ink">☀</button><span class="esc-hint"
+              style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase">Esc</span><button
+              class="admin-close close-btn" id="adminClose">Close</button></div>
         </aside>
       </div>
     </div>

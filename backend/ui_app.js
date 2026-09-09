@@ -641,6 +641,7 @@ function populateAttStudents(){
   if(cur && !inScope.some(s => String(s.id)===cur)) attStudentFilter.value = "";
 }
 function renderStudentList(){
+  var _rs=$("rosterSearch"); if(_rs&&document.activeElement!==_rs&&searchInput) _rs.value=searchInput.value||"";
   const q=(searchInput.value||"").toLowerCase(), cf=classFilter?classFilter.value:"", bf=batchFilter?batchFilter.value:"", sf=studentStatusFilter?studentStatusFilter.value:"active";
   let list=Students.filter(s=>{
     if(sf==="active" && !s.active) return false;
@@ -3807,6 +3808,9 @@ detailScroll.addEventListener("click",(e)=>{
 });
 studentListEl.addEventListener("click",(e)=>{ const row=e.target.closest(".student-row"); if(!row) return; const id=parseInt(row.dataset.id); if(id) selectStudent(id); });
 searchInput.addEventListener("input",()=>{ Timers.clear("search"); Timers.set("search", setTimeout(renderStudentList,260)); });
+/* Roster-local search writes through the shared input (no input event,
+   so the command palette stays shut) and re-renders the list. */
+if($("rosterSearch")) $("rosterSearch").addEventListener("input",()=>{ const rs=$("rosterSearch"); if(searchInput&&rs) searchInput.value=rs.value; renderStudentList(); });
 /* Rail command palette: same input, second job. Roster filtering is
    untouched (same id, same debounce above); the palette matches
    actions + students and runs on Enter/click. */
