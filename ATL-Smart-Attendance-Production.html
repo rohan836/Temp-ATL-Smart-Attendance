@@ -9869,20 +9869,7 @@
       color: #181A20 !important;
     }
 
-    /* Zoom-out stability (80% zoom = very wide CSS viewport): cap the
-       setup column so the 7 month columns stop stretching and the
-       cards stop stranding — 80% then keeps the composed 100%/110%
-       geometry instead of going sparse. 1600px sits just under the
-       ~1630px natural width at 100% on 1920 screens, so 100%/110%
-       render near-identical; only wider viewports are capped. The
-       column right-docks to the rail (one gutter; left absorbs slack)
-       so the month holds the rail instead of centering away from it.
-       Narrow screens unaffected (cap only, no minimum). */
-    #pane-setup .detail-scroll > .setup-grid {
-      max-width: 1600px !important;
-      margin: 0 0 0 auto !important;
-    }
-
+    /* (Zoom-out cap retired — H single-window owns the frame now.) */
     /* G2. Full-calendar workspace overrides — placed AFTER the roster
        and month-editor rules they retire (equal specificity ties break
        by order, so these must come last). Roster, inline add footer,
@@ -10040,7 +10027,7 @@
       grid-template-columns: minmax(0, 1fr) 36px 28px !important;
       align-items: center !important;
       column-gap: 12px !important;
-      min-height: 34px !important;
+      min-height: 30px !important;
       padding: 0 14px !important;
       min-width: 0 !important;
       box-sizing: border-box !important;
@@ -10059,7 +10046,7 @@
     }
     #pane-setup #classDetail #cbStrip .cb-name {
       font-family: var(--sans) !important;
-      font-size: 12px !important;
+      font-size: 13px !important;
       font-weight: 400 !important;
       letter-spacing: 0.06em !important;
       text-transform: uppercase !important;
@@ -10071,7 +10058,7 @@
     }
     #pane-setup #classDetail #cbStrip .cb-num {
       font-family: var(--mono) !important;
-      font-size: 10.5px !important;
+      font-size: 11.5px !important;
       text-align: right !important;
       color: rgba(242, 243, 246, 0.75) !important;
     }
@@ -10094,7 +10081,7 @@
       box-shadow: none !important;
       color: rgba(242, 243, 246, 0.55) !important;
       font-family: var(--sans) !important;
-      font-size: 10px !important;
+      font-size: 11px !important;
       font-weight: 500 !important;
       letter-spacing: 0.06em !important;
       text-transform: uppercase !important;
@@ -10113,7 +10100,7 @@
       border: none !important;
       box-shadow: none !important;
       color: rgba(242, 243, 246, 0.4) !important;
-      font-size: 14px !important;
+      font-size: 24px !important;
       line-height: 1 !important;
       text-align: center !important;
       cursor: pointer !important;
@@ -10172,26 +10159,16 @@
        padding, 12px breathing between rows. White text in BOTH
        inks — the reference card doesn't flip. Holidays/Overrides row
        shares the component, so it follows automatically. */
-    #pane-setup #classDetail #cbStrip {
-      border-top: none !important;
-      margin-top: 0 !important;
-      padding-top: 0 !important;
-      /* Shared 16px bottom datum with the rail (rail margin-bottom is
-         16px): 8px strip margin + 8px scroll padding — both columns
-         terminate at the exact same baseline. */
-      margin-bottom: 8px !important;
-    }
+    /* (Strip bottom margin retired — H owns margin-bottom:0.) */
     #pane-setup #classDetail #cbStrip .cb-table {
       background: var(--ref-black) !important;
       border: none !important;
       border-radius: var(--ref-radius) !important;
       box-shadow: none !important;
-      padding: 16px 20px 16px !important;
+      padding: 12px 20px 12px !important;
     }
-    #pane-setup #classDetail #cbStrip .cb-table + .cb-table {
-      border-left: none !important;
-      padding-left: 20px !important;
-    }
+    /* (Sibling override retired — all four cards share the base
+       12px/20px pad identically; special-casing caused edge drift.) */
     /* Reference type: big light title, muted count, Discover-style verbs. */
     html #adminLayer#adminLayer #pane-setup #classDetail #cbStrip .cb-table .cb-title {
       font-size: 20px !important;
@@ -10507,62 +10484,8 @@
       font-weight: 500 !important;
     }
 
-    /* Legend emphasis (display-only): the pressed status keeps full
-       type while non-matching cells wash quiet. Monochrome pole
-       values only, both inks; geometry and data untouched. */
-    #calendarGrid.cal-dim-working .calendar-cell.non-working .day,
-    #calendarGrid.cal-dim-working .calendar-cell.holiday .day,
-    #calendarGrid.cal-dim-working .calendar-cell.vacation .day,
-    #calendarGrid.cal-dim-working .calendar-cell.override .day,
-    #calendarGrid.cal-dim-nonworking .calendar-cell.working .day,
-    #calendarGrid.cal-dim-nonworking .calendar-cell.override .day,
-    #calendarGrid.cal-dim-override .calendar-cell.working .day,
-    #calendarGrid.cal-dim-override .calendar-cell.non-working .day,
-    #calendarGrid.cal-dim-override .calendar-cell.holiday .day,
-    #calendarGrid.cal-dim-override .calendar-cell.vacation .day {
-      color: rgba(242, 243, 246, 0.30) !important;
-      font-weight: 400 !important;
-    }
-
-    #calendarGrid.cal-dim-working .calendar-cell.non-working .tag,
-    #calendarGrid.cal-dim-working .calendar-cell.holiday .tag,
-    #calendarGrid.cal-dim-working .calendar-cell.vacation .tag,
-    #calendarGrid.cal-dim-working .calendar-cell.override .tag,
-    #calendarGrid.cal-dim-nonworking .calendar-cell.working .tag,
-    #calendarGrid.cal-dim-nonworking .calendar-cell.override .tag,
-    #calendarGrid.cal-dim-override .calendar-cell.working .tag,
-    #calendarGrid.cal-dim-override .calendar-cell.non-working .tag,
-    #calendarGrid.cal-dim-override .calendar-cell.holiday .tag,
-    #calendarGrid.cal-dim-override .calendar-cell.vacation .tag {
-      color: rgba(242, 243, 246, 0.20) !important;
-      font-weight: 400 !important;
-    }
-
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.non-working .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.holiday .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.vacation .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.override .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.working .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.override .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.working .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.non-working .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.holiday .day,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.vacation .day {
-      color: rgba(24, 26, 32, 0.30) !important;
-    }
-
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.non-working .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.holiday .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.vacation .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-working .calendar-cell.override .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.working .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-nonworking .calendar-cell.override .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.working .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.non-working .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.holiday .tag,
-    html[data-ink="dark"] #calendarGrid.cal-dim-override .calendar-cell.vacation .tag {
-      color: rgba(24, 26, 32, 0.20) !important;
-    }
+    /* (Legend dimming retired — fixed O2 scoped dims below govern both
+       poles; these light-ink ties always lost.) */
 
     /* -------------------------------------------------------------
        Weekly Template: Seamless Editorial Section (No Boxed Card)
@@ -12518,7 +12441,7 @@
       padding: 0 !important;
     }
     /* Weekday strip + date grid: transparent sections of the one window
-       (flat text-only law untouched); the strip keeps an 8px breather
+       (flat text-only law untouched); the strip keeps a 12px breather
        above the grid with no divider between (one calendar). */
     #pane-setup #classDetail #calendarHeadGrid {
       background: transparent !important;
@@ -13064,6 +12987,20 @@
         display: none !important;
       }
     }
+    /* Setup rail actions: ADD CLASS / ADD BATCH retire here — every
+       board card carries its own EDIT/ADD verbs into the same
+       openSchedPopup destinations. Nodes stay hidden as logic truth
+       (wiring untouched); SCHOOL INFORMATION remains. */
+    html #adminLayer#adminLayer #adminSide #sideAddClassBtn,
+    html #adminLayer#adminLayer #adminSide #sideAddBatchBtn {
+      display: none !important;
+    }
+    /* Setup context emptied (School Information relocated under the
+       boards): hide the whole ctx so no orphan label/sep remains.
+       updateTabs toggling is untouched; foot still docks. */
+    html #adminLayer#adminLayer #adminSide .side-ctx#sideCtx-setup {
+      display: none !important;
+    }
 
     /* K. Attendance section redesign (user order — read the old comments
        first: the hairline-divided strip + borderless table were painted
@@ -13372,6 +13309,898 @@
       color: #181A20 !important;
     }
 
+    /* N. Month tonal redesign (user order — tile-matrix inspiration):
+       the month's whole tonal scale was dead (a 2-ID ink pin outranks
+       every working/off/override/holiday tone rule, so all 30 days
+       rendered identical — the "empty" feeling). Restored as text-only
+       monochrome (tile idea without fills): full-ink working numerals,
+       dimmed idle columns, 500-marked overrides, ringed today, plus a
+       live working-days fraction (the reference 2/4 datum). */
+    /* (N fraction container rules retired with Q3 — node hidden.)
+       (N tones/ring/dims retired by O2 matte-black cubes — see below.) */
+    /* O. Month tile matrix (user order — cube-tile inspiration, now
+       matte-black throughout per O2): 8px gaps, rounded tiles, state
+       classes encode everything — paint only, geometry preserved. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid {
+      gap: 8px !important;
+    }
+    /* Leading empty slots: fully invisible placeholders (no hairlines —
+       the old grid rules would otherwise draw boxes around nothing). */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell:not([data-date]) {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell {
+      border: none !important;
+      border-radius: 10px !important;
+      overflow: hidden !important;
+    }
+    /* Legend dimming reads through TEXT only — fills stay solid black
+       under every filter (flattening working tiles erases the month
+       into ghost text on bare frost; fixed). */
+
+    /* O2. Matte-black cubes (user order): every date cell is a flat
+       matte-black tile — no border, no shadow. Numerals go 15px/500
+       white, tags 10px; state reads through tag tone only.
+       31-day fix (exact math): the grid owns a FIXED 424px footprint
+       (6 rows x 64px + 5 gaps x 8px); rows share it via 1fr, so 5-row
+       and 6-row months render the identical box — surrounding UI can
+       never stretch. Setup stack rhythm: 14 pane pads, 12 section
+       gaps, 30px toolbar slots, 30px board rows. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid {
+      height: 424px !important;
+      min-height: 424px !important;
+      grid-auto-rows: minmax(64px, 1fr) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell[data-date] {
+      background: var(--ref-black) !important;
+      border: none !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell .day {
+      color: #F2F3F6 !important;
+      font-size: 15px !important;
+      font-weight: 500 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell .tag {
+      font-size: 10px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.working .tag {
+      color: rgba(242, 243, 246, 0.7) !important;
+      font-weight: 400 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.non-working .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.vacation .tag {
+      color: rgba(242, 243, 246, 0.38) !important;
+      font-weight: 400 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.holiday .tag {
+      color: rgba(242, 243, 246, 0.55) !important;
+      font-weight: 400 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.override .tag {
+      color: #F2F3F6 !important;
+      font-weight: 500 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell[data-date]:hover {
+      background: #232326 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.today {
+      box-shadow: inset 0 0 0 1px rgba(242, 243, 246, 0.55) !important;
+    }
+    /* Legend dimming: only NON-matching cells faint — the selected
+       group stays full (an earlier version dimmed everything including
+       the selection: inverted emphasis, fixed). */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.non-working .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.holiday .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.vacation .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.override .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-nonworking .calendar-cell.working .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-nonworking .calendar-cell.override .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.working .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.non-working .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.holiday .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.vacation .day {
+      color: rgba(242, 243, 246, 0.3) !important;
+      font-weight: 500 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.non-working .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.holiday .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.vacation .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.override .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-nonworking .calendar-cell.working .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-nonworking .calendar-cell.override .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.working .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.non-working .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.holiday .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-override .calendar-cell.vacation .tag {
+      color: rgba(242, 243, 246, 0.2) !important;
+      font-weight: 400 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-working .calendar-cell.override,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid.cal-dim-nonworking .calendar-cell.override {
+      background: var(--ref-black) !important;
+    }
+
+    /* O3. Weekday header cubes (user order): SUN–SAT headers get the
+       setup dashed border as outline cubes — no fill, text and colors
+       untouched. Same 8px gap rhythm as the date cubes below, so all
+       seven columns stay aligned. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card {
+      background: transparent !important;
+      border: 1px dashed rgba(24, 26, 32, 0.22) !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+    }
+
+    /* O4. Weekday stadium bar (user order — reference pill): the seven
+       outline cubes fuse into ONE soft matte-white bar (24px, setup
+       radius) carrying day names + working/off status words in
+       tone-graded type. Flat matte fill (no blur, no border). */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarHeadGrid {
+      background: rgba(255, 255, 255, 0.6) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-radius: var(--ref-radius) !important;
+      box-shadow: none !important;
+      gap: 0 !important;
+      padding: 0 18px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card .w-name {
+      font-size: 12px !important;
+      font-weight: 500 !important;
+      color: #181A20 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off .w-name {
+      color: rgba(24, 26, 32, 0.5) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card .w-status {
+      display: block !important;
+      font-size: 9px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      margin-top: 2px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.working .w-status {
+      color: rgba(24, 26, 32, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off .w-status {
+      color: rgba(24, 26, 32, 0.35) !important;
+    }
+
+    /* P. Static 4-across board row (user order): Classes · Batches ·
+       Holidays · Overrides as four equal black rectangles in ONE
+       horizontal row under the month (pages flatten via display:contents
+       so tables grid directly). Fixed 240px cards, 12px gutters, even
+       header verbs. 2-col under 1100px, single column under 640px. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      column-gap: 12px !important;
+      row-gap: 12px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-page,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-page[hidden] {
+      display: contents !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
+      height: 240px !important;
+      max-height: 240px !important;
+      min-width: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-act {
+      padding: 4px 8px !important;
+    }
+    /* Locked 30px rows: Classes/Batches (and Holidays/Overrides) share
+       identical row rhythm, so rows align across cards row-for-row.
+       30px fits all 8 class rows with zero scroll at 100%. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-row {
+      height: 30px !important;
+    }
+    /* Empty guidance text starts on the name column (card pad + row
+       pad), never at the raw card edge. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-empty {
+      padding-left: 14px !important;
+      padding-right: 14px !important;
+    }
+    /* Board footer retired (user order — School Information docks top-left
+       in the toolbar): empty node hides, takes no space. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbSchoolRow {
+      display: none !important;
+    }
+    /* School Information top-left (user order): first item in the Setup
+       toolbar, black 36px pill both poles, sits in the left corner
+       ahead of the centered legend + right nav. */
+
+    /* Q. Toolbar recomposition (user order): three no-wrap groups with
+       fixed slots — legend row, context select, month nav. Words can
+       never split mid-group; groups wrap intact on narrow screens.
+       Fraction joins the nav as one inline readout (mono number +
+       muted caption, hairline-divided) instead of a stacked corner. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar {
+      justify-content: flex-start !important;
+      column-gap: 24px !important;
+      row-gap: 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar .setup-monthview-legend,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar .setup-monthview-nav {
+      flex-wrap: nowrap !important;
+      white-space: nowrap !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar .setup-monthview-legend > *,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar .setup-monthview-nav > * {
+      flex: none !important;
+      white-space: nowrap !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar .gsel:has(> select#calClassSelect) {
+      flex: 0 1 auto !important;
+      min-width: 0 !important;
+    }
+    /* (Q fraction sizing retired with Q3 — node hidden.) */
+    /* Q3. Fraction retired from the nav (user order): the readout node
+       stays as hidden JS truth (render writes guarded text), renders
+       nothing — PREV / label / NEXT / TODAY breathe evenly again. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calWorkFrac {
+      display: none !important;
+    }
+    /* Q4. Toolbar divider out (user order); MONTH VIEW is the reset
+       button back to the full month — title type, underline on hover
+       as the affordance. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar {
+      border-bottom: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar button.setup-monthview-title {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      cursor: pointer !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar button.setup-monthview-title:hover {
+      text-decoration: none !important;
+      color: #181A20 !important;
+    }
+    /* No bar under any of the four legend items (user order): pressed
+       reads via full-ink color only, never the inset underline. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar button.setup-legend-item[aria-pressed="true"] {
+      box-shadow: none !important;
+    }
+
+    /* Global click purity (user order): UI text is solid — no selection
+       highlight stretch on click/drag anywhere in admin or its popups
+       (fields keep text selection for typing/copy). All cosmetic
+       transitions off: states snap instantly, click-only. Functional
+       animations (scan sweep/glow) are `animation`, untouched. */
+    html #adminLayer#adminLayer,
+    html #adminLayer#adminLayer *,
+    html body > .gsel-pop,
+    html body > .gsel-pop *,
+    html .modal,
+    html .modal *,
+    html .dt-pop,
+    html .dt-pop *,
+    html .gconfirm-ov,
+    html .gconfirm-ov * {
+      transition: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+    html #adminLayer#adminLayer input,
+    html #adminLayer#adminLayer textarea,
+    html #adminLayer#adminLayer select,
+    html .modal input,
+    html .modal textarea,
+    html .modal select {
+      user-select: text !important;
+      -webkit-user-select: text !important;
+    }
+    /* Tap highlight (the actual white-stretch source): Chromium paints a
+       native press overlay on every tap — invisible in author CSS,
+       unaffected by selection/transition kills. Transparent everywhere
+       in admin and popups; clicks still register normally. */
+    html #adminLayer#adminLayer,
+    html #adminLayer#adminLayer *,
+    html body > .gsel-pop,
+    html body > .gsel-pop *,
+    html .modal,
+    html .modal *,
+    html .dt-pop,
+    html .dt-pop *,
+    html .gconfirm-ov,
+    html .gconfirm-ov * {
+      -webkit-tap-highlight-color: transparent !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:hover,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:active,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:focus {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 36px !important;
+      min-height: 36px !important;
+      width: auto !important;
+      margin: 0 !important;
+      padding: 0 22px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex: none !important;
+      order: -1 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      outline: none !important;
+      white-space: nowrap !important;
+    }
+    /* R. Boards dock flush (user order): the dashed divider above the
+       four cards is gone (no bar between month and boards — 8px air
+       only), and the window keeps a small bottom inset (18px breathing
+       pad + footer hairline off) so the rounded card
+       corners always float on frost, never touching the edge. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup {
+      padding: 20px 0 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup::after {
+      display: none !important;
+      content: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+      border-top: none !important;
+      margin-top: 8px !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+    /* R2. Bottoms flush at every zoom (user order — investigation:
+       the rail foot pins to the rail bottom via margin-top:auto, but
+       the main column's #classDetail had no flex:1, so leftover
+       viewport space pooled as frost BELOW the fixed 240px cards
+       (visible at 100%; size varies with viewport, never with data).
+       Fix by construction: the column absorbs leftover and passes it
+       into the cards — 240px becomes the minimum, cards grow to the
+       window bottom, extra space shows more rows (inner scroll kept).
+       Month keeps its exact 424px footprint; month→boards stays 8px. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarHeadGrid,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid {
+      flex: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      grid-auto-rows: minmax(0, 1fr) !important;
+      align-content: stretch !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
+      height: auto !important;
+      /* Capped: uncapped cards absorb whole tall/portrait viewports
+         into black voids — 400px max shows all 8 rows + air, surplus
+         stays cream below. */
+      max-height: 400px !important;
+      min-height: 240px !important;
+    }
+    /* S. Fit at 100% without scroll (user order): the 20px top inset
+       pushed an exact-fit stack into overflow, clipping the weekday
+       bar. Reclaim 12px of pure section air (toolbar pad, scroll-top
+       pad, bar→month gap) — locked values (20 top, 18 bottom, 424
+       month, 240 cards, 8 month→boards) untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar {
+      padding-bottom: 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .detail-scroll {
+      padding: 8px 0 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarHeadGrid {
+      margin: 0 0 8px !important;
+    }
+    /* T. Tighter vertical lanes (user order — designer call): the date
+       cubes run ~3:1 wide:tall, so even 8px gaps read airy up-down
+       while perfect left-right. row-gap 8→4px (column-gap stays 8);
+       the freed px flow into cube height via the 1fr rows. Zero
+       stack impact — month box, fit, and cards untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid {
+      row-gap: 4px !important;
+    }
+    /* V. Full-bleed bars (user order): zero-frame construction — the
+       pane/scroll carry NO side pads, so the weekday bar, the month
+       grid, and the board strip span the full width naturally (no
+       negative margins, no width-lock fights). Toolbar keeps its
+       14px inset via its own padding. Square bar corners. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .detail-scroll {
+      margin: 0 !important;
+      padding: 8px 0 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar {
+      padding: 0 14px 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid {
+      padding: 0 !important;
+    }
+    /* The other invisible wall: the base `.detail-card` rule carries
+       `contain: layout paint`, which clips every descendant at the
+       card box — no inner bleed can pass it. The setup card is a
+       retired transparent section, not a container: drop containment
+       (setup scope only; all other panes keep theirs). */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-card,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .detail-card.setup-card {
+      contain: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarHeadGrid {
+      border-radius: 0 !important;
+      margin: 0 0 8px !important;
+    }
+    /* W. Bottom boards full-bleed (user order): the zero frame puts
+       the strip edge-to-edge (left/right/bottom) with no bleeds;
+       12px gutters between cards kept, square cubes. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+      margin: 8px 0 0 !important;
+    }
+    /* Sharp-outer corners (user order): edge-touching panels go
+       square ONLY where they meet the borders; gap-facing corners
+       stay round. First/last cards addressed inside their pages
+       (pager-proof); date cubes by grid column. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
+      border-radius: var(--ref-radius) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    @media (max-width: 1100px) {
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+      }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
+        border-top-left-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+      }
+    }
+    @media (max-width: 640px) {
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
+        border-top-left-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+      }
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell[data-date]:nth-child(7n+1) {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell[data-date]:nth-child(7n) {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    /* Uniform cube geometry (user order): fixed 74px rows every month
+       — cubes never resize between 4/5/6-row months; the box is
+       content-sized so the month→boards gap stays locked 8 (boards
+       shift only when the row count itself changes). Last-row day
+       cubes go sharp at the bottom (JS `row-last` tag). */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid {
+      height: auto !important;
+      min-height: 0 !important;
+      grid-auto-rows: 74px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.row-last[data-date] {
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    /* Day-sheet two-tone (user order): matte cream + matte black only.
+       Black title, black status chip, black-bordered close, black
+       primary — no grays anywhere in this window. */
+    html #daySheetModal#daySheetModal .modal-card {
+      background: #F4EEE1 !important;
+    }
+    html #daySheetModal#daySheetModal #daySheetTitle {
+      font-size: 18px !important;
+      font-weight: 600 !important;
+      color: #141414 !important;
+    }
+    html #daySheetModal#daySheetModal #daySheetBody .setup-legend-context {
+      background: #141414 !important;
+      color: #F4EEE1 !important;
+      border: none !important;
+      border-radius: 999px !important;
+      padding: 5px 14px !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+    }
+    html #daySheetModal#daySheetModal #dsClose {
+      border: 3px solid #141414 !important;
+      color: #141414 !important;
+    }
+    html #daySheetModal#daySheetModal #dsAddOv {
+      border-width: 3px !important;
+    }
+    html #daySheetModal#daySheetModal #dsDelOv,
+    html #daySheetModal#daySheetModal #dsDelHol {
+      background: transparent !important;
+      border: 3px solid #141414 !important;
+      border-radius: 999px !important;
+      color: #141414 !important;
+    }
+    /* Popup Save→tick / Cancel→cross (user order): bare clickable
+       glyphs, no pills — cross left, tick right (text kept at 0px
+       for readers; hover/press identical, zero response). */
+    html #holidayModal#holidayModal #holidaySave,
+    html #overrideModal#overrideModal #overrideSave,
+    html #schoolInfoModal#schoolInfoModal #settingsSaveBtn,
+    html #schedModal#schedModal #pbSave,
+    html #holidayModal#holidayModal #holidaySave:hover,
+    html #holidayModal#holidayModal #holidaySave:active,
+    html #holidayModal#holidayModal #holidaySave:focus,
+    html #overrideModal#overrideModal #overrideSave:hover,
+    html #overrideModal#overrideModal #overrideSave:active,
+    html #overrideModal#overrideModal #overrideSave:focus,
+    html #schoolInfoModal#schoolInfoModal #settingsSaveBtn:hover,
+    html #schoolInfoModal#schoolInfoModal #settingsSaveBtn:active,
+    html #schoolInfoModal#schoolInfoModal #settingsSaveBtn:focus,
+    html #schedModal#schedModal #pbSave:hover,
+    html #schedModal#schedModal #pbSave:active,
+    html #schedModal#schedModal #pbSave:focus {
+      font-size: 0 !important;
+      line-height: 0 !important;
+      min-width: 0 !important;
+      height: auto !important;
+      padding: 10px 12px !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M5 12.5 C 8.5 15.5, 10.5 17.5, 12 19 C 15.5 13, 19 8.5, 23.5 5' stroke='%23141414' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E") no-repeat center !important;
+      background-size: 26px 22px !important;
+    }
+    html #holidayModal#holidayModal #holidayCancel,
+    html #overrideModal#overrideModal #overrideCancel,
+    html #schoolInfoModal#schoolInfoModal #schoolInfoCancel,
+    html #schedModal#schedModal #pbCancel,
+    html #holidayModal#holidayModal #holidayCancel:hover,
+    html #overrideModal#overrideModal #overrideCancel:hover,
+    html #schoolInfoModal#schoolInfoModal #schoolInfoCancel:hover,
+    html #schedModal#schedModal #pbCancel:hover {
+      font-size: 0 !important;
+      line-height: 0 !important;
+      min-width: 0 !important;
+      height: auto !important;
+      padding: 10px 12px !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.2 4.6 C 8 8.4, 12 12.4, 15.8 15.4' stroke='%23141414' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M15.8 4.6 C 12 8.4, 8 12.4, 4.2 15.4' stroke='%23141414' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E") no-repeat center !important;
+      background-size: 26px 26px !important;
+    }
+    /* Bare-glyph rows (user order): cross left, tick right, one row —
+       containers spread edge to edge. No hover answer, static. */
+    html #holidayModal#holidayModal .form-field:has(#holidaySave),
+    html #overrideModal#overrideModal .form-field:has(#overrideSave),
+    html #schoolInfoModal#schoolInfoModal .form-field:has(#settingsSaveBtn),
+    html #schedModal#schedModal .form-field:has(#pbSave) {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+    }
+    }
+    /* 3px border unification across Setup + all its popups (user order):
+       every bordered pill and popup card edge shares the cube border.
+       Borderless text verbs and hairline dividers untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .btn.primary,
+    html #holidayModal#holidayModal .btn,
+    html #overrideModal#overrideModal .btn,
+    html #schoolInfoModal#schoolInfoModal .btn,
+    html #schedModal#schedModal .btn,
+    html #holidayViewModal#holidayViewModal .btn,
+    html #overrideViewModal#overrideViewModal .btn,
+    html #daySheetModal#daySheetModal .btn {
+      border-width: 3px !important;
+      border-color: #141414 !important;
+    }
+    html #holidayModal#holidayModal .modal-card,
+    html #overrideModal#overrideModal .modal-card,
+    html #schoolInfoModal#schoolInfoModal .modal-card,
+    html #schedModal#schedModal .modal-card,
+    html #holidayViewModal#holidayViewModal .modal-card,
+    html #overrideViewModal#overrideViewModal .modal-card,
+    html #daySheetModal#daySheetModal .modal-card {
+      border: 3px solid #141414 !important;
+    }
+    /* Board ADD verbs go bordered (user order): cream 3px pills — a
+       black border would vanish on the black cards. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbAddClass,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbAddBatch,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbAddHoliday,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbAddOverride {
+      border: none !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0 6px !important;
+      color: #F4EEE1 !important;
+      font-size: 24px !important;
+      font-weight: 400 !important;
+      line-height: 1 !important;
+    }
+    /* One cream everywhere (user order): popup fields wear the wall
+       cream with the 3px cube border instead of off-white fills. */
+    html #holidayModal#holidayModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #overrideModal#overrideModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #schoolInfoModal#schoolInfoModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #schedModal#schedModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #daySheetModal#daySheetModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #holidayModal#holidayModal .modal-card .form-field textarea,
+    html #overrideModal#overrideModal .modal-card .form-field textarea,
+    html #schoolInfoModal#schoolInfoModal .modal-card .form-field textarea,
+    html #schedModal#schedModal .modal-card .form-field textarea,
+    html #holidayModal#holidayModal .modal-card .form-field select,
+    html #overrideModal#overrideModal .modal-card .form-field select,
+    html #schoolInfoModal#schoolInfoModal .modal-card .form-field select,
+    html #schedModal#schedModal .modal-card .form-field select {
+      background: #F4EEE1 !important;
+      border: 3px solid #141414 !important;
+    }
+    html #holidayModal#holidayModal .modal-card .form-field .gsel-btn,
+    html #overrideModal#overrideModal .modal-card .form-field .gsel-btn,
+    html #schoolInfoModal#schoolInfoModal .modal-card .form-field .gsel-btn,
+    html #schedModal#schedModal .modal-card .form-field .gsel-btn,
+    html #daySheetModal#daySheetModal .modal-card .form-field .gsel-btn {
+      background: #F4EEE1 !important;
+      border: 3px solid #141414 !important;
+    }
+    /* EDIT verbs retired (user order): row click opens the editor
+       directly — buttons hide, ADD stays. Nodes stay as wiring truth. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbEditClass,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbEditBatch,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbEditHoliday,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #cbEditOverride {
+      display: none !important;
+    }
+    /* Board row dividers (user order): hairline between rows so each
+       record reads as its own section — never on the first row. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-rows .cb-row + .cb-row {
+      border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+    }
+    /* Del-column clearance (user order): the row × sat directly under
+       the header ADD — extra right pad walks × left, names untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-row {
+      padding: 0 24px 0 14px !important;
+    }
+    /* Header→rows air (user order): 6px breathing room so the first ×
+       never reads as touching ADD — funded by 6px off the card top
+       pad, net zero, 8-visible math preserved. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
+      padding: 6px 20px 12px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-rows {
+      padding-top: 6px !important;
+    }
+    /* Hand-drawn remove cross (user order): marker-wobble SVG strokes
+       replace the straight font glyph — cream on the black boards
+       (matte black would vanish there), bigger, cool. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-del {
+      font-size: 0 !important;
+      line-height: 0 !important;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.2 4.6 C 8 8.4, 12 12.4, 15.8 15.4' stroke='%23F4EEE1' stroke-width='2.6' stroke-linecap='round' fill='none' opacity='0.8'/%3E%3Cpath d='M15.8 4.6 C 12 8.4, 8 12.4, 4.2 15.4' stroke='%23F4EEE1' stroke-width='2.6' stroke-linecap='round' fill='none' opacity='0.8'/%3E%3C/svg%3E") no-repeat center !important;
+      background-size: 18px 18px !important;
+      opacity: 0.8 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-del:hover {
+      opacity: 1 !important;
+    }
+    /* Exception days read as outline cubes (user order): holidays and
+       overrides go transparent with a thick black border and dark
+       text on cream — working cubes stay solid black. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.holiday[data-date],
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.override[data-date] {
+      background: transparent !important;
+      border: 3px solid var(--ref-black) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.holiday[data-date] .day,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.override[data-date] .day {
+      color: #181A20 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.holiday[data-date] .tag,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell.override[data-date] .tag {
+      color: #181A20 !important;
+    }
+    /* Alternating weekday cubes (user order): white strip retired —
+       SUN/TUE/THU/SAT black cubes, MON/WED/FRI plain text on cream.
+       Static (motion stays retired); 8px gutters align with the date
+       columns below. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarHeadGrid {
+      background: transparent !important;
+      padding: 0 !important;
+      gap: 8px !important;
+      grid-auto-rows: auto !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card {
+      height: auto !important;
+      padding: 8px 4px !important;
+      text-align: center !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card:nth-child(odd) {
+      background: var(--ref-black) !important;
+      border-radius: 10px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card:nth-child(odd) .w-name {
+      color: #F2F3F6 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card:nth-child(odd) .w-status {
+      color: rgba(242, 243, 246, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card:nth-child(even) {
+      background: transparent !important;
+    }
+    /* State-driven head (user order — replaces position logic above):
+       WORKING days are dark cubes, OFF days are transparent text on
+       cream; edge cubes sharp where they touch the borders. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.working {
+      background: var(--ref-black) !important;
+      border-radius: 10px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.working .w-name {
+      color: #F2F3F6 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.working .w-status {
+      color: rgba(242, 243, 246, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off {
+      background: transparent !important;
+    }
+    /* Off-day outline cubes (user order): transparent with a thick
+       black border, solid dark text; edge cells sharp at borders. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off {
+      border: 3px solid var(--ref-black) !important;
+      border-radius: 10px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off:first-child {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off:last-child {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.working:first-child {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.working:last-child {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    /* Solid off-text (user order): OFF days read full-ink — state shows
+       in the WORD only, never dimmed alpha. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off .w-name,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarHeadGrid .weekly-day-card.off .w-status {
+      color: #181A20 !important;
+    }
+    /* W2. The true bottom gap (cited): the old 3-column-era rule
+       (`align-items:start` on .setup-grid) top-aligns the card so it
+       hugs content height and leftover pools below as frost — this
+       defeated the whole stretch chain. Single-column window now:
+       stretch, so cards grow to the bottom edge. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-grid {
+      align-items: stretch !important;
+    }
+    /* Z. No window chrome (user order — Admin is the same cream page,
+       not a floating box): body fills the viewport exactly (no
+       margins, no radius, no border), seamless with the wall. Rail
+       seam + content rhythms carry all structure. */
+    html #adminLayer#adminLayer .admin-body {
+      margin: 0 !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+    /* X. Cream wall — full UI (user order): photo ambient gone, frost
+       retired to solid cream, decorative motion off. One cream wall;
+       black cards / white bar / pills / hairlines carry structure.
+       Functional scan/state JS untouched. */
+    html body {
+      background: #F4EEE1 !important;
+    }
+    html body::before {
+      display: none !important;
+      content: none !important;
+      background: none !important;
+    }
+    /* Frost vars → solid cream: every frosted surface follows at once. */
+    html {
+      --ref-frost: #F4EEE1 !important;
+      --glass-bg: #F4EEE1 !important;
+      --glass-bg-strong: #F4EEE1 !important;
+      --frost-bg: #F4EEE1 !important;
+      --ref-frost-blur: none !important;
+      --frost-blur: none !important;
+      --glass-blur: none !important;
+      --glass-blur-sm: none !important;
+    }
+    /* Belt-and-braces: no blur, no keyframe motion anywhere in UI
+       chrome (transitions/fades are functional feedback — kept). */
+    html #adminLayer#adminLayer,
+    html #adminLayer#adminLayer *,
+    html .terminal,
+    html .terminal *,
+    html .modal,
+    html .modal *,
+    html body > .gsel-pop,
+    html body > .gsel-pop *,
+    html #cmdPal,
+    html #cmdPal *,
+    html .dt-pop,
+    html .dt-pop *,
+    html .gconfirm-ov,
+    html .gconfirm-ov * {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      animation: none !important;
+    }
+    /* The sweep simulation reads dead frozen without motion — hide it;
+       the bordered finger box remains the scanner visual. */
+    html .finger-line {
+      display: none !important;
+    }
+    /* Kiosk re-ink for cream (white-mode white text dies on cream). */
+    html .prompt {
+      color: rgba(24, 26, 32, 0.88) !important;
+    }
+    html .admin-trigger {
+      color: rgba(24, 26, 32, 0.75) !important;
+    }
+    html .admin-trigger:hover {
+      color: #181A20 !important;
+    }
+    html .identity-layer .result-msg {
+      color: var(--ok) !important;
+    }
+    html .unknown-layer .result-msg {
+      color: var(--danger) !important;
+    }
+    /* T2. Cubes fill their tracks (the true up-down asymmetry): a base
+       rule pinned every cube to 56px while 1fr tracks run ~80px, so
+       ~24px of track frost masqueraded as vertical gap (widths were
+       never pinned — hence perfect left-right). Unpin height: cubes
+       stretch to their tracks and the 4px row-gap reads true, in
+       5-row and 6-row months alike. Interiors untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell {
+      height: auto !important;
+      min-height: 0 !important;
+    }
+    @media (max-width: 1100px) {
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+    @media (max-width: 640px) {
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+    }
+
     @media print {
 
       .terminal,
@@ -13563,12 +14392,13 @@
                Attendance (thin control row under TOP NAV). Left: list
                tabs. Center: month context. Right: month navigation. -->
           <div class="setup-toolbar" id="setupToolbar">
+            <button class="btn" id="openSchoolInfoBtn">School Information</button>
             <div class="setup-toolbar-left">
               <button class="cube-tab" id="cubeTabClasses" role="tab">Classes</button>
               <button class="cube-tab" id="cubeTabBatches" role="tab">Batches</button>
             </div>
             <div class="setup-monthview-legend">
-              <span class="setup-monthview-title">Month View</span>
+              <button type="button" class="setup-monthview-title" id="monthViewResetBtn" title="Reset filters">Month View</button>
               <button type="button" class="setup-legend-item" data-calview="working" aria-pressed="false">WORKING</button>
               <button type="button" class="setup-legend-item off" data-calview="non-working" aria-pressed="false">NON-WORKING</button>
               <button type="button" class="setup-legend-item" data-calview="override" aria-pressed="false">OVERRIDE</button>
@@ -13579,6 +14409,7 @@
             <div class="setup-monthview-nav">
               <button class="btn" id="calPrevBtn">‹ Prev</button>
               <div id="calMonthLabel">September 2026</div>
+              <div id="calWorkFrac" title="Working days in view"><span id="calWorkFracNum">–/–</span><span id="calWorkFracCap">Working</span></div>
               <button class="btn" id="calNextBtn">Next ›</button>
               <button class="btn" id="calTodayBtn">Today</button>
             </div>
@@ -13615,8 +14446,8 @@
                       </div>
                       <!-- Bottom boards: single stacked section (Classes · Batches
                            + Holidays · Overrides, pager retired by the H
-                           single-window law — both pages always visible
-                           with a dashed divider between). -->
+                           single-window law — both pages always visible,
+                           divider retired by R flush law). -->
                       <div id="cbStrip">
                         <div class="cb-pager">
                           <button type="button" class="cb-arrow" id="cbPrev" aria-label="Previous board">‹</button>
@@ -13625,25 +14456,29 @@
                         </div>
                         <div class="cb-page" id="cbPageCb">
                           <div class="cb-table">
-                            <div class="cb-head"><span class="cb-title">Classes</span><span class="cb-count" id="cbClassCount"></span><button type="button" class="cb-act" id="cbEditClass">Edit</button><button type="button" class="cb-act" id="cbAddClass">Add</button></div>
+                            <div class="cb-head"><span class="cb-title">Classes</span><span class="cb-count" id="cbClassCount"></span><button type="button" class="cb-act" id="cbEditClass">Edit</button><button type="button" class="cb-act" id="cbAddClass" aria-label="Add class">+</button></div>
                             <div class="cb-rows" id="cbClassRows"></div>
                           </div>
                           <div class="cb-table">
-                            <div class="cb-head"><span class="cb-title">Batches</span><span class="cb-count" id="cbBatchCount"></span><button type="button" class="cb-act" id="cbEditBatch">Edit</button><button type="button" class="cb-act" id="cbAddBatch">Add</button></div>
+                            <div class="cb-head"><span class="cb-title">Batches</span><span class="cb-count" id="cbBatchCount"></span><button type="button" class="cb-act" id="cbEditBatch">Edit</button><button type="button" class="cb-act" id="cbAddBatch" aria-label="Add batch">+</button></div>
                             <div class="cb-rows" id="cbBatchRows"></div>
                           </div>
                         </div>
                         <div class="cb-page cb-page-ho" id="cbPageHo" hidden>
                           <div class="cb-table">
-                            <div class="cb-head"><span class="cb-title">Holidays</span><span class="cb-count" id="cbHolidayCount"></span><button type="button" class="cb-act" id="cbEditHoliday">Edit</button><button type="button" class="cb-act" id="cbAddHoliday">Add</button></div>
+                            <div class="cb-head"><span class="cb-title">Holidays</span><span class="cb-count" id="cbHolidayCount"></span><button type="button" class="cb-act" id="cbEditHoliday">Edit</button><button type="button" class="cb-act" id="cbAddHoliday" aria-label="Add holiday">+</button></div>
                             <div class="cb-rows" id="cbHolidayRows"></div>
                           </div>
                           <div class="cb-table">
-                            <div class="cb-head"><span class="cb-title">Overrides</span><span class="cb-count" id="cbOverrideCount"></span><button type="button" class="cb-act" id="cbEditOverride">Edit</button><button type="button" class="cb-act" id="cbAddOverride">Add</button></div>
+                            <div class="cb-head"><span class="cb-title">Overrides</span><span class="cb-count" id="cbOverrideCount"></span><button type="button" class="cb-act" id="cbEditOverride">Edit</button><button type="button" class="cb-act" id="cbAddOverride" aria-label="Add override">+</button></div>
                             <div class="cb-rows" id="cbOverrideRows"></div>
                           </div>
                         </div>
                       </div>
+                      <!-- Board footer node retired (School Information docks
+                           top-left in the toolbar; same node, same opener,
+                           zero new IDs — see top-left guard in ui_app.js). -->
+                      <div id="cbSchoolRow"></div>
                     </div>
                   </div>
                 </div>
@@ -13985,7 +14820,6 @@
             <div class="side-label">Setup actions</div>
             <button class="btn" id="sideAddClassBtn">Add Class</button>
             <button class="btn" id="sideAddBatchBtn">Add Batch</button>
-            <button class="btn" id="openSchoolInfoBtn">School Information</button>
           </div>
           <div class="side-foot" id="sideFoot" style="display:flex;gap:8px;align-items:center;justify-content:center"><button
               class="admin-close close-btn" id="inkToggleBtn" aria-label="Toggle ink">☀</button><span class="esc-hint"

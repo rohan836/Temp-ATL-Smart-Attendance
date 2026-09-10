@@ -45,6 +45,13 @@ Coverage (16 scenarios) includes:
 15. Calendar holiday/override tables roundtrip: add/edit/remove with Month View integration; day window is read-only.
 16. Rail search palette: opens over the rail on a frosted surface with grouped Actions/Students rows, keyboard highlight tracking (`aria-activedescendant`), Escape dismissal, and click-to-select.
 
+## UI-testing shortcut
+
+Bookmark `http://127.0.0.1:5000/?tab=setup` (or any tab name): after a
+refresh the admin reopens straight on that tab — no Admin click, no tab
+hunting. Normal PIN/session rules still apply to API calls. Bare `/`
+(normal users, E2E) is unaffected.
+
 ## Integration testing
 
 Two scan paths are exercised: the active loop `POST /api/scan {waitSec:2}` and the bridge `GET /api/scan/last`. Tests fake the sensor (`FakeSensor.identify → NO_FINGER` creates no event, `→ 42 OK` writes an event with a real `seq`). Verify that `SENSOR_LOCK` serializes enroll versus scan and that enrollment progress via `GET /api/sensor/progress` reports `state title detail timeout_sec remain_sec`.

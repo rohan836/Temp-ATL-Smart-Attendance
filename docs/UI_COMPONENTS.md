@@ -140,8 +140,9 @@ trust the code, then fix this file.
 - **Rail foot** (`#sideFoot`): INK/ESC/CLOSE docked fully-bottom via
   `margin-top:auto` under a dashed divider hairline; borderless text
   buttons, all states identical, both poles.
-- **Contexts** (`.side-ctx`): one per tab (Student / Attendance / Setup
-  controls); `[hidden]` beats the flex shell so inactive controls never
+- **Contexts** (`.side-ctx`): one per tab (Student / Attendance controls;
+  Setup ctx hidden — its actions live on the board cards + board footer);
+  `[hidden]` beats the flex shell so inactive controls never
   leak. Rail actions are black pills (`36px`, `999px`, `#attApplyBtn`).
 - **Body/panes**: single frost window on `.admin-body` (workspace +
   248px rail fused with a dashed seam, dark ink both poles); one visible
@@ -191,22 +192,32 @@ trust the code, then fix this file.
   strip, date grid, and all four boards are transparent sections split
   by dashed divider hairlines — no separate containers, no pager
   carousel (both boards always stack visible).
-- **Month**: toolbar header section (legend + Global schedule selector +
-  month nav, G5 dark ink, uniform 30px slots) over a dashed divider;
-  SUN–SAT display-only strip (44px, 12px breather, no divider — one
-  calendar); date grid (flat text-only cells, `64px` minimum rows,
-  transparent, `0.08` hairline grid both poles, Saturday edge open,
-  420px reserve so 5-row vs 6-row months never move surrounding UI).
+- **Month**: toolbar header section (MONTH VIEW reset button + legend +
+  Global schedule selector + month nav, G5 dark ink, uniform 30px
+  slots, no divider);
+  SUN-SAT stadium bar (single matte-white pill at setup radius, day names
+  + working/off status words), 12px breather, no divider — one
+  calendar); month nav (uniform 30px slots: Prev / mono month label /
+  Next / Today);
+  date grid (matte-black cubes, 8px column / 4px row gaps, 10px radius,
+  outer corners sharp where they meet edges/first-last rows — no borders;
+  15px/500 white numerals, 10px tone-graded tags, white today ring;
+  fixed 68px rows so cubes never resize between months, content-sized
+  box, month→boards gap locked 8).
   `#monthEditor` stays hidden (cutoffs live in the schedule popup).
-- **Boards**: two rows of near-black cards (Classes · Batches, then
-  Holidays · Overrides — 12px gap, 240px cap + inner row scroll, white
-  text both inks, 20px titles, graphite hover wash). Holiday ranges and
+- **Boards**: one horizontal row of four equal near-black cards —
+  Classes · Batches · Holidays · Overrides gridded under the month
+  (pages flatten so tables grid directly; all four min 240px and
+  stretching flush to the frosted border left/right/bottom, 12px
+  gutters, white text both inks, 20px titles, even EDIT/ADD verbs,
+  graphite hover wash; 2-col under 1100px, single column under 640px). Holiday ranges and
   single-date overrides are added via the sidebar
   (`ADD HOLIDAY`, `ADD OVERRIDE`) and edited/removed via table
   Edit/Remove (`#holidayModal` / `#overrideModal` forms with the
   holiday validators). Tables live in eye popups (all Setup popups share
   the warm enrollment-window language — frost card, dark ink, pill
-  fields, black-pill save + outline cancel; `Close` dismisses). Every month
+  fields, black-pill save + outline cancel; no popup veil-dismisses —
+  every window leaves via its own buttons/keys; `Close` dismisses). Every month
   day cell opens a read-only day window (resolved badge +
   global-vs-template source line + Close) — no editing verbs.
   Setup views, popup edits. Single-POST persist throughout. Validated `YYYY-MM-DD[..YYYY-MM-DD]:type:name`
@@ -259,7 +270,7 @@ trust the code, then fix this file.
 | `#overrideModal` | rail Add Override, wheel, day-sheet shortcut (prefilled) | Cancel, veil¹, `Esc`, save | create/edit single-date override |
 | `#holidayViewModal` | rail eye, wheel All Holidays | Close, veil¹, `Esc` | holiday record table (Edit/Remove) |
 | `#overrideViewModal` | rail eye, wheel All Overrides | Close, veil¹, `Esc` | override record table (Edit/Remove) |
-| `#schoolInfoModal` | rail School Information, wheel (3 actions, focus field) | Cancel, veil¹, `Esc`, save | school profile + rules |
+| `#schoolInfoModal` | Setup toolbar top-left School Information, wheel (3 actions, focus field) | Cancel, veil¹, `Esc`, save | school profile + rules |
 | `#setupWheelModal` | rail Action Wheel, toolbar Wheel | hub click, veil¹, `Esc`, any action | 5-sector shortcut wheel |
 | `#correctionModal` | row Correct buttons | veil¹, `Esc` | fix a record (reason required) |
 | `.gconfirm` | any `glassConfirm/Alert/Prompt` | verbs, `Esc`/`Enter`/`Tab` | confirm / notice / input |
@@ -683,3 +694,50 @@ trust the code, then fix this file.
     balanced.
 54. Docs refresh (logs order fixed — 47 sat after 53 from the rebase
     merge; contract sections §4/§5 rewritten to the shipped UI).
+55. Uneven month lanes + anti-theory law (user order — vertical lanes
+    read ~24px while the gap said 8px): the base `.calendar-cell`
+    pin (`height/min-height 56px`) held every cube short inside ~80px
+    1fr tracks; widths were never pinned, hence perfect left-right.
+    Fix: cubes stretch to their tracks (T2) + row-gap 8→4, columns
+    stay 8. PROCESS LAW from my miss on this one: I theorized
+    "proportion illusion" and shipped a gap tweak before reading the
+    item rules — wasted turn. Mandatory sequence for any spacing
+    defect from here on: container gaps → track sizing → ITEM
+    height/width/min pins; no evenness claim without citing the
+    pins. Enforceable version lives in SKILL.md workflow steps 4–5.
+56. Locked stage scaler (user order — inner UI must never reflow on
+    zoom; the frosted box scales as one unit over a fixed ambient):
+    `.admin-body` is a fixed `1760×900` stage, JS `fitAdminStage`
+    sets layout-affecting `zoom` = fit on load/resize (browser zoom
+    fires resize), centered via the open layer. Admin scope only;
+    kiosk idle untouched; small screens render smaller-but-exact
+    (user choice). E2E suite not re-run here (no Python runtime) —
+    zoom shifts computed px, re-verify `test_ui_e2e` on real hardware.
+    REVERTED (fixed box stayed locked on every monitor): CSS block U
+    + `fitAdminStage` fully removed, zero references left.
+59. Visible window edge (user order — cream wall and cream fills are
+    one tone, so the box was edgeless): 1px `0.16` hairline on
+    `.admin-body` (Y block, radius-clipped). Cards stay flush per
+    the live-number proof (strip x = body x, bottoms past body
+    bottom, right = seam). Paint-only. SUPERSEDED by log 60 (window
+    chrome dissolved entirely).
+60. No window chrome (user order — Admin is the same cream page, not
+    a floating box): `.admin-body` fills the viewport exactly (Z
+    block: margins/radius/border all zero, seamless with the wall).
+    Structure carried by rail seam + content rhythms only.
+57. Flexible shell, locked rhythms (user order — the frosted
+    container must adapt to horizontal AND vertical monitors over
+    the fixed ambient): shell stays viewport-filling (narrow MQs
+    stack it); inner rhythms stay locked px (424 month, 30px rows,
+    8-col/4-row grid, min-240 growing cards absorb leftover). My
+    error in log 56 was freezing the wrong layer — the box must
+    breathe, the contents must not deform.
+58. Cream wall, full UI (user order — photo ambient, frost, and
+    motion all retired): `body::before` desert killed, wall is flat
+    `#F4EEE1`; frost vars (`ref/glass/frost` fills + all four blurs)
+    redefined to solid cream/none so every frosted surface follows
+    at once; keyframe motion off everywhere (scan sweep hidden,
+    fades kept); kiosk white-mode text re-inked dark
+    (prompt/trigger dark, identity `ok`, unknown `danger`).
+    Structure now carried by black cards / white bar / pills /
+    hairlines only. Braces balanced.

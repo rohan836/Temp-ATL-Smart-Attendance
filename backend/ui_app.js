@@ -340,6 +340,10 @@ const Timers={ _ids:{}, set(n,id){ this.clear(n); this._ids[n]=id; },
   clear(n){ if(this._ids[n]){ clearTimeout(this._ids[n]); clearInterval(this._ids[n]); } delete this._ids[n]; },
   clearAll(){ Object.keys(this._ids).forEach(k=>{ clearTimeout(this._ids[k]); clearInterval(this._ids[k]); }); this._ids={}; } };
 let currentTab="students", selectedStudentId=null, calendarMonth=new Date();
+/* Refresh persistence (testing convenience): remember the last admin
+   tab; after the normal PIN unlock the admin reopens there instead of
+   the default. The PIN gate itself is untouched. */
+try{ const _t=localStorage.getItem("atl_admin_tab"); if(["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(_t)>=0) currentTab=_t; }catch(e){}
 /* Academic-year override span (null = follow Settings); set by the year popup */
 let attAcadFrom=null, attAcadTo=null;
 
@@ -354,9 +358,10 @@ function closeModal(m){ m.classList.remove("open"); }
   m.addEventListener("click", (e)=>{
     if(e.target!==m || !m._veilDown) return;
     m._veilDown=false;
-    if(m===enrollModal){ _enrollAbort=true; if(_enrollPoll) clearTimeout(_enrollPoll); }
-    closeModal(m);
-    if(m===enrollModal) resumeSensorScan();
+    /* Global explicit-dismiss law (user order): NO popup in the app
+       closes from a backdrop click — every window leaves only via its
+       own buttons or keys. (Notices never had veil-dismiss.) */
+    return;
   });
 });
 
@@ -1427,16 +1432,26 @@ function renderCalendarMonth(){
   }).join("");
   const oldTplLegend = $("calTemplateLegend");
   if(oldTplLegend) oldTplLegend.remove();
-  let html="";
+  let html="", workCount=0;
   for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
+  /* Last-row tag (sharp bottoms): final grid row varies by month, so
+     mark day cells sitting in it — CSS squares their bottom corners. */
+  const _rows=Math.ceil((first+last)/7), _lastRow0=(_rows-1)*7;
   for(let d=1;d<=last;d++){
+    const _rl=((first+(d-1))>=_lastRow0)?" row-last":"";
     const iso=toLocalISO(new Date(y,m,d));
     const hol=isHoliday(iso), ov=getOverride(iso), todayCls=iso===todayISO()?" today":"";
     const working = isWorkingDayForContext(iso, ctx);
-    const typeCls = ov ? "override" : (working ? "working" : "non-working");
+    if(working) workCount++;
+    const typeCls = ov ? "override" : (hol ? "holiday" : (working ? "working" : "non-working"));
     const tag = ov ? esc(ov.note) : (hol ? esc(hol.name) : (working ? "WORKING" : "NON-WORKING"));
-    html+=`<div class="calendar-cell ${typeCls}${todayCls}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
+    html+=`<div class="calendar-cell ${typeCls}${todayCls}${_rl}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
   }
+  /* Month fraction readout (reference 2/4 datum): working days in the
+     current view for the current context. Node persists (hidden truth
+     when absent); paint only. */
+  const wf=$("calWorkFracNum");
+  if(wf) wf.textContent=workCount+"/"+last;
   const headEl=(typeof calendarHeadGrid!=="undefined"&&calendarHeadGrid)||$("calendarHeadGrid");
   if(headEl){ headEl.innerHTML=headHtml; calendarGrid.innerHTML=html; }
   else{ calendarGrid.innerHTML=headHtml+html; }
@@ -1510,7 +1525,7 @@ function renderCbTables(){
   const row=(kind,label,n)=>{
     const sel=(selKind===kind&&selName===label)?" active":"";
     const dim=n===0?" dim":"";
-    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(label)}" role="button" tabindex="0" title="Show schedule"><span class="cb-name">${esc(label)}</span><span class="cb-num">${n}</span><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(label)}" aria-label="Remove" title="Remove">×</button></div>`;
+    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(label)}" role="button" tabindex="0" title="Edit"><span class="cb-name">${esc(label)}</span><span class="cb-num">${n}</span><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(label)}" aria-label="Remove" title="Remove">×</button></div>`;
   };
   cr.innerHTML=Classes.length?Classes.map(c=>row("class",c,Students.filter(s=>isActive(s)&&s.class===c).length)).join(""):`<div class="cb-empty">No classes yet — use ADD CLASS in the sidebar.</div>`;
   br.innerHTML=batches.length?batches.map(b=>row("batch",b,Students.filter(s=>isActive(s)&&s.batch===b).length)).join(""):`<div class="cb-empty">No batches yet — use ADD BATCH in the sidebar.</div>`;
@@ -1562,9 +1577,10 @@ function onCbStripClick(e){
   if(del){ onCbDel(del); return; }
   const ho=e.target.closest("[data-ho-kind]");
   if(ho){
-    if(ho.dataset.hoKind==="holiday") selHolidayKey=(selHolidayKey===ho.dataset.hoKey)?null:ho.dataset.hoKey;
-    else selOverrideKey=(selOverrideKey===ho.dataset.hoKey)?null:ho.dataset.hoKey;
-    renderCbTables(); return;
+    /* EDIT buttons retired: clicking a row opens its editor directly. */
+    if(ho.dataset.hoKind==="holiday"){ selHolidayKey=ho.dataset.hoKey; renderCbTables(); openHolidayEdit(selHolidayKey); }
+    else{ selOverrideKey=ho.dataset.hoKey; renderCbTables(); openOverrideEdit(selOverrideKey); }
+    return;
   }
   const r=e.target.closest("[data-cb-kind]"); if(!r) return;
   selKind=r.dataset.cbKind; selName=r.dataset.cbName; syncCsCtx();
@@ -1578,6 +1594,7 @@ function onCbStripClick(e){
   }
   renderCalendarMonth(); renderCbTables();
   if(currentTab==="attendance") renderAttendance();
+  openSchedPopup(selKind,selName);
 }
 async function onCbDel(del){
   if(del.dataset.cbDelKind){
@@ -1635,6 +1652,12 @@ if($("cbStrip")){
     if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
   });
 }
+/* Top-left (P, user order): School Information docks first in the Setup
+   toolbar — same ID, same opener binding (bound later by ID), zero new
+   IDs, zero new wiring. Markup already places it there; this is the
+   boot guard if the node ever renders from the rail. */
+{ const tb=$("setupToolbar"), osib=$("openSchoolInfoBtn");
+  if(tb&&osib&&osib.parentElement!==tb) tb.insertBefore(osib,tb.firstChild); }
 /* Inline month editor: staged days + snapshot + strip paint. Toggles
    stage into pendingDays (never persisted); Save composes staged days
    into the existing ClassSchedules/BatchSchedules entry, then runs the
@@ -2308,6 +2331,13 @@ function updateTabs(){
   if(tab === "calendar" || tab === "settings") tab = "setup";
   const pane = document.getElementById("pane-" + tab);
   if(pane){ pane.classList.remove("hidden"); pane.style.opacity = ""; }
+  /* Nav highlight follows the tab too, so a refresh-restored tab does
+     not show the wrong active button (clicks set it directly). */
+  try{
+    const navBtns=document.querySelectorAll("#adminNav button[data-tab]");
+    const setupAlias=(currentTab==="calendar"||currentTab==="settings")?"setup":null;
+    navBtns.forEach(b=>b.classList.toggle("active", b.dataset.tab===currentTab||b.dataset.tab===setupAlias));
+  }catch(e){}
   /* Sidebar context follows the tab: only the active page's secondary
      controls stay visible (Phase 2: students, Phase 3: attendance).
      Nodes are pre-moved in markup; this just toggles the section.
@@ -2363,6 +2393,7 @@ adminNav.onclick=(e)=>{
   [...adminNav.children].forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
   currentTab = btn.dataset.tab;
+  try{ localStorage.setItem("atl_admin_tab", currentTab); }catch(e){}
   if(currentTab === "calendar" || currentTab === "settings"){
     const setupBtn = adminNav.querySelector("button[data-tab='setup']");
     if(setupBtn) setupBtn.classList.add("active");
@@ -2617,21 +2648,30 @@ function clearAttendanceSection(){
 $("calPrevBtn").onclick=()=>{ calendarMonth.setMonth(calendarMonth.getMonth()-1); renderCalendarMonth(); };
 $("calNextBtn").onclick=()=>{ calendarMonth.setMonth(calendarMonth.getMonth()+1); renderCalendarMonth(); };
 if($("calTodayBtn")) $("calTodayBtn").onclick=()=>{ calendarMonth=new Date(); renderCalendarMonth(); };
-/* Legend emphasis: display-only toggle over the existing resolved
+/* Legend emphasis: sticky single-select over the existing resolved
    day states (working / non-working + holidays / override). No
-   navigation, no data change — pressing the active status again
-   clears back to the full month. Grid classes survive re-render
-   (set on the container, cells repaint inside). */
+   navigation, no data change — pressing a status selects it and it
+   stays selected (re-pressing or double-clicking never clears it).
+   Grid classes survive re-render (set on the container, cells repaint
+   inside). */
 let calEmphasis=null;
 if($("setupToolbar")) $("setupToolbar").addEventListener("click",(e)=>{
   const b=e.target.closest("[data-calview]"); if(!b) return;
-  calEmphasis = (calEmphasis===b.dataset.calview) ? null : b.dataset.calview;
-  document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed", x===b&&calEmphasis?"true":"false"));
+  calEmphasis = b.dataset.calview;
+  document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
   const g=$("calendarGrid"); if(!g) return;
   g.classList.toggle("cal-dim-working", calEmphasis==="working");
   g.classList.toggle("cal-dim-nonworking", calEmphasis==="non-working");
   g.classList.toggle("cal-dim-override", calEmphasis==="override");
 });
+/* Month View reset: clears the sticky legend emphasis back to the full
+   month (the only way back — re-pressing a filter keeps it). */
+if($("monthViewResetBtn")) $("monthViewResetBtn").onclick=()=>{
+  calEmphasis=null;
+  document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed","false"));
+  const g=$("calendarGrid"); if(!g) return;
+  g.classList.remove("cal-dim-working","cal-dim-nonworking","cal-dim-override");
+};
 /* Day window is read-only resolved display — tables own all holiday /
    override editing. Resolution read ONLY from the shared truth
    functions: override → holiday (exam = working) → active-context
@@ -3997,7 +4037,21 @@ function bootFail(e){ console.error(e); document.body.insertAdjacentHTML("afterb
 cacheLoad();
 try{ renderAll(); }catch(e){ bootFail(e); }
 setState("ready");
-loadAll().then(()=>{ setTimeout(sensorScanLoop,300); }, bootFail);
+loadAll().then(()=>{
+  setTimeout(sensorScanLoop,300);
+  /* UI-testing shortcut (user order): ?tab=<name> reopens the admin
+     straight on that tab after a refresh — no Admin click, no tab
+     hunting. Normal PIN/session rules still apply to API calls. */
+  try{
+    const q=new URLSearchParams(location.search);
+    const t=q.get("tab");
+    if(t&&["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(t)>=0){
+      currentTab=t;
+      try{localStorage.setItem("atl_admin_tab",t);}catch(_){}
+      openAdmin();
+    }
+  }catch(e){}
+}, bootFail);
 setInterval(()=>{
   if(typeof document!=="undefined" && document.hidden) return;
   loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });

@@ -1,6 +1,6 @@
 ---
 name: atl-frosted-ui
-description: Locked visual language for the ATL Smart Attendance fingerprint-kiosk UI. Use whenever changing ANY UI/CSS in ATL-Smart-Attendance-Production.html, styling Admin screens (Students, Attendance, Setup, Backup), enrollment modal, dropdowns, toolbars, or header nav — or when reviewing a UI screenshot. Defines the frosted monochrome theme, component treatments, typography, hard-won diagnoses, and the mandatory low-risk workflow.
+description: Locked visual language for the ATL Smart Attendance fingerprint-kiosk UI. Use whenever changing ANY UI/CSS in ATL-Smart-Attendance-Production.html, styling Admin screens (Students, Attendance, Setup, Backup), enrollment modal, dropdowns, toolbars, or header nav — or when reviewing a UI screenshot. Defines the cream-wall flat theme (photo ambient retired, frost vars solid cream, motion off — see UI_COMPONENTS log 58), component treatments, typography, hard-won diagnoses, and the mandatory low-risk workflow.
 ---
 
 # ATL Frosted UI — Locked Visual Language
@@ -128,9 +128,15 @@ atmosphere, not windows on top of it.
    square pills/cards = rival `:not()` rules or a stray global
    radius-zero (everywhere-sharp law retired — delete, don't stack);
    pill rivals = re-added `:not()` rules fighting the ONE-pill block
-   (delete, don't stack).
+   (delete, don't stack); uneven rhythm = PINNED ITEM SIZE inside
+   stretched tracks — read the item's height/width/min pins BEFORE
+   touching gaps (56px-cube incident: lanes read 24px while gap said
+   8px; theorizing "illusion" instead of reading cost a turn).
 5. Verify with evidence: re-read the cascade, grep specificity conflicts,
-   confirm no other file changed. No browser, no screenshots of your own.
+   confirm no other file changed. Lane pitch = item size + gap: never
+   assert spacing is even from gap values alone — cite the item pins
+   (rule + line). No theory without a cited rule; unexplained means
+   probe, not prose. No browser, no screenshots of your own.
 
 ## How to understand what the user wants
 
@@ -178,11 +184,12 @@ language — never a wash.
    so long names never move controls. Classes, Batches, and Students
    share the pattern where interaction matches. Every deletable row
    renders its own delete control, never only the selected row.
-6. **Calendar/month view:** frost window outside, flat text-only cells
-   inside (`56px` fixed rows, transparent, no blur, `0.08` hairline
-   grid). No per-cell windows, shadows, hover expansion, or animation.
-   Reserve maximum height so 5-row vs 6-row months never move
-   surrounding UI. Zoom must not stretch, wrap, or shift geometry.
+6. **Calendar/month view:** matte-black cube matrix (user-ordered
+   reference tiles): 8px gaps, 10px radius, no borders — 15px/500
+   white numerals, 10px tone-graded tags, white today ring. Fixed
+   424px footprint (6x64 + 5x8) so 31-day/6-row months never stretch
+   surrounding UI. No shadows, hover expansion, or animation (hover is
+   fill-only). Zoom must not stretch, wrap, or shift geometry.
 7. **Inline schedule editing:** the selected Class/Batch is edited
    inline at the Month View — clickable SUN–SAT headers, editable
    Present/Late cutoffs, Save/Cancel in one strip. Never reintroduce

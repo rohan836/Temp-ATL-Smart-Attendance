@@ -1,5 +1,9 @@
 # UI Tokens — Canonical Frost + Reference Values (single source of truth)
 
+> Cream-wall order (log 58): the photo ambient is retired and every
+> frost fill/blur below is overridden to solid cream / `none` by the
+> X block — the variables stand, but the rendered UI is flat cream.
+
 These values are canonized as global CSS variables in `:root`
 (`ATL-Smart-Attendance-Production.html`). Use the variables, never literals:
 
