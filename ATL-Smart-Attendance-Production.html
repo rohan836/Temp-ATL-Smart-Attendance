@@ -13894,16 +13894,23 @@
       background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.2 4.6 C 8 8.4, 12 12.4, 15.8 15.4' stroke='%23141414' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M15.8 4.6 C 12 8.4, 8 12.4, 4.2 15.4' stroke='%23141414' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E") no-repeat center !important;
       background-size: 26px 26px !important;
     }
-    /* Bare-glyph rows (user order): cross left, tick right, one row —
-       containers spread edge to edge. No hover answer, static. */
+    /* Bare-glyph rows (user order): cross left, tick right, centered
+       with a uniform 16px gap — no spread. School Info keeps Export
+       left with the pair clustered right at the same 16px gap.
+       Spacing only; static. */
     html #holidayModal#holidayModal .form-field:has(#holidaySave),
     html #overrideModal#overrideModal .form-field:has(#overrideSave),
-    html #schoolInfoModal#schoolInfoModal .form-field:has(#settingsSaveBtn),
     html #schedModal#schedModal .form-field:has(#pbSave) {
       display: flex !important;
       flex-direction: row !important;
-      justify-content: space-between !important;
+      justify-content: center !important;
       align-items: center !important;
+      gap: 16px !important;
+    }
+    html #schoolInfoModal#schoolInfoModal .form-field:has(#settingsSaveBtn) > div {
+      display: flex !important;
+      align-items: center !important;
+      gap: 16px !important;
     }
     }
     /* 3px border unification across Setup + all its popups (user order):
