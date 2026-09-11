@@ -290,15 +290,28 @@ def validate_clock():
         return False, f"CLOCK_ERR {e}"
 
 def _parse_holiday(value):
-    """Shared holiday parser: returns (start, end, kind) where kind in holiday/vacation/exam."""
+    # NOTE: the @HH:MM-HH:MM segment is display-only — it never touches resolution.
+    """Shared holiday parser: returns (start, end, kind, start_time, end_time).
+
+    Optional @HH:MM-HH:MM records intra-day hours (display only —
+    attendance stays day-granular). kind in holiday/vacation/exam.
+    Strings without @ behave exactly as before (times "")."""
     if isinstance(value, dict):
         start = value.get("start") or value.get("date")
         end = value.get("end") or start
         kind = str(value.get("type") or "holiday").lower()
-        return start, end, kind if kind in ("holiday", "vacation", "exam") else "holiday"
+        st = str(value.get("startTime") or value.get("start_time") or "")
+        en = str(value.get("endTime") or value.get("end_time") or "")
+        kind = kind if kind in ("holiday", "vacation", "exam") else "holiday"
+        return start, end, kind, st, en
     raw = str(value or "").strip()
     if not raw:
-        return None, None, "holiday"
+        return None, None, "holiday", "", ""
+    tm = re.search(r"@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)", raw)
+    start_time = end_time = ""
+    if tm:
+        start_time, end_time = tm.group(1) + ":" + tm.group(2), tm.group(3) + ":" + tm.group(4)
+        raw = raw[:tm.start()] + raw[tm.end():]
     head = raw.split(":", 1)[0].strip()
     if ".." in head:
         start, end = [x.strip() for x in head.split("..", 1)]
@@ -307,7 +320,8 @@ def _parse_holiday(value):
     rest = raw[len(head):].lstrip(":")
     parts = rest.split(":", 1)
     kind = parts[0].strip().lower() if len(parts) == 2 else "holiday"
-    return start, end, kind if kind in ("holiday", "vacation", "exam") else "holiday"
+    kind = kind if kind in ("holiday", "vacation", "exam") else "holiday"
+    return start, end, kind, start_time, end_time
 
 def _holiday_contains(day, start, end):
     try:
@@ -321,16 +335,17 @@ def _override_result(date_iso, s):
             raw_date = override.get("date")
             value = override.get("isWorking", override.get("working", False))
         else:
-            parts = str(override).split(":", 2)
+            core = re.sub(r"@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)", "", str(override))
+            parts = core.split(":", 2)
             raw_date = parts[0].strip() if parts else ""
             value = len(parts) > 1 and parts[1].strip().lower() in ("1", "true", "yes", "on")
-        if raw_date == str(date_iso):
+        if str(raw_date).split("@")[0].strip() == str(date_iso):
             return bool(value)
     return None
 
 def _holiday_result(day, s):
     for holiday in (s.get("holidays") or []):
-        start, end, kind = _parse_holiday(holiday)
+        start, end, kind, _, _ = _parse_holiday(holiday)
         if _holiday_contains(day, start, end):
             return kind == "exam"
     return None
@@ -703,7 +718,10 @@ def settings():
             raw = str(o).strip()
             if not raw:
                 continue
-            date_part = raw.split(":")[0].strip()
+            core = re.sub(r"@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)", "", raw, count=1)
+            if "@" in core:
+                return jsonify({"error": f"bad override {raw}"}), 400
+            date_part = core.split(":")[0].strip()
             try:
                 datetime.date.fromisoformat(date_part)
             except Exception:
@@ -726,7 +744,10 @@ def settings():
             raw = str(h).strip()
             if not raw:
                 continue
-            day = raw.split(":", 1)[0].strip()
+            core = re.sub(r"@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)", "", raw, count=1)
+            if "@" in core:
+                return jsonify({"error":f"bad holiday {raw}"}), 400
+            day = core.split(":", 1)[0].strip()
             try:
                 if ".." in day:
                     start, end = [x.strip() for x in day.split("..", 1)]
@@ -738,7 +759,7 @@ def settings():
                     datetime.date.fromisoformat(day)
             except Exception:
                 return jsonify({"error":f"bad holiday {raw}"}), 400
-            cleaned_h.append(raw[:80])
+            cleaned_h.append(raw[:120])
         cur["holidays"] = cleaned_h
     if "classes" in j:
         if isinstance(j["classes"], str):

@@ -264,6 +264,40 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.get_json()["holidays"], ["2026-10-10..2026-10-15:vacation:Diwali"])
 
+    def test_settings_accept_holiday_times_day_granular(self):
+        r = self.client.post("/api/settings", json={
+            "holidays": ["2026-10-10@09:00-17:00:holiday:Function", "2026-10-11..2026-10-12@10:00-12:00:vacation:Break"],
+            "overrides": ["2026-10-13@08:00-10:00:1:Morning"],
+            "workingDays": {"0": False, "1": True, "2": True, "3": True, "4": True, "5": True, "6": True},
+        })
+        self.assertEqual(r.status_code, 200)
+        j = r.get_json()
+        self.assertEqual(j["holidays"], ["2026-10-10@09:00-17:00:holiday:Function", "2026-10-11..2026-10-12@10:00-12:00:vacation:Break"])
+        self.assertEqual(j["overrides"], ["2026-10-13@08:00-10:00:1:Morning"])
+        s = {"workingDays": {"0": False, "1": True, "2": True, "3": True, "4": True, "5": True, "6": True},
+             "holidays": j["holidays"], "overrides": j["overrides"]}
+        self.assertFalse(atl.is_working_day("2026-10-10", s))
+        self.assertFalse(atl.is_working_day("2026-10-11", s))
+        self.assertTrue(atl.is_working_day("2026-10-13", s))
+        self.assertEqual(atl._parse_holiday("2026-10-10@09:00-17:00:holiday:Function"),
+                         ("2026-10-10", "2026-10-10", "holiday", "09:00", "17:00"))
+        self.assertEqual(atl._parse_holiday("2026-10-10..2026-10-15:vacation:Diwali"),
+                         ("2026-10-10", "2026-10-15", "vacation", "", ""))
+
+    def test_settings_reject_bad_holiday_times(self):
+        for bad in ["2026-10-10@9:00-17:00:holiday:X", "2026-10-10@09:00-5pm:holiday:X",
+                    "2026-10-10@09:00:holiday:X", "2026-99-99@09:00-10:00:holiday:X",
+                    "2026-10-10:holiday:Meet @ noon",
+                    "2026-10-10@09:00-10:00:holiday:X@09:00-10:00"]:
+            r = self.client.post("/api/settings", json={"holidays": [bad]})
+            self.assertEqual(r.status_code, 400, bad)
+        r = self.client.post("/api/settings", json={"overrides": ["2026-10-13@xx:1:Y"]})
+        self.assertEqual(r.status_code, 400)
+        r = self.client.post("/api/settings", json={"overrides": ["2026-10-13:1:Hi @ there"]})
+        self.assertEqual(r.status_code, 400)
+        r = self.client.post("/api/settings", json={"overrides": ["2026-10-13@08:00-10:00:1:X@08:00-10:00"]})
+        self.assertEqual(r.status_code, 400)
+
     def test_student_batch_section_parent_persistence(self):
         r = self.client.post("/api/students", json={"name":"Batch Kid","roll":"B-01","grade":"Grade 10-A","batch":"Batch A","section":"A","parent":"Parent X","phone":"9000000001"})
         self.assertIn(r.status_code,(200,201))

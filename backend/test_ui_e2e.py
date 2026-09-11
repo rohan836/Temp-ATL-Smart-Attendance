@@ -718,7 +718,8 @@ class UiE2eTest(unittest.TestCase):
         self.assertEqual(self.page.locator("#calClassSelect").count(), 1)
 
         # 2. Four black boards share one row; clicking a class row
-        # retargets the month context to that class
+        # previews its schedule in the month above (no popup — the
+        # pencil opens editors)
         tables = self.page.locator("#cbStrip .cb-table")
         self.assertEqual(tables.count(), 4)
         for i in range(4):
@@ -728,6 +729,7 @@ class UiE2eTest(unittest.TestCase):
         self.assertIsNotNone(name)
         row.click()
         self.page.wait_for_function("(n)=>document.getElementById('calClassSelect').value.endsWith(n)", arg=name, timeout=4000)
+        self.assertFalse(self.page.evaluate("document.getElementById('schedModal').classList.contains('open')"))
 
         # Weekday strip owns the resolved template display (display-only):
         # 7 cards, first column SUN, classes in each card
@@ -1070,6 +1072,29 @@ class UiE2eTest(unittest.TestCase):
         self.page.locator("#overrideBody [data-del-override]").first.click()
         self.page.wait_for_function(
             "!document.getElementById('overrideBody').innerText.includes('E2E shortcut probe')",
+            timeout=4000)
+        # 10. Timed holiday round-trips @HH:MM-HH:MM popup → backend → board
+        t_iso = self.page.locator("#calendarGrid .calendar-cell[data-date].working").first.get_attribute("data-date")
+        self.assertIsNotNone(t_iso)
+        self.page.locator("#cbAddHoliday").click()
+        self.page.wait_for_function("document.getElementById('holidayModal').classList.contains('open')", timeout=3000)
+        self.page.locator("#holidayName").fill("E2E timed")
+        self.page.locator("#holidayStart").fill(t_iso)
+        self.page.locator("#holidayStartTime").fill("09:00")
+        self.page.locator("#holidayEndTime").fill("17:00")
+        self.page.locator("#holidaySave").click()
+        self.page.wait_for_function("!document.getElementById('holidayModal').classList.contains('open')", timeout=3000)
+        ranges = self.page.evaluate("fetch('/api/settings').then(r=>r.json()).then(s=>s.holidays || [])")
+        self.assertTrue(any("@09:00-17:00:holiday:E2E timed" in h for h in ranges))
+        self.page.wait_for_function(
+            f"document.querySelector('#calendarGrid [data-date=\"{t_iso}\"]').classList.contains('holiday')",
+            timeout=4000)
+        self.page.locator(f"#cbHolidayRows button.cb-del[data-ho-key='{t_iso}']").click()
+        self.page.wait_for_function(
+            "!document.getElementById('cbHolidayRows').innerText.includes('E2E timed')",
+            timeout=4000)
+        self.page.wait_for_function(
+            f"document.querySelector('#calendarGrid [data-date=\"{t_iso}\"]').classList.contains('working')",
             timeout=4000)
         # Plain veil click (press + release outside the card) still dismisses
         self.page.locator(f"#calendarGrid [data-date=\"{ov_iso}\"]").click()

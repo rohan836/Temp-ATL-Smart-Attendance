@@ -183,21 +183,33 @@ function mapHoliday(s){ return mapHolidayFromList(s); }
 
 // ---- data load from backend ----
 function mapOverride(s){
-  const parts = s.split(":"); const date = parts[0] || "";
+  const m=/@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)/.exec(String(s||""));
+  const startTime=m?m[1]+":"+m[2]:"", endTime=m?m[3]+":"+m[4]:"";
+  const core=m?String(s).slice(0,m.index)+String(s).slice(m.index+m[0].length):String(s||"");
+  const parts = core.split(":"); const date = (parts[0] || "").split("@")[0].trim();
   const working = (parts[1] === "1");
   const note = parts.slice(2).join(":") || "";
-  return {date, isWorking: working, note};
+  return {date, isWorking: working, note, startTime, endTime};
 }
+/* Intra-day hours (user order): optional @HH:MM-HH:MM records on
+   holidays/overrides — stored, displayed, editable; resolution
+   stays day-granular. Empty = all-day (today's behavior). */
+function fmtTimes(r){ return (r&&(r.startTime||r.endTime))?(" · "+(r.startTime||"00:00")+"–"+(r.endTime||"23:59")):""; }
+function isHHMM(v){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v||"")); }
+function normTimes(st,en){ st=String(st||""); en=String(en||""); if(!st&&!en) return ["",""]; return [st||"00:00",en||"23:59"]; }
 function mapHolidayFromList(s){
   if(s && typeof s === "object"){
     const start=String(s.start||s.date||"").slice(0,10), end=String(s.end||start).slice(0,10);
-    return {name:String(s.name||"Holiday"), start, end, category:String(s.category||""), type:String(s.type||"holiday")};
+    return {name:String(s.name||"Holiday"), start, end, startTime:String(s.startTime||s.start_time||""), endTime:String(s.endTime||s.end_time||""), category:String(s.category||""), type:String(s.type||"holiday")};
   }
   s=String(s||"");
+  const tm=/@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)/.exec(s);
+  const startTime=tm?tm[1]+":"+tm[2]:"", endTime=tm?tm[3]+":"+tm[4]:"";
+  if(tm) s=s.slice(0,tm.index)+s.slice(tm.index+tm[0].length);
   const i=s.indexOf(":"), head=i>=0?s.slice(0,i):s, span=head.split(".."), start=span[0].slice(0,10), end=(span[1]||span[0]).slice(0,10);
   const rest=i>=0?s.slice(i+1):"Holiday", parts=rest.split(":");
   const typed=parts.length>1 && ["holiday","vacation","exam"].includes(parts[0].toLowerCase());
-  return {name:typed?parts.slice(1).join(":"):(rest||"Holiday"), start, end, category:"", type:typed?parts[0].toLowerCase():"holiday"};
+  return {name:typed?parts.slice(1).join(":"):(rest||"Holiday"), start, end, startTime, endTime, category:"", type:typed?parts[0].toLowerCase():"holiday"};
 }
 async function loadClassesHolidaysSettings(){
   try{
@@ -800,7 +812,7 @@ async function renderAttendance(){
       attModeBadge.textContent = "STUDENT: " + selStudent.name.toUpperCase();
       attModeBadge.style.cssText = "font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:2px 8px;border:1px solid #2F5D34;border-radius:2px;background:#2F5D34;color:#F2F3F6;font-weight:600";
     } else if(isToday){
-      attModeBadge.textContent = "Live Today";
+      attModeBadge.innerHTML = '<span class="att-live">Live</span> Today';
       attModeBadge.style.cssText = "font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:2px 8px;border:1px solid #2F5D34;border-radius:2px;background:#2F5D34;color:#F2F3F6;font-weight:600";
     } else if(preset === "yesterday"){
       attModeBadge.textContent = "Yesterday";
@@ -999,12 +1011,13 @@ async function renderAttendance(){
     else if(a&&b&&a[0]===b[0]) dateCardVal=`${a[2]} ${_CM[+a[1]-1]} | ${b[2]} ${_CM[+b[1]-1]} ${a[0].slice(2)}`;
     else dateCardVal=`${_fmtC(from)} | ${_fmtC(to)}`;
   }
+  const _curSf = (typeof attStatusFilter!=="undefined" && attStatusFilter) ? attStatusFilter.value : "";
   if(selStudent && rpt && typeof rpt === "object" && "eligible" in rpt){
     attStats.innerHTML = `
       <div class="stat"><b>${esc(selStudent.name)}</b><label>Student</label></div>
-      <div class="stat"><b>${rpt.present ?? 0}</b><label>Present</label></div>
-      <div class="stat"><b>${rpt.late ?? 0}</b><label>Late</label></div>
-      <div class="stat"><b>${rpt.absent ?? 0}</b><label>Absent</label></div>
+      <div class="stat${_curSf==="Present"?" cube-on":""}" data-f="Present"><b>${rpt.present ?? 0}</b><label>Present</label></div>
+      <div class="stat${_curSf==="Late"?" cube-on":""}" data-f="Late"><b>${rpt.late ?? 0}</b><label>Late</label></div>
+      <div class="stat${_curSf==="Absent"?" cube-on":""}" data-f="Absent"><b>${rpt.absent ?? 0}</b><label>Absent</label></div>
       <div class="stat"><b>${rpt.eligible ?? 0}</b><label>Eligible days</label></div>
       <div class="stat"><b>${rpt.attended ?? 0}</b><label>Attended</label></div>
       <div class="stat"><b>${dup}</b><label>Duplicate scans</label></div>
@@ -1012,11 +1025,11 @@ async function renderAttendance(){
       <div class="stat"><b>${esc(dateCardVal)}</b><label>Date</label></div>`;
   } else {
     attStats.innerHTML = `
-      <div class="stat"><b>${totalStudents}</b><label>Total students</label></div>
-      <div class="stat"><b>${present}</b><label>Present</label></div>
-      <div class="stat"><b>${late}</b><label>Late</label></div>
-      <div class="stat"><b>${absent}</b><label>Absent</label></div>
-      <div class="stat"><b>${notScheduledCount}</b><label>Not Scheduled</label></div>
+      <div class="stat" data-f=""><b>${totalStudents}</b><label>Total students</label></div>
+      <div class="stat${_curSf==="Present"?" cube-on":""}" data-f="Present"><b>${present}</b><label>Present</label></div>
+      <div class="stat${_curSf==="Late"?" cube-on":""}" data-f="Late"><b>${late}</b><label>Late</label></div>
+      <div class="stat${_curSf==="Absent"?" cube-on":""}" data-f="Absent"><b>${absent}</b><label>Absent</label></div>
+      <div class="stat${_curSf==="Not Scheduled"?" cube-on":""}" data-f="Not Scheduled"><b>${notScheduledCount}</b><label>Not Scheduled</label></div>
       <div class="stat"><b>${unks.length}</b><label>Unknown scans</label></div>
       <div class="stat"><b>${dup}</b><label>Duplicate scans</label></div>
       <div class="stat"><b>${pct}%</b><label>Attendance %</label></div>
@@ -1065,6 +1078,8 @@ async function renderAttendance(){
       }
     }).join("");
   }
+  const _arc = document.getElementById("attRecordCount");
+  if(_arc) _arc.textContent = rows.length + (rows.length === 1 ? " record" : " records");
 
   // Render Unknown Attempts section
   if(attUnknownCount) attUnknownCount.textContent = `${unks.length} attempt${unks.length === 1 ? "" : "s"}`;
@@ -1170,9 +1185,10 @@ function isScheduledToday(student){
 }
 function holidaysToBackend(){ return Holidays.map(h=>{
   const span=h.start===h.end?h.start:(h.start+".."+h.end);
-  return span+":"+(h.type||"holiday")+":"+(h.name||"Holiday");
+  const at=(h.startTime&&h.endTime)?("@"+h.startTime+"-"+h.endTime):"";
+  return span+at+":"+(h.type||"holiday")+":"+(h.name||"Holiday");
 }); }
-function overridesToBackend(){ return Overrides.map(o=>o.date+(o.isWorking?":1":":0")+":"+o.note); }
+function overridesToBackend(){ return Overrides.map(o=>o.date+((o.startTime&&o.endTime)?("@"+o.startTime+"-"+o.endTime):"")+(o.isWorking?":1":":0")+":"+o.note); }
 function classSchedulesToBackend(){
   // normalize to backend expected format: {class: workingDays} or {class: {workingDays}}
   const out={};
@@ -1207,6 +1223,9 @@ function batchSchedulesToBackend(){
 function parseScheduleContext(val){
   val = String(val||"").trim();
   if(!val) return {type:"global", name:"", key:"", label:"Global (all classes & batches)"};
+  /* Holiday/override jump targets resolve to the global template —
+     the month navigates to their date (see the select handler). */
+  if(val.startsWith("holiday:")||val.startsWith("override:")) return {type:"global", name:"", key:"", label:"Global (all classes & batches)"};
   if(val.startsWith("class:")) {
     const name = val.slice(6).trim();
     return {type:"class", name, key:name, label:`Class: ${name}`};
@@ -1246,6 +1265,30 @@ function populateScheduleSelector(){
       const val = `batch:${b}`;
       const isSel = (cur === val || cur === b) ? 'selected' : '';
       html += `<option value="${val}" ${isSel}>${esc(b)}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  /* Jump groups (user order): holidays/overrides ride the same grid
+     dropdown — picking one navigates the month to its date on the
+     global template (see the select handler). Values date-keyed. */
+  const _MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const _dS=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?(+m[3])+" "+_MS[+m[2]-1]:"—"; };
+  if(Holidays && Holidays.length){
+    html += '<optgroup label="Holidays">';
+    [...Holidays].sort((a,b)=>String(a.start).localeCompare(String(b.start))).forEach(h=>{
+      const val = `holiday:${h.start}`;
+      const isSel = (cur === val) ? 'selected' : '';
+      const span = h.start===h.end?_dS(h.start):(_dS(h.start)+"→"+_dS(h.end));
+      html += `<option value="${val}" ${isSel}>${esc(h.name||"Holiday")} · ${esc(span)}${fmtTimes(h)?esc(fmtTimes(h)):""}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  if(Overrides && Overrides.length){
+    html += '<optgroup label="Overrides">';
+    [...Overrides].sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(o=>{
+      const val = `override:${o.date}`;
+      const isSel = (cur === val) ? 'selected' : '';
+      html += `<option value="${val}" ${isSel}>${esc(_dS(o.date)+(o.note?" — "+o.note:""))}${fmtTimes(o)?esc(fmtTimes(o)):""}</option>`;
     });
     html += '</optgroup>';
   }
@@ -1367,8 +1410,8 @@ function renderHolidays(){
     const typeCls = h.type === "exam" ? "exc-badge exam" : "exc-badge";
     return `<tr>
       <td class="exc-col-name">${esc(h.name)}</td>
-      <td class="exc-col-date exc-date">${esc(h.start)}</td>
-      <td class="exc-col-date exc-date">${esc(h.end)}</td>
+      <td class="exc-col-date exc-date">${esc(h.start)}${h.startTime?esc(" "+h.startTime):""}</td>
+      <td class="exc-col-date exc-date">${esc(h.end)}${h.endTime?esc(" "+h.endTime):""}</td>
       <td class="exc-col-type"><span class="${typeCls}">${esc(h.type)}</span></td>
       <td class="exc-col-act">
         <div class="exc-act-group">
@@ -1391,7 +1434,7 @@ function renderOverrides(){
     const statusCls = o.isWorking ? "exc-badge working" : "exc-badge";
     const statusText = o.isWorking ? "Working" : "Holiday";
     return `<tr>
-      <td class="exc-col-date exc-date">${esc(o.date)}</td>
+      <td class="exc-col-date exc-date">${esc(o.date)}${fmtTimes(o)?esc(fmtTimes(o)):""}</td>
       <td class="exc-col-type"><span class="${statusCls}">${statusText}</span></td>
       <td class="exc-col-note">${esc(o.note || "—")}</td>
       <td class="exc-col-act">
@@ -1444,7 +1487,7 @@ function renderCalendarMonth(){
     const working = isWorkingDayForContext(iso, ctx);
     if(working) workCount++;
     const typeCls = ov ? "override" : (hol ? "holiday" : (working ? "working" : "non-working"));
-    const tag = ov ? esc(ov.note) : (hol ? esc(hol.name) : (working ? "WORKING" : "NON-WORKING"));
+    const tag = ov ? esc(ov.note)+esc(fmtTimes(ov)) : (hol ? esc(hol.name)+esc(fmtTimes(hol)) : (working ? "WORKING" : "NON-WORKING"));
     html+=`<div class="calendar-cell ${typeCls}${todayCls}${_rl}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
   }
   /* Month fraction readout (reference 2/4 datum): working days in the
@@ -1525,7 +1568,7 @@ function renderCbTables(){
   const row=(kind,label,n)=>{
     const sel=(selKind===kind&&selName===label)?" active":"";
     const dim=n===0?" dim":"";
-    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(label)}" role="button" tabindex="0" title="Edit"><span class="cb-name">${esc(label)}</span><span class="cb-num">${n}</span><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(label)}" aria-label="Remove" title="Remove">×</button></div>`;
+    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(label)}" role="button" tabindex="0"><span class="cb-dot" aria-hidden="true"></span><span class="cb-name">${esc(label)}</span><span class="cb-leader" aria-hidden="true"></span><span class="cb-num">${n}</span><button type="button" class="cb-edit" data-cb-edit-kind="${kind}" data-cb-edit-name="${esc(label)}" aria-label="Edit" title="Edit">${PENCIL_ICON}</button><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(label)}" aria-label="Remove" title="Remove">×</button></div>`;
   };
   cr.innerHTML=Classes.length?Classes.map(c=>row("class",c,Students.filter(s=>isActive(s)&&s.class===c).length)).join(""):`<div class="cb-empty">No classes yet — use ADD CLASS in the sidebar.</div>`;
   br.innerHTML=batches.length?batches.map(b=>row("batch",b,Students.filter(s=>isActive(s)&&s.batch===b).length)).join(""):`<div class="cb-empty">No batches yet — use ADD BATCH in the sidebar.</div>`;
@@ -1544,12 +1587,12 @@ function renderCbTables(){
   if(hr&&or_){
     const hoRow=(kind,key,label,meta,past,title)=>{
       const sel=((kind==="holiday"&&selHolidayKey===key)||(kind==="override"&&selOverrideKey===key))?" active":"";
-      return `<div class="cb-row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0" title="${esc(title||label)}"><span class="cb-name">${esc(label)}</span><span class="cb-num">${esc(meta)}</span><button type="button" class="cb-del" data-ho-del="${kind}" data-ho-key="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
+      return `<div class="cb-row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0"><span class="cb-dot" aria-hidden="true"></span><span class="cb-name">${esc(label)}</span><span class="cb-leader" aria-hidden="true"></span><span class="cb-num">${esc(meta)}</span><button type="button" class="cb-edit" data-ho-edit="${kind}" data-ho-key="${esc(key)}" aria-label="Edit" title="Edit">${PENCIL_ICON}</button><button type="button" class="cb-del" data-ho-del="${kind}" data-ho-key="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
     };
-    if($("cbHolidayCount")) $("cbHolidayCount").textContent=Holidays.filter(h=>h.end>=t).length;
-    if($("cbOverrideCount")) $("cbOverrideCount").textContent=Overrides.filter(o=>o.date>=t).length;
-    hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+" ("+(h.type||"holiday")+")")).join(""):`<div class="cb-empty">No holidays yet — use ADD HOLIDAY below.</div>`;
-    or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),o.isWorking?"WORKING":"HOLIDAY",o.date<t,o.date+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<div class="cb-empty">No overrides yet — use ADD OVERRIDE below.</div>`;
+    if($("cbHolidayCount")) $("cbHolidayCount").textContent=Holidays.filter(h=>h.end>=t).length+" active";
+    if($("cbOverrideCount")) $("cbOverrideCount").textContent=Overrides.filter(o=>o.date>=t).length+" active";
+    hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end)+fmtTimes(h),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+fmtTimes(h)+" ("+(h.type||"holiday")+")")).join(""):`<div class="cb-empty">No holidays yet — use ADD HOLIDAY below.</div>`;
+    or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),(o.isWorking?"WORKING":"HOLIDAY")+fmtTimes(o),o.date<t,o.date+fmtTimes(o)+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<div class="cb-empty">No overrides yet — use ADD OVERRIDE below.</div>`;
   }
   paintCbPage(cbPage);
 }
@@ -1575,13 +1618,45 @@ function paintCbPage(i){
 function onCbStripClick(e){
   const del=e.target.closest("[data-cb-del-kind],[data-ho-del]");
   if(del){ onCbDel(del); return; }
-  const ho=e.target.closest("[data-ho-kind]");
-  if(ho){
-    /* EDIT buttons retired: clicking a row opens its editor directly. */
-    if(ho.dataset.hoKind==="holiday"){ selHolidayKey=ho.dataset.hoKey; renderCbTables(); openHolidayEdit(selHolidayKey); }
-    else{ selOverrideKey=ho.dataset.hoKey; renderCbTables(); openOverrideEdit(selOverrideKey); }
+  /* Row-tap editors (user order): tapping anywhere on the row
+     (name, count, leader, dot) opens the same editor as the
+     pencil; only the remove cross keeps its own action. */
+  const ed=e.target.closest("[data-cb-edit-kind],[data-ho-edit]");
+  if(ed){
+    if(ed.dataset.hoEdit){
+      if(ed.dataset.hoEdit==="holiday"){ selHolidayKey=ed.dataset.hoKey; renderCbTables(); openHolidayEdit(selHolidayKey); }
+      else{ selOverrideKey=ed.dataset.hoKey; renderCbTables(); openOverrideEdit(selOverrideKey); }
+    }else{
+      selKind=ed.dataset.cbEditKind; selName=ed.dataset.cbEditName; syncCsCtx();
+      pendingDays={};
+      cubeView=selKind;
+      renderWeekly(); renderClasses();
+      const sel=$("calClassSelect");
+      if(sel&&selName){
+        sel.value=selKind==="class"?`class:${selName}`:`batch:${selName}`;
+        if(selKind==="class"&&!sel.value) sel.value=selName;
+      }
+      renderCalendarMonth(); renderCbTables();
+      if(currentTab==="attendance") renderAttendance();
+      openSchedPopup(selKind,selName);
+    }
     return;
   }
+  const ho=e.target.closest("[data-ho-kind]");
+  if(ho){
+    /* Row tap opens the record's editor (user order — same as
+       the pencil). */
+    if(ho.dataset.hoKind==="holiday"){
+      selHolidayKey=ho.dataset.hoKey;
+      renderCbTables(); openHolidayEdit(selHolidayKey);
+    }else{
+      selOverrideKey=ho.dataset.hoKey;
+      renderCbTables(); openOverrideEdit(selOverrideKey);
+    }
+    return;
+  }
+  /* Class/batch row tap: same editor as the pencil (user order),
+     after the usual context sync. */
   const r=e.target.closest("[data-cb-kind]"); if(!r) return;
   selKind=r.dataset.cbKind; selName=r.dataset.cbName; syncCsCtx();
   pendingDays={};
@@ -1647,6 +1722,8 @@ if($("cbStrip")){
     if(e.target.closest("#cbNext")){ paintCbPage(cbPage+1); return; }
     onCbStripClick(e);
   });
+  /* Row Enter/Space previews like a tap (user order): pencil and
+     trash are native buttons with their own keyboard keys. */
   $("cbStrip").addEventListener("keydown",(e)=>{
     if(e.target.closest("button")) return;
     if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
@@ -1800,6 +1877,7 @@ function formatAuditDetails(raw, action){
 }
 
 function renderAudit(){
+  const cc=$("auditCount"); if(cc) cc.textContent=Audit.length+(Audit.length===1?" record":" records");
   if(!Audit.length){ auditBody.innerHTML=`<tr><td colspan="4"><div class="empty"><b>No audit history</b>Changes appear here.</div></td></tr>`; return; }
   auditBody.innerHTML=Audit.map(a=>`<tr><td>${esc(a.time)}</td><td>${esc(a.action)}</td><td>${esc(formatAuditDetails(a.details, a.action))}</td><td>${esc(a.by)}</td></tr>`).join("");
 }
@@ -2001,6 +2079,12 @@ function openReEnroll(id){
 }
 /* Shared outline trash glyph (stroke=currentColor → ink-aware by construction) */
 const TRASH_ICON='<svg class="del-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><rect x="6" y="7" width="12" height="13" rx="1.5"/><path d="M10 11v6M14 11v6"/></svg>';
+/* Shared outline pencil glyph (feather edit-2 language, same 1.6
+   stroke as TRASH_ICON → same weight by construction) */
+const PENCIL_ICON='<svg class="edit-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
+/* Shared hand-drawn tick glyph (same path/weight as the popup
+   Save ticks → one tick language by construction) */
+const TICK_ICON='<svg class="tick-ic" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 C 8.5 15.5, 10.5 17.5, 12 19 C 15.5 13, 19 8.5, 23.5 5"/></svg>';
 async function deleteStudent(id){
   const s=Students.find(x=>x.id===id); if(!s) return;
   if(!(await glassConfirm("Deactivate "+s.name+"? Their fingerprint slot is freed and roll is released. History is kept.",{title:"Deactivate student",okText:"Deactivate",danger:true}))) return;
@@ -2379,14 +2463,6 @@ document.getElementById("adminClose").onclick=()=>{
   adminLayer.classList.remove("open");
   resumeSensorScan();
 };
-// Ink toggle: white ⇄ black interface text only (nothing else changes)
-(function(){
-  const b=document.getElementById("inkToggleBtn"); if(!b) return;
-  const apply=v=>{ const el=document.documentElement; el.classList.add("ink-switching"); el.dataset.ink=v; try{localStorage.setItem("atl_ink",v);}catch(e){} b.innerHTML=v==="dark"?'<span class="ink-moon"></span>':"\u2600"; clearTimeout(apply._t); apply._t=setTimeout(()=>el.classList.remove("ink-switching"), 220); };
-  let cur="white"; try{cur=localStorage.getItem("atl_ink")||"white";}catch(e){}
-  apply(cur==="dark"?"dark":"white");
-  b.onclick=()=>apply(document.documentElement.dataset.ink==="dark"?"white":"dark");
-})();
 adminNav.onclick=(e)=>{
   const btn = e.target.closest("button");
   if(!btn) return;
@@ -2628,6 +2704,45 @@ if(attBatchFilter) attBatchFilter.addEventListener("change", () => {
 if(attStudentFilter) attStudentFilter.addEventListener("change", renderAttendance);
 if(attStatusFilter) attStatusFilter.addEventListener("change", renderAttendance);
 if(attSort) attSort.addEventListener("change", renderAttendance);
+/* Board tabs (user order): records / unknown share one fixed board.
+   Static nodes (only tbody refills), so one binding holds. Instant
+   channel swap, no motion. */
+let attBoardTab = "records";
+function paintAttTabs(){
+  const unk = attBoardTab === "unknown";
+  document.querySelectorAll('#attRecordsBoard .att-tab').forEach(b=>{
+    const on = (b.dataset.attab || "records") === attBoardTab;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  const rv = $("attRecordsView"), uv = $("attUnknownView");
+  if(rv) rv.hidden = unk;
+  if(uv) uv.hidden = !unk;
+  const rc = $("attRecordCount"), uc = $("attUnknownCount");
+  if(rc) rc.hidden = unk;
+  if(uc) uc.hidden = !unk;
+}
+document.querySelectorAll('#attRecordsBoard .att-tab').forEach(b=>{
+  b.addEventListener("click", ()=>{ attBoardTab = b.dataset.attab || "records"; paintAttTabs(); });
+});
+/* KPI filter cubes (user order): taps drive the existing attStatusFilter
+   (no new mechanism) — set value, fire change, renderAttendance runs.
+   Delegated on #attStats (persists; cubes regenerate every render).
+   Tap a status filters; tap Total or the active cube clears. */
+if(attStats && !attStats.dataset.cubes){
+  attStats.dataset.cubes = "1";
+  attStats.addEventListener("click", (e)=>{
+    const c = (e.target && e.target.closest) ? e.target.closest(".stat[data-f]") : null;
+    if(!c || !attStats.contains(c) || !attStatusFilter) return;
+    const v = c.getAttribute("data-f") || "";
+    const next = (v && v === attStatusFilter.value) ? "" : v;
+    if(attStatusFilter.value !== next){
+      attStatusFilter.value = next;
+      try{ attStatusFilter.dispatchEvent(new Event("change", {bubbles:true})); }catch(_){}
+    }
+    try{ renderAttendance(); }catch(err){ console.error(err); }
+  });
+}
 /* Section Clear: full attendance reset — preset Today, dates emptied,
    year override dropped, all filters to All, shell shut, table reloaded */
 function clearAttendanceSection(){
@@ -2679,20 +2794,107 @@ if($("monthViewResetBtn")) $("monthViewResetBtn").onclick=()=>{
 function daySheetSource(iso, ctx){
   const ov=getOverride(iso);
   if(ov) return {badge:ov.isWorking?"WORKING":"NON-WORKING",
-    text:"Date override (global) — "+(ov.isWorking?"working":"non-working")+(ov.note?": "+ov.note:"")};
+    text:"Date override (global) — "+(ov.isWorking?"working":"non-working")+(ov.note?": "+ov.note:"")+fmtTimes(ov)};
   const hol=isHoliday(iso);
   if(hol){
     const type=String(hol.type||"holiday").toLowerCase();
     const exam=type==="exam";
     return {badge:exam?"WORKING":"NON-WORKING",
-      text:"Holiday range (global) — "+hol.name+" ("+hol.type+")"+(exam?", counts as working":"")};
+      text:"Holiday range (global) — "+hol.name+" ("+hol.type+")"+fmtTimes(hol)+(exam?", counts as working":"")};
   }
   const w=isWorkingDayForContext(iso, ctx);
   const ctxName=(!ctx||ctx.type==="global")?"Global":(ctx.type==="class"?"Class: "+ctx.name:"Batch: "+ctx.name);
   return {badge:w?"WORKING":"NON-WORKING",
     text:"Weekly template ("+ctxName+") — "+(w?"working":"non-working")};
 }
-function openDaySheet(iso){
+/* Day-sheet thought bubble (user order): anchored popover, not a
+   modal. Anchor = clicked date cell; bubble flips below/above +
+   clamps horizontally, tail tracks the cell center; the cell is never
+   covered (below/above always clears it). */
+let _dsAnchor=null;
+let _undoTimer=null, _undoData=null;
+function _undoOutside(e){ try{ if(e.target&&e.target.closest&&e.target.closest("#setupUndoBar")) return; hideSetupUndo(); }catch(_){} }
+function hideSetupUndo(){ try{ if(_undoTimer){ clearTimeout(_undoTimer); _undoTimer=null; } }catch(e){} _undoData=null; try{ const b=$("setupUndoBar"); if(b) b.hidden=true; }catch(e){} try{ document.removeEventListener("pointerdown",_undoOutside,true); }catch(e){} }
+function showSetupUndo(kind, rec){
+  hideSetupUndo();
+  _undoData={kind:kind, rec:rec};
+  try{
+    const bar=$("setupUndoBar"), msg=$("setupUndoMsg"), btn=$("setupUndoBtn");
+    if(msg) msg.textContent=(kind==="holiday"?"Holiday removed":"Override removed")+" · ";
+    if(btn) btn.onclick=()=>undoSetupRemove();
+    if(bar) bar.hidden=false;
+    document.removeEventListener("pointerdown",_undoOutside,true);
+    document.addEventListener("pointerdown",_undoOutside,true);
+    _undoTimer=setTimeout(()=>hideSetupUndo(),5000);
+  }catch(e){}
+}
+async function undoSetupRemove(){
+  const d=_undoData; hideSetupUndo(); if(!d) return;
+  try{
+    if(d.kind==="holiday"){ Holidays.push(d.rec); Holidays.sort((a,b)=>String(a.start).localeCompare(String(b.start))||String(a.end).localeCompare(String(b.end))); }
+    else{ Overrides.push(d.rec); Overrides.sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+    if(await persistCalendar()){ renderHolidays(); renderOverrides(); renderCbTables(); renderCalendarMonth(); }
+  }catch(e){}
+}
+function _dsOutside(e){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")&&!(e.target&&e.target.closest&&e.target.closest("#daySheetModal .modal-card"))) closeDaySheet(); }catch(_){} }
+function _dsScrollShut(){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")) closeDaySheet(); }catch(_){} }
+function _dsReposition(){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")) positionDaySheet(); }catch(_){} }
+function closeDaySheet(){ try{ document.removeEventListener("pointerdown",_dsOutside,true); document.removeEventListener("scroll",_dsScrollShut,true); window.removeEventListener("resize",_dsReposition); }catch(e){} _dsAnchor=null; closeModal(daySheetModal); }
+function positionDaySheet(){
+  const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
+  if(!card||!_dsAnchor||!_dsAnchor.getBoundingClientRect) return;
+  const GAP=10, M=8, vw=window.innerWidth, vh=window.innerHeight;
+  const r=_dsAnchor.getBoundingClientRect();
+  const bw=card.offsetWidth||320, bh=card.offsetHeight||200;
+  /* Half-based flip (user order): cell in the lower half opens the
+     bubble above it (tail down); upper half opens below (tail up).
+     M-pin stays as last-resort safety only. */
+  let top, tail;
+  if((r.top+r.height/2)>vh/2){ top=r.top-GAP-bh; tail="bottom"; }
+  else{ top=r.bottom+GAP; tail="top"; }
+  if(top+bh+M>vh) top=Math.max(M,vh-bh-M);
+  if(top<M) top=M;
+  let left=Math.round(r.left+r.width/2-bw/2);
+  left=Math.max(M,Math.min(left,Math.max(M,vw-bw-M)));
+  let tx=Math.round(r.left+r.width/2-left);
+  tx=Math.max(22,Math.min(tx,bw-22));
+  card.style.left=left+"px"; card.style.top=top+"px";
+  try{ card.dataset.tail=tail; }catch(e){}
+  try{ card.style.setProperty("--tail-x",tx+"px"); }catch(e){}
+  dsSilhouette();
+}
+/* Single-silhouette outline (user order): one SVG path = rounded
+   rect grown into its tail, one 3px stroke, no seam. Redrawn from
+   the measured box on every position. */
+function dsSilhouette(){
+  try{
+    const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
+    if(!card||!card.offsetWidth) return;
+    const W=card.offsetWidth, H=card.offsetHeight;
+    const tail=card.dataset.tail||"top";
+    let tx=parseFloat((card.style.getPropertyValue("--tail-x")||"").replace("px",""));
+    if(!isFinite(tx)) tx=W/2;
+    const R=24, B=17, T=21, o=1.5;
+    const f=n=>Math.round(n*10)/10;
+    let d;
+    if(tail==="bottom"){
+      d=`M ${f(o+R)} ${f(o)} L ${f(W-o-R)} ${f(o)} Q ${f(W-o)} ${f(o)} ${f(W-o)} ${f(o+R)} L ${f(W-o)} ${f(H-o-R)} Q ${f(W-o)} ${f(H-o)} ${f(W-o-R)} ${f(H-o)} L ${f(tx+B)} ${f(H-o)} L ${f(tx)} ${f(H-o+T)} L ${f(tx-B)} ${f(H-o)} L ${f(o+R)} ${f(H-o)} Q ${f(o)} ${f(H-o)} ${f(o)} ${f(H-o-R)} L ${f(o)} ${f(o+R)} Q ${f(o)} ${f(o)} ${f(o+R)} ${f(o)} Z`;
+    }else{
+      d=`M ${f(o+R)} ${f(o)} L ${f(tx-B)} ${f(o)} L ${f(tx)} ${f(o-T)} L ${f(tx+B)} ${f(o)} L ${f(W-o-R)} ${f(o)} Q ${f(W-o)} ${f(o)} ${f(W-o)} ${f(o+R)} L ${f(W-o)} ${f(H-o-R)} Q ${f(W-o)} ${f(H-o)} ${f(W-o-R)} ${f(H-o)} L ${f(o+R)} ${f(H-o)} Q ${f(o)} ${f(H-o)} ${f(o)} ${f(H-o-R)} L ${f(o)} ${f(o+R)} Q ${f(o)} ${f(o)} ${f(o+R)} ${f(o)} Z`;
+    }
+    const NS="http://www.w3.org/2000/svg";
+    let svg=card.querySelector(":scope > svg.ds-sil");
+    if(!svg){ svg=document.createElementNS(NS,"svg"); svg.setAttribute("class","ds-sil"); svg.setAttribute("aria-hidden","true"); card.insertBefore(svg,card.firstChild); }
+    svg.setAttribute("width",W); svg.setAttribute("height",H);
+    svg.style.cssText="position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:-1;pointer-events:none;";
+    let p=svg.querySelector("path");
+    if(!p){ p=document.createElementNS(NS,"path"); svg.appendChild(p); }
+    p.setAttribute("d",d);
+    p.setAttribute("fill","#F4EEE1"); p.setAttribute("stroke","#141414");
+    p.setAttribute("stroke-width","3"); p.setAttribute("stroke-linejoin","round");
+  }catch(e){}
+}
+function openDaySheet(iso, cell){
   const ctx=getScheduleContext();
   const src=daySheetSource(iso, ctx);
   const dt=new Date(iso+"T00:00:00");
@@ -2701,27 +2903,42 @@ function openDaySheet(iso){
   daySheetBody.innerHTML=
     `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="setup-legend-context">${esc(src.badge)}</span></div>`+
     `<div style="font-size:11px;color:var(--ink-2);line-height:1.5;">${esc(src.text)}</div>`+
-    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button>${ov?`<button class="btn" id="dsDelOv">Remove override</button>`:""}${(!ov&&hol)?`<button class="btn" id="dsDelHol">Remove holiday</button>`:""}<button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
+    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button>${ov?`<button class="btn icon-del" id="dsDelOv" aria-label="Remove override">${TRASH_ICON}</button>`:""}${(!ov&&hol)?`<button class="btn icon-del" id="dsDelHol" aria-label="Remove holiday">${TRASH_ICON}</button>`:""}<button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
   openModal(daySheetModal);
-  $("dsClose").onclick=()=>closeModal(daySheetModal);
+  _dsAnchor=(typeof cell!=="undefined"&&cell)||null;
+  try{
+    document.removeEventListener("pointerdown",_dsOutside,true);
+    document.removeEventListener("scroll",_dsScrollShut,true);
+    window.removeEventListener("resize",_dsReposition);
+    document.addEventListener("pointerdown",_dsOutside,true);
+    document.addEventListener("scroll",_dsScrollShut,true);
+    window.addEventListener("resize",_dsReposition);
+  }catch(e){}
+  positionDaySheet();
+  $("dsClose").onclick=()=>closeDaySheet();
   const rmOvBtn=$("dsDelOv");
   if(rmOvBtn) rmOvBtn.onclick=async()=>{
-    if(!(await glassConfirm(`Remove the override on ${iso}?`,{title:"Remove override",okText:"Remove",danger:true}))) return;
-    Overrides=Overrides.filter(o=>o.date!==iso);
-    if(await persistCalendar()){ closeModal(daySheetModal); renderOverrides(); renderCalendarMonth(); }
+    const o=Overrides.find(x=>x.date===iso); if(!o) return;
+    Overrides=Overrides.filter(x=>x.date!==iso);
+    closeDaySheet();
+    if(await persistCalendar()){ renderOverrides(); renderCbTables(); renderCalendarMonth(); showSetupUndo("override",o); }
+    else{ Overrides.push(o); Overrides.sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
   };
   const rmHolBtn=$("dsDelHol");
   if(rmHolBtn) rmHolBtn.onclick=async()=>{
     const h=isHoliday(iso); if(!h) return;
-    if(!(await glassConfirm(`Remove holiday "${h.name}" (${h.start===h.end?h.start:(h.start+".."+h.end)})?`,{title:"Remove holiday",okText:"Remove",danger:true}))) return;
     Holidays=Holidays.filter(x=>x.start!==h.start);
-    if(await persistCalendar()){ closeModal(daySheetModal); renderHolidays(); renderCalendarMonth(); }
+    closeDaySheet();
+    if(await persistCalendar()){ renderHolidays(); renderCbTables(); renderCalendarMonth(); showSetupUndo("holiday",h); }
+    else{ Holidays.push(h); Holidays.sort((a,b)=>String(a.start).localeCompare(String(b.start))||String(a.end).localeCompare(String(b.end))); }
   };
   $("dsAddOv").onclick=()=>{
-    closeModal(daySheetModal);
+    closeDaySheet();
     $("overrideModalBody").innerHTML=`<div class="form-grid">
       <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(iso)}"></div>
       <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
+      <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
+      <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
       <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
       <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
       <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
@@ -2730,8 +2947,12 @@ function openDaySheet(iso){
     $("overrideSave").onclick=async()=>{
       const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
       if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
+      if(note.includes("@")){ err.textContent="Notes cannot contain the @ symbol."; err.style.display="block"; return; }
+      let stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+      if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+      [stm,etm]=normTimes(stm,etm);
       Overrides=Overrides.filter(o=>o.date!==date);
-      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note});
+      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
       if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
     };
     $("overrideNote").focus();
@@ -2743,7 +2964,7 @@ function openDaySheet(iso){
    the editor context plus an editor refresh. Single persist path. */
 async function onDayToggleClick(e){
   const cell=e.target.closest("[data-date]");
-  if(cell){ openDaySheet(cell.dataset.date); return; }
+  if(cell){ openDaySheet(cell.dataset.date, cell); return; }
 }
 let csCtx=null;
 function openClassSchedule(ctx){
@@ -2761,6 +2982,21 @@ if($("calendarGrid")){
    global) so toolbar, month, roster, and editor never disagree.
    Same flow as tile select: clear staged edits, sync, re-render. */
 if($("calClassSelect")) $("calClassSelect").onchange=()=>{
+  const raw=$("calClassSelect").value;
+  /* Jump targets (user order): holiday/override picks navigate the
+     month to that date on the global template — same renders as a
+     context retarget, zero popups. */
+  const jm=/^(holiday|override):(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if(jm){
+    const iso=jm[2]+"-"+jm[3]+"-"+jm[4];
+    if(jm[1]==="holiday"){ const h=Holidays.find(x=>x.start===iso); if(h) selHolidayKey=h.start; }
+    else selOverrideKey=iso;
+    selName=null; pendingDays={}; syncCsCtx();
+    calendarMonth=new Date(+jm[2],+jm[3]-1,1);
+    renderWeekly(); renderClasses(); renderCbTables(); renderCalendarMonth();
+    if(currentTab==="attendance") renderAttendance();
+    return;
+  }
   const ctx=getScheduleContext();
   pendingDays={};
   if(ctx.type==="global"){ selName=null; }
@@ -2783,6 +3019,8 @@ function openHolidayCreate(){
     <div class="form-field full"><label>Name</label><input id="holidayName" placeholder="Diwali vacation"></div>
     <div class="form-field"><label>Start date</label><input type="date" id="holidayStart"></div>
     <div class="form-field"><label>End date</label><input type="date" id="holidayEnd"></div>
+    <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime"></div>
+    <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime"></div>
     <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday">Holiday</option><option value="vacation">Vacation</option><option value="exam">Exam day (working)</option></select></div>
     <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></div>
     <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
@@ -2791,7 +3029,11 @@ function openHolidayCreate(){
   $("holidaySave").onclick=async()=>{
     const name=$("holidayName").value.trim(), start=$("holidayStart").value, end=$("holidayEnd").value||start, err=$("holidayErr");
     if(!name||!start||!end||start>end){ err.textContent="Name and a valid date range are required."; err.style.display="block"; return; }
-    Holidays.push({name,start,end,category:"",type:$("holidayType").value});
+    if(name.includes("@")){ err.textContent="Names cannot contain the @ symbol."; err.style.display="block"; return; }
+    let stm=$("holidayStartTime").value, etm=$("holidayEndTime").value;
+    if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+    [stm,etm]=normTimes(stm,etm);
+    Holidays.push({name,start,end,startTime:stm,endTime:etm,category:"",type:$("holidayType").value});
     if(await persistCalendar()){ closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); }
   };
 }
@@ -2799,6 +3041,8 @@ function openOverrideCreate(){
   $("overrideModalBody").innerHTML=`<div class="form-grid">
     <div class="form-field"><label>Date</label><input type="date" id="overrideDate"></div>
     <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
+    <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
+    <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
     <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
     <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
     <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
@@ -2807,8 +3051,12 @@ function openOverrideCreate(){
   $("overrideSave").onclick=async()=>{
     const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
     if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
+    if(note.includes("@")){ err.textContent="Notes cannot contain the @ symbol."; err.style.display="block"; return; }
+    let stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+    if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+    [stm,etm]=normTimes(stm,etm);
     Overrides=Overrides.filter(o=>o.date!==date);
-    Overrides.push({date,isWorking:$("overrideWorking").value==="1",note});
+    Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
     if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
   };
 };
@@ -2843,13 +3091,17 @@ function openSchedPopup(kind, name){
     <div class="form-field full"><label>Working days</label><div class="pb-days">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-pb-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;}).join("")}</div></div>
     <div class="form-field"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
     <div class="form-field"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
-    <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></div>
+    <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end">${name?`<button type="button" class="btn" id="pbDel" aria-label="Delete this schedule">${TRASH_ICON}</button>`:""}<button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></div>
     <div class="inline-error" id="pbErr" style="display:none"></div></div>`;
   openModal(schedModal);
   schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
     b.onclick=()=>{ _pbDays[b.dataset.pbDay]=!_pbDays[b.dataset.pbDay]; paintPbDays(); };
   });
   $("pbCancel").onclick=()=>closeModal(schedModal);
+  /* Edit-mode trash (user order): the board × flow, reused verbatim
+     (confirm + API + batch guard live in onCbDel — nothing new). */
+  const pbDel=$("pbDel");
+  if(pbDel) pbDel.onclick=()=>{ closeModal(schedModal); onCbDel({dataset:{cbDelKind:kind,cbDelName:name}}); };
   if(!isEdit){ try{ $("pbName").focus(); }catch(e){} }
   $("pbSave").onclick=async()=>{
     const err=$("pbErr");
@@ -2995,17 +3247,26 @@ function openHolidayEdit(startKey){
       <div class="form-field full"><label>Name</label><input id="holidayName" value="${esc(h.name)}"></div>
       <div class="form-field"><label>Start date</label><input type="date" id="holidayStart" value="${esc(h.start)}"></div>
       <div class="form-field"><label>End date</label><input type="date" id="holidayEnd" value="${esc(h.end)}"></div>
+      <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime" value="${esc(h.startTime||"")}"></div>
+      <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime" value="${esc(h.endTime||"")}"></div>
       <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday" ${h.type==="holiday"?"selected":""}>Holiday</option><option value="vacation" ${h.type==="vacation"?"selected":""}>Vacation</option><option value="exam" ${h.type==="exam"?"selected":""}>Exam day (working)</option></select></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></div>
+      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="holidayDel" aria-label="Delete this holiday">${TRASH_ICON}</button><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></div>
       <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
     const origStart=h.start;
     Holidays=Holidays.filter(x=>x.start!==origStart);
     openModal(holidayModal);
     $("holidayCancel").onclick=()=>{ Holidays.push(h); closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); };
+    /* Edit-mode trash (user order): the record is already staged out —
+       delete just commits that (board-× parity: direct, no confirm). */
+    $("holidayDel").onclick=async()=>{ closeModal(holidayModal); if(await persistCalendar()){ renderHolidays(); renderCbTables(); renderCalendarMonth(); } };
     $("holidaySave").onclick=async()=>{
       const name=$("holidayName").value.trim(), start=$("holidayStart").value, end=$("holidayEnd").value||start, err=$("holidayErr");
       if(!name||!start||!end||start>end){ err.textContent="Name and a valid date range are required."; err.style.display="block"; return; }
-      Holidays.push({name,start,end,category:"",type:$("holidayType").value});
+      if(name.includes("@")){ err.textContent="Names cannot contain the @ symbol."; err.style.display="block"; return; }
+      let stm=$("holidayStartTime").value, etm=$("holidayEndTime").value;
+      if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+      [stm,etm]=normTimes(stm,etm);
+      Holidays.push({name,start,end,startTime:stm,endTime:etm,category:"",type:$("holidayType").value});
       if(await persistCalendar()){ closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); } else Holidays.push(h);
     };
 }
@@ -3022,18 +3283,26 @@ function openOverrideEdit(dateKey){
     $("overrideModalBody").innerHTML=`<div class="form-grid">
       <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(o.date)}"></div>
       <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1" ${o.isWorking?"selected":""}>Working day</option><option value="0" ${!o.isWorking?"selected":""}>Holiday</option></select></div>
+      <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime" value="${esc(o.startTime||"")}"></div>
+      <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime" value="${esc(o.endTime||"")}"></div>
       <div class="form-field full"><label>Note</label><input id="overrideNote" value="${esc(o.note)}"></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
+      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="overrideDel" aria-label="Delete this override">${TRASH_ICON}</button><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
       <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
     const orig=o.date;
     Overrides=Overrides.filter(x=>x.date!==orig);
     openModal(overrideModal);
     $("overrideCancel").onclick=()=>{ Overrides.push(o); closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); };
+    /* Edit-mode trash (user order): staged-out record commits deleted. */
+    $("overrideDel").onclick=async()=>{ closeModal(overrideModal); if(await persistCalendar()){ renderOverrides(); renderCbTables(); renderCalendarMonth(); } };
     $("overrideSave").onclick=async()=>{
       const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
       if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
+      if(note.includes("@")){ err.textContent="Notes cannot contain the @ symbol."; err.style.display="block"; return; }
+      let stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+      if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+      [stm,etm]=normTimes(stm,etm);
       Overrides=Overrides.filter(x=>x.date!==date);
-      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note});
+      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
       if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); } else Overrides.push(o);
     };
 }
@@ -3237,7 +3506,7 @@ function startGDrivePolling(intervalSec){
 async function startDeviceFlow(){
   const btn = $("gdriveDeviceStartBtn");
   try {
-    if(btn){ btn.disabled = true; btn.textContent = "Connecting…"; }
+    if(btn){ btn.disabled = true; }
     const res = await api("/api/backup/gdrive/device-start", { method: "POST" });
     if(res && res.ok){
       renderDeviceCodeBox(res);
@@ -3310,7 +3579,13 @@ function updateUnifiedScheduleVisibility(){
   const intervalWrap = $("backupSchedIntervalWrap");
   const daysWrap = $("backupSchedDaysWrap");
   if(intervalWrap) intervalWrap.style.display = (freq === "interval") ? "block" : "none";
-  if(daysWrap) daysWrap.style.display = (freq === "weekdays") ? "block" : "none";
+  /* Days strip reserves its slot (user order): visibility only, so
+     switching Frequency never moves the buttons below. */
+  if(daysWrap){
+    const on = (freq === "weekdays");
+    daysWrap.style.visibility = on ? "visible" : "hidden";
+    try{ daysWrap.setAttribute("aria-hidden", on ? "false" : "true"); }catch(e){}
+  }
 }
 
 function updateUnifiedWeekdayButtons(){
@@ -3329,6 +3604,7 @@ function updateUnifiedWeekdayButtons(){
 
 async function loadBackupManagerStatus(){
   if(!$("backupManagerCard")) return;
+  try{ if(window.__ensureGsel) window.__ensureGsel($("backupSchedFreq")); }catch(e){}
   try{
     const [gdRes, tgRes, usbRes] = await Promise.allSettled([
       api("/api/backup/gdrive/status"),
@@ -3420,7 +3696,7 @@ async function loadBackupManagerStatus(){
       if(!usb){
         usbStatus.textContent = "Offline"; usbStatus.className = "pill";
       } else if(!usb.connected){
-        usbStatus.textContent = "Not connected"; usbStatus.className = "pill";
+        usbStatus.textContent = "Not connected"; usbStatus.className = "pill danger";
       } else if(!usb.enabled){
         usbStatus.textContent = "Disabled"; usbStatus.className = "pill";
       } else if(usb.lastStatus === "ERROR"){
@@ -3489,7 +3765,6 @@ if($("backupSchedSaveBtn")) $("backupSchedSaveBtn").onclick = async () => {
   const statusEl = $("backupSchedStatus");
   try {
     btn.disabled = true;
-    btn.textContent = "Saving…";
     if(statusEl) statusEl.textContent = "";
 
     const payload = {
@@ -3595,7 +3870,6 @@ if($("backupNowBtn")) $("backupNowBtn").onclick = async () => {
   }
 
   btn.disabled = true;
-  btn.textContent = "Backing up…";
   if(statusEl) statusEl.textContent = "Starting backups…";
 
   const tasks = [];
@@ -3641,17 +3915,37 @@ if($("backupRefreshBtn")) $("backupRefreshBtn").onclick = async () => {
   const btn = $("backupRefreshBtn");
   try{
     btn.disabled = true;
-    btn.innerHTML = "<span>↻</span> Checking…";
     await loadBackupManagerStatus();
   }finally{
     btn.disabled = false;
-    btn.innerHTML = "<span>↻</span> Refresh";
   }
 };
 
+// Row-tap toggles (user order): the whole destination / scheduler
+// header row toggles its checkbox — taps on buttons, links,
+// inputs, selects or labels keep native behavior. Static.
+(function(){
+  function rowToggle(header, check){
+    if(!header||!check) return;
+    header.addEventListener("click",(ev)=>{
+      const t=ev.target;
+      if(t&&t.closest&&t.closest("button,a,select,input,label,textarea")) return;
+      check.checked=!check.checked;
+      try{ check.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){}
+    });
+  }
+  try{
+    const g=$("destRowGdrive"), tg=$("destRowTelegram"), u=$("destRowUsb");
+    if(g) rowToggle(g.querySelector(":scope > div"),$("destCheckGdrive"));
+    if(tg) rowToggle(tg.querySelector(":scope > div"),$("destCheckTelegram"));
+    if(u) rowToggle(u.querySelector(":scope > div"),$("destCheckUsb"));
+    const se=$("backupSchedEnabled");
+    if(se&&se.closest) rowToggle(se.closest("div"),se);
+  }catch(e){}
+})();
+
 // Google Device Flow Event Listeners
-if($("gdriveDeviceStartBtn")) $("gdriveDeviceStartBtn").onclick = startDeviceFlow;
-if($("gdriveDeviceCancelBtn")) $("gdriveDeviceCancelBtn").onclick = cancelDeviceFlow;
+if($("gdriveDeviceStartBtn")) $("gdriveDeviceStartBtn").onclick = startDeviceFlow;if($("gdriveDeviceCancelBtn")) $("gdriveDeviceCancelBtn").onclick = cancelDeviceFlow;
 
 // Google Drive Management
 if($("gdriveDisconnectBtn")) {
@@ -3722,7 +4016,6 @@ if($("telegramBackupNowBtn")) {
     const btn = $("telegramBackupNowBtn");
     try {
       btn.disabled = true;
-      btn.textContent = "Sending…";
       const res = await api("/api/backup/telegram/backup", {method: "POST"});
       await glassAlert("Backup sent to Telegram successfully: " + (res.name || "complete"));
       await loadBackupManagerStatus();
@@ -3752,7 +4045,6 @@ if($("usbBackupNowBtn")) {
     const btn = $("usbBackupNowBtn");
     try {
       btn.disabled = true;
-      btn.textContent = "Backing up…";
       const res = await api("/api/backup/usb/backup", {method: "POST"});
       await glassAlert("Backup written to USB drive successfully: " + (res.name || "complete"));
       await loadBackupManagerStatus();
@@ -3760,7 +4052,7 @@ if($("usbBackupNowBtn")) {
       await glassAlert("USB backup failed: " + (e.message || "error"));
     } finally {
       btn.disabled = false;
-      btn.textContent = "Backup to USB now";
+      btn.textContent = "Backup to USB";
     }
   };
 }
@@ -3770,7 +4062,6 @@ if($("usbRefreshBtn")) {
     const btn = $("usbRefreshBtn");
     try {
       btn.disabled = true;
-      btn.textContent = "Checking…";
       await loadBackupManagerStatus();
     } finally {
       btn.disabled = false;
@@ -4013,7 +4304,8 @@ detailScroll.addEventListener("click",(e)=>{
 });
 document.addEventListener("keydown",(e)=>{
   if(e.key==="Escape"){
-    if(enrollModal && enrollModal.classList.contains("open")){
+    if(daySheetModal && daySheetModal.classList.contains("open")){ closeDaySheet(); }
+    else if(enrollModal && enrollModal.classList.contains("open")){
       finishEnrollUi();
       if(adminLayer && adminLayer.classList.contains("open")) return;
       resumeSensorScan();
@@ -4338,12 +4630,40 @@ function _railBridge(popEl){
     window.addEventListener('scroll',onScrollClose,true);
   }
   function buildGselOptions(popEl, sel, btn){
+    /* Pop tags its source select (user order): lets CSS pin one
+       dropdown's overlay without touching the shared pop. */
+    try{ if(sel&&sel.id) popEl.dataset.for=sel.id; }catch(e){}
+    /* Schedule grid (user order): the context dropdown renders its
+       optgroups as category columns under a full-width Global row —
+       generic selects keep the flat list. */
+    const sched = sel && sel.id==="calClassSelect";
+    if(sched) popEl.classList.add("gsel-sched");
     Array.from(sel.children).forEach(ch=>{
       if(ch.tagName==='OPTGROUP'){
-        const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; popEl.appendChild(g);
-        Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(popEl,o,sel,btn); });
-      }else if(ch.tagName==='OPTION'){ addGselOpt(popEl,ch,sel,btn); }
+        if(sched){
+          const col=document.createElement('div'); col.className='gsel-col';
+          const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; col.appendChild(g);
+          Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(col,o,sel,btn); });
+          popEl.appendChild(col);
+        }else{
+          const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; popEl.appendChild(g);
+          Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(popEl,o,sel,btn); });
+        }
+      }else if(ch.tagName==='OPTION'){
+        const r=addGselOpt(popEl,ch,sel,btn);
+        if(sched && sel.children[0]===ch && r) r.classList.add("gsel-wide");
+      }
     });
+    /* Row divider (user order): a full-width hairline between the top
+       pair and the bottom pair whenever three or more categories
+       render — generic selects never grow one. */
+    if(sched){
+      const cols=Array.from(popEl.querySelectorAll(':scope > .gsel-col'));
+      if(cols.length>2){
+        const hd=document.createElement('div'); hd.className='gsel-hdiv'; hd.setAttribute('aria-hidden','true');
+        cols[1].after(hd);
+      }
+    }
   }
   function addGselOpt(popEl, o, sel, btn){
     const r=document.createElement('div'); r.className='gsel-opt'; r.setAttribute('role','option');
@@ -4352,12 +4672,13 @@ function _railBridge(popEl){
     if(o.value===sel.value){ r.classList.add('sel'); r.setAttribute('aria-selected','true'); }
     r.addEventListener('click',()=>pick(sel,btn,o.value));
     popEl.appendChild(r);
+    return r;
   }
   function placeGsel(popEl, wrap){
     const rc=wrap.getBoundingClientRect();
     popEl.style.minWidth=Math.max(rc.width,140)+'px';
     popEl.style.maxWidth=Math.max(140,window.innerWidth-16)+'px';
-    const h=Math.min(260,popEl.offsetHeight||260);
+    const h=Math.min(popEl.classList.contains('gsel-sched')?400:260,popEl.offsetHeight||260);
     const railEl=(wrap.closest&&wrap.closest('#adminSide'))||null;
     let left=rc.left;
     let inRail=false;
@@ -4424,6 +4745,17 @@ function _railBridge(popEl){
   function enhanceAll(root){
     try{ (root||document).querySelectorAll('select').forEach(enhance); }catch(e){}
   }
+  /* Repair hook (user order): if a select somehow missed enhancement
+     (or lost its wrap), re-run it — used by late-shown panes. */
+  try{
+    window.__ensureGsel=function(sel){
+      if(!sel||sel.tagName!=='SELECT') return;
+      const w=sel.parentNode;
+      if(w&&w.classList&&w.classList.contains('gsel')&&w.querySelector(':scope > .gsel-btn')) return;
+      try{ delete sel.dataset.gsel; }catch(e){ try{sel.removeAttribute('data-gsel');}catch(_){} }
+      enhance(sel);
+    };
+  }catch(e){}
   enhanceAll(document);
   try{
     new MutationObserver((muts)=>{
@@ -4431,55 +4763,51 @@ function _railBridge(popEl){
     }).observe(document.body,{childList:true,subtree:true});
   }catch(e){}
 })();
-/* Date preset segmented strip — inline replacement for the
-   attDatePreset dropdown popup (no window; options flow left→right).
-   Native select stays hidden truth; clicks write its value and fire
-   change so the existing preset/custom/Apply flow runs untouched. */
+/* Attendance preset cubes — visual layer over #attDatePreset (truth),
+   now living in the main panel above the KPI strip (rail strip retired).
+   Same flow as before: set value, clear year unless academic, render,
+   dispatch change. Reveal inputs + APPLY live in #attRevealRow and are
+   shown/hidden by renderAttendance; Clear pair runs the section reset. */
 (function(){
+  function sync(){
+    const sel=document.getElementById("attDatePreset"); if(!sel) return;
+    document.querySelectorAll('#attPresetRow .att-cube[data-v]').forEach(b=>{
+      const on=(b.dataset.v===sel.value);
+      b.classList.toggle("on",on);
+      b.setAttribute("aria-pressed",on?"true":"false");
+    });
+  }
   function build(){
-    const sel=document.getElementById("attDatePreset"); if(!sel||sel.dataset.seg) return;
-    sel.dataset.seg="1";
-    const strip=document.createElement("span"); strip.className="seg-strip"; strip.setAttribute("role","group"); strip.setAttribute("aria-label","Date range");
-    const btns=[];
-    Array.from(sel.options).forEach(o=>{
-      const b=document.createElement("button"); b.type="button"; b.className="seg-btn"; b.textContent=o.textContent; b.dataset.v=o.value;
-      b.setAttribute("aria-pressed",o.value===sel.value?"true":"false");
+    const sel=document.getElementById("attDatePreset"); if(!sel||sel.dataset.cubes) return;
+    sel.dataset.cubes="1";
+    document.querySelectorAll('#attPresetRow .att-cube[data-v]').forEach(b=>{
       b.addEventListener("click",()=>{
-        if(sel.value!==o.value){
-          sel.value=o.value;
+        const v=b.dataset.v;
+        if(sel.value!==v){
+          sel.value=v;
           /* Drive the flow directly (never rely on event delivery alone) */
           try{
-            const v=o.value, isCustom=(v==="custom_day"||v==="custom_range");
             if(v!=="academic"){ attAcadFrom=attAcadTo=null; }
-            if(typeof attSingleDate!=="undefined"&&attSingleDate) attSingleDate.style.display=(v==="custom_day")?"":"none";
-            if(typeof attFromDate!=="undefined"&&attFromDate) attFromDate.style.display=(v==="custom_range")?"":"none";
-            if(typeof attToDate!=="undefined"&&attToDate) attToDate.style.display=(v==="custom_range")?"":"none";
-            if(typeof attApplyBtn!=="undefined"&&attApplyBtn) attApplyBtn.style.display=isCustom?"":"none";
             if(typeof renderAttendance==="function") renderAttendance();
           }catch(e){}
           try{ sel.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){ try{ const ev=document.createEvent("HTMLEvents"); ev.initEvent("change",true,false); sel.dispatchEvent(ev); }catch(_){} }
         }
+        /* Custom cubes open their anchored calendar popup (tap, never
+           hover); Academic Year opens the year-range popup the same
+           way. Every other preset shuts any open popup. Re-tapping
+           the active popup preset reopens its popup. */
+        try{
+          if(v==="custom_day") openDayPop(b);
+          else if(v==="custom_range") openRangePop(b);
+          else if(v==="academic") openAcadPop(b);
+          else closeDtPops();
+        }catch(e){ console.error(e); }
         sync();
       });
-      strip.appendChild(b); btns.push(b);
-      if(o.value==="academic"||o.value==="custom_range"){
-        b.addEventListener("mouseenter",()=>{ try{ if(o.value==="academic") openAcadPop(b); else openRangePop(b); }catch(e){} });
-        /* Re-click toggles the shell shut (outside-press ignores anchor) */
-        b.addEventListener("click",()=>{ try{ if(_dtOpenFor===(o.value==="academic"?"A:":"R:")+o.value) closeDtPops(); }catch(e){ console.error(e); } });
-      }
     });
-    function sync(){ btns.forEach(b=>{ const on=b.dataset.v===sel.value; b.classList.toggle("active",on); b.setAttribute("aria-pressed",on?"true":"false"); }); }
+    const clr=()=>{ try{ clearAttendanceSection(); }catch(e){ console.error(e); } };
+    const cb=document.getElementById("attClearBrick"); if(cb) cb.addEventListener("click",clr);
     sel.addEventListener("change",sync); sync();
-    /* Section Clear: last item of the preset bar, parted by a hairline */
-    try{
-      const sep=document.createElement("span"); sep.className="seg-sep"; sep.setAttribute("aria-hidden","true");
-      strip.appendChild(sep);
-      const c=document.createElement("button"); c.type="button"; c.className="seg-btn seg-clear"; c.textContent="Clear";
-      c.setAttribute("aria-label","Clear attendance filters");
-      c.addEventListener("click",()=>{ try{ clearAttendanceSection(); }catch(e){ console.error(e); } });
-      strip.appendChild(c);
-    }catch(e){}
-    try{ sel.parentNode.insertBefore(strip,sel); }catch(e){}
   }
   if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",build); } else { build(); }
 })();
@@ -4584,6 +4912,22 @@ function _dtPlace(box,anchor){
     top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
   }
   box.style.left=left+"px"; box.style.top=top+"px"; box.style.visibility="";
+  /* Anchored tail (day-bubble language): a sharp apex at the anchor's
+     horizontal center, pointing up when the popup sits below the cube
+     and down when flipped above. Rail-docked popups keep no tail. */
+  try{
+    if(!inRail && anchor && anchor.getBoundingClientRect){
+      let tail=null;
+      try{ tail=box.querySelector(":scope > .dt-tail"); }catch(_){ tail=null; }
+      if(!tail){ tail=document.createElement("div"); tail.className="dt-tail"; tail.setAttribute("aria-hidden","true"); box.appendChild(tail); }
+      const bw=box.offsetWidth||0;
+      const cx=Math.round(r.left+r.width/2-left);
+      tail.style.left=Math.max(20,Math.min(Math.max(20,bw-20),cx))+"px";
+      const below=(top>=r.bottom-2);
+      tail.classList.toggle("tail-up",below);
+      tail.classList.toggle("tail-down",!below);
+    }
+  }catch(e){}
   if(inRail) _revealFromRail(box);
 }
 function _dtWire(box,anchor){
@@ -4665,9 +5009,9 @@ function openAcadPop(anchor){
     box.appendChild(b);
   });
   const foot=document.createElement("div"); foot.className="dt-foot";
-  const clear=document.createElement("button"); clear.type="button"; clear.textContent="Clear";
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
   clear.addEventListener("click",()=>{ attAcadFrom=attAcadTo=null; try{renderAttendance();}catch(e){ console.error(e); } closeDtPops(); });
-  const done=document.createElement("button"); done.type="button"; done.textContent="Done";
+  const done=document.createElement("button"); done.type="button"; done.className="dt-glyph"; done.setAttribute("aria-label","Done"); done.innerHTML=TICK_ICON;
   done.addEventListener("click",closeDtPops);
   foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
   _dtWire(box,anchor);
@@ -4730,14 +5074,59 @@ function openRangePop(anchor){
   },inSel);
   paintHint();
   const foot=document.createElement("div"); foot.className="dt-foot";
-  const clear=document.createElement("button"); clear.type="button"; clear.textContent="Clear";
-  clear.addEventListener("click",()=>{ try{ if(attFromDate)attFromDate.value=""; if(attToDate)attToDate.value=""; renderAttendance(); }catch(e){ console.error(e); } closeDtPops(); });
-  const apply=document.createElement("button"); apply.type="button"; apply.textContent="Apply";
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  clear.addEventListener("click",()=>{
+    from=""; to=""; pickingTo=false;
+    try{ if(attFromDate)attFromDate.value=""; if(attToDate)attToDate.value=""; renderAttendance(); }catch(e){ console.error(e); }
+    paintHint(); redraw();
+  });
+  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph"; apply.setAttribute("aria-label","Apply"); apply.innerHTML=TICK_ICON;
   apply.addEventListener("click",()=>{
     if(!from) from=_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
     if(!to) to=from;
     if(from>to){ const x=from; from=to; to=x; }
     try{ if(attFromDate)attFromDate.value=from; if(attToDate)attToDate.value=to; _dtCommitPreset("custom_range"); try{renderAttendance();}catch(e){ console.error(e); } }catch(e){ console.error(e); }
+    closeDtPops();
+  });
+  foot.appendChild(clear); foot.appendChild(apply); box.appendChild(foot);
+  _dtWire(box,anchor);
+}
+/* Custom-date calendar popup — single-day mirror of openRangePop.
+   Same anchored shell, grid, nav, glyph foot. Pick stages locally;
+   tick writes the hidden single input + commits custom_day. */
+function openDayPop(anchor){
+  const key="D:"+((anchor&&anchor.dataset&&anchor.dataset.v)||"");
+  if(_dtOpenFor===key) return; _dtOpenFor=key;
+  const t=new Date();
+  let sel=(typeof attSingleDate!=="undefined"&&attSingleDate&&attSingleDate.value)||"";
+  const box=_dtShell(); box._dtAnchor=anchor;
+  const head=document.createElement("div"); head.className="dt-head";
+  const title=document.createElement("div"); title.className="dt-title"; title.textContent="Custom date";
+  head.appendChild(title); box.appendChild(head);
+  const hint=document.createElement("div"); hint.className="dt-sec"; hint.style.marginTop="0";
+  box.appendChild(hint);
+  const base=sel||_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
+  const bm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(base)||[0,t.getFullYear(),t.getMonth()+1,t.getDate()];
+  const view={y:+bm[1],m:+bm[2]-1};
+  function paintHint(){
+    hint.textContent=!sel?"Tap the day":_fmtShort(sel);
+  }
+  const redraw=_monthGrid(box,"",view,iso=>{
+    sel=iso;
+    paintHint(); redraw();
+  },iso=>(sel&&iso===sel));
+  paintHint();
+  const foot=document.createElement("div"); foot.className="dt-foot";
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  clear.addEventListener("click",()=>{
+    sel="";
+    try{ if(attSingleDate)attSingleDate.value=""; renderAttendance(); }catch(e){ console.error(e); }
+    paintHint(); redraw();
+  });
+  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph"; apply.setAttribute("aria-label","Apply"); apply.innerHTML=TICK_ICON;
+  apply.addEventListener("click",()=>{
+    if(!sel) sel=_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
+    try{ if(attSingleDate)attSingleDate.value=sel; _dtCommitPreset("custom_day"); try{renderAttendance();}catch(e){ console.error(e); } }catch(e){ console.error(e); }
     closeDtPops();
   });
   foot.appendChild(clear); foot.appendChild(apply); box.appendChild(foot);
@@ -4886,8 +5275,8 @@ function openRangePop(anchor){
     const aCol=document.createElement("div"); aCol.className="dt-col";
     cols.appendChild(hCol); cols.appendChild(mCol); cols.appendChild(aCol);
     const foot=document.createElement("div"); foot.className="dt-foot";
-    const clear=document.createElement("button"); clear.type="button"; clear.textContent="Clear";
-    const done=document.createElement("button"); done.type="button"; done.textContent="Done";
+    const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+    const done=document.createElement("button"); done.type="button"; done.className="dt-glyph"; done.setAttribute("aria-label","Done"); done.innerHTML=TICK_ICON;
     clear.addEventListener("click",()=>{ commit(input,""); closePop(); });
     done.addEventListener("click",closePop);
     foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
@@ -4898,7 +5287,8 @@ function openRangePop(anchor){
       col.innerHTML="";
       items.forEach(v=>{
         const b=document.createElement("button"); b.type="button"; b.textContent=v.label; if(v.val===selVal) b.classList.add("sel");
-        b.addEventListener("click",()=>{ onPick(v.val); refresh(); apply(); });
+        /* One tap commits and closes (user order): no extra confirm. */
+        b.addEventListener("click",()=>{ onPick(v.val); try{closePop();}catch(_){} refresh(); apply(); });
         col.appendChild(b);
       });
     }

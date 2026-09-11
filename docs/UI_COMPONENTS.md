@@ -741,3 +741,260 @@ trust the code, then fix this file.
     (prompt/trigger dark, identity `ok`, unknown `danger`).
     Structure now carried by black cards / white bar / pills /
     hairlines only. Braces balanced.
+61. Extraordinary pass (user order — month reads printed, not
+    dashboard): working solid `#141414`/cream; off transparent +
+    12px `0.06` hairline grid + inset 2px ring/dark text; holiday
+    135° `#B24A3C→#8A3A3A` gradient, cream italic-Newsreader day+tag;
+    override transparent + 8px dot field + inset 2px ring/dark text;
+    today keeps state + inset 2px ring. Outlines are inset shadows
+    (borders inflate cells); month hover fill retired. Renderer
+    emits the five classes only (weekly-off split reverted).
+62. Setup cream fields (user order — nothing white in Setup):
+    legend pills, context selector, school chip, sched + inline
+    cutoff time fields wear cream + 3px `#141414` + dark text, 10px
+    radius. Row pencil (user order — row tap opens nothing):
+    14px feather-weight outline pencil (cream on the black boards)
+    beside the × opens each board editor; `onCbStripClick` routes
+    pencil only, row keydown retired, E2E step 2 retargets via the
+    context dropdown.
+63. Picker re-ink + plain legend + row preview (user order): the
+    time/date picker wore light-on-cream (white-theme leftovers) —
+    cream panel, 3px `#141414` outline, dark ink, picked value a
+    black pill with cream text. Legend pills never took the cream
+    field treatment (my error — removed): plain text, unpressed
+    `0.55` ink, pressed full ink + 500 like MONTH VIEW; school chip
+    back to the solid black pill. Row tap previews the month
+    (class/batch retarget, holiday/override jump to the record's
+    month, zero popups); pencil stays the sole editor door, E2E
+    step 2 clicks rows again and asserts no popup.
+64. Cream leftovers (user order): popup fields re-pinned
+    ancestry-free (plain NOTE inputs match DATE/BECOMES) with dark
+    placeholders; context dropdown plain text (cream box removed);
+    toolbar hairline (`border-bottom`) killed — the only bottom rule
+    on the strip.
+65. White-pill kill + full-popup audit (user order): the frost-era
+    white pills (`13109` family, incl. sched 3-ID + `:focus`
+    variants) outranked the cream rule — my ancestry-free rewrite
+    had FEWER classes and lost. Cream block rewritten triple-ID
+    (`3.4.2`) so every popup field wins; machine-checked with a
+    cascade harness (`css-cascade-audit.js`, served-HTML truth):
+    school/override/holiday/sched inputs+selects, inline cutoffs,
+    dt-pop panel/values/picked-pill/glyphs, gsel option panel —
+    all cream+3px+dark. Cutoff values stay readable via dark focus
+    ink + cream-on-black `::selection` (the old dark-on-dark
+    selection hid text mid-edit).
+65. Picker glyphs + row language (user order): time-picker
+    CLEAR→trash / DONE→tick (shared trash path + tick path consts,
+    bottom-right 20px/24px, black on cream); board rows gain a
+    status dot (filled cream = live, hollow = empty/past via the
+    dim class) and a 1px leader (strong live, faint dim) between
+    name and count — six-column rows, heights untouched.
+85. Cream manager (two-tone): left board cream, audit untouched;
+    dark ink + quiet secondary, READY black / needs-action red
+    (usb Not-connected joins danger), black-cream-red tiers,
+    cream 3px checkboxes with red ticks, 3px field law, black-fill
+    day pills. Harness-verified on served bytes.
+86. Cream size-up + snap: 13px body / 11px caps headers-labels /
+    40px-12px buttons; 20px cream 3px checkboxes, 12px red ticks;
+    TIME+FREQ fixed 140px nowrap slots, trigger box identical in
+    every state, pop tagged data-for + pinned fixed overlay;
+    sched status reserves full-width slot below Save; refresh
+    glyph 14px; motion kill-all + 1080px retire guard; row-tap
+    toggles (buttons/links/labels keep native).
+87. USB/global split: usb action renamed Backup to USB (renders
+    BACKUP TO USB, global stays BACK UP NOW); freq slot 140→170
+    (TIME stays 140) so Specific Weekdays fits whole; refresh
+    re-pinned visible, glyph matte red 16px.
+88. Click-shift kill: USB restore wrote "Backup to USB now" while
+    resting label was "Backup to USB" — permanent widen + sibling
+    push after first click; fixed to exact resting text. All panel
+    transient relabels retired (pair/save/send/check/refresh keep
+    static labels, disabled + status lines still report); refresh
+    is now an icon-only 40px outline circle, solid red arrow.
+89. L-block: refresh borderless (glyph floats on cream); days
+    strip visibility-reserved so Frequency never shifts buttons;
+    chips pinned identical in all states (idle outline / picked
+    black, hover changes nothing); audit Export solid cream,
+    Clear red-outline pill, both 40px/12px.
+90. M-block: chips frozen (one 6-ID rule pins every size prop, tap
+    changes paint only); Back-Up-Now row to 40px (a 34px rule was
+    beating the 40px law there); audit rows lose hover wash +
+    transition, audit buttons lose base transition. Audit print
+    reviewed: esc on all cells, formatted details + fallbacks,
+    fixed layout, wrap, count/empty/export all correct.
+91. N-block audit flush: table-wrap flex-fills the card (62vh cap
+    retired, dead band gone — records run thead hairline to card
+    bottom); wrap bleeds to both borders + bottom, first/last
+    cells re-padded to the header grid; sticky thead gets solid
+    #141414 so rows never show through; scrollbar gutter unreserved
+    so the hairline touches the right border.
+92. O-block engaged scroll: viewport cap (100vh-220) on the audit
+    window — the uncapped inner grew with all rows, forcing the
+    outer pane to scroll (manager + buttons + thead moved along);
+    overscroll-contain parks the outer during record-wheel;
+    overlay scrollbars float (true right-edge touch); card
+    un-stretched so no inner void.
+93. P-block screenshot round: thead itself sticky + wrap overflow
+    opened (sticky resolved against the hidden wrap — the ghost
+    rows); Export/Clear moved to a bottom footer under a
+    full-bleed divider; outer scrollbar-gutter unreserved;
+    manager rhythm 12→8px tier (rows/boxes/sections, ~96px) so
+    both boards fit 100% zoom with no outer scroll.
+94. Q-block ground + sharp (Attendance parity verified: att-board
+    is radius-0, flex:1-filled to the bottom): audit stretch
+    restored (one bottom edge with the manager at the pane foot),
+    corners to 0, window vh-cap retired for a zero-basis flex
+    fill — exact fill at any viewport, inner scroll preserved.
+95. R-block correction: zero-basis does not bound (resolves back
+    to content against indefinite heights) — all rows sized the
+    card, footer sank below fold, inner never overflowed so wheel
+    died on contain. Definite vh cap restored (footer back, rows
+    scroll); manager pinned stretched (one bottom edge).
+96. S-block exact fill: row to zero-basis (pane-exact, leftover
+    impossible — scroll runs thead bar to footer bar); manager
+    thin internal fallback scroll (short screens only); both
+    footers fixed 68px border-box so both thin bars share one
+    line.
+98. V-block recovery: basis-0 row vs indefinite pane exploded
+    (footers buried, wheel dead) — viewport cap backstops the
+    row (ground touch via grow, cap stops explosions only).
+99. W-block (user pattern): V cap deleted; min-height:0 pinned
+    on pane, row, card, manager; header/footer flex:none.
+    Wrap/scroll already had min-0. Full path pane-backup to
+    scroll now shrinks instead of stretching to content.
+100. X-block card lock (live probe: row 795, card 959501):
+    height/max-height 100% border-box on the card — row is
+    proven definite, so the card fills it exactly; flex:6 left
+    alone (horizontal axis, widths correct).
+101. Setup spacing: toolbar margin-top 12 (top inset); cb-table
+    400px cap retired (min-240 floor stays) so short boards
+    stretch to the ground, void inside black; roster/editor
+    pinned flex:none so only boards absorb. Fill chain already
+    existed (grid/card/subcard/detail/strip flex:1).
+102. Board rows 42px/8-locked: 14px names, 13px counts, 16px
+    pencil; hit bleeds into card pads (grid identical, positions
+    frozen); rows viewport fixed 336 (barless scroll kept);
+    boards share a 376 floor + stretch; row wash retired (focus
+    kept); row tap now opens the editor (preview law reversed
+    per order; ADMIN.md updated).
+103. Board counts: Holidays/Overrides headers show today-or-later
+    counts (past rows render dimmed) — labels now read "N active"
+    so the badge can't misread as a total; Classes/Batches stay
+    bare totals (all rows shown).
+104. Fused wall: strip gaps to 0, joints drawn single-sided 3px
+    cream (never doubled), radius only on the four outer
+    corners w/ per-breakpoint maps (4-col / 2-col / 1-col);
+    headers/rows untouched.
+105. Corner correction: an older Sharp-outer law sat later and
+    re-rounded every joint (cream notches read as gaps) —
+    fused map re-asserted after it, viewport-resolved proof
+    (1900/1000/500) all exact.
+97. T-block order-proof: foot box re-declared whole + last (split
+    P/S declarations divided it); divider to 0.35 alpha to match
+    the cream bar's weight; scroll padding-top/table
+    spacing/margins zeroed, thead+th solid re-pinned — rows run
+    hairline to divider. (Plus: P's older foot rule sat after T
+    and re-imposed 0.2 — deleted as subsumed; T is the single
+    last word now, verified.)
+84. Backup screenshot round: checkbox tick moved off ::after
+    (dead on replaced inputs) to :checked background SVG; freq
+    select styled native-identical + __ensureGsel repair on tab
+    open; Action col 150→160; audit cells ultra-pinned cream;
+    stray brace removed (sheet balanced again); served sweep
+    proves only numeral italics remain.
+83. Backup ink: root cause found — frost-era DIRECT dark rules
+    (the 8022 family) beat inheritance and var-remap, so card
+    cream never reached labels. Mirrored the exact selector
+    lists one ID higher, cream keeping the full/muted split.
+    Details proven present (144-char cells via executed render)
+    with no hiding rule — table now fits its card instead.
+    Fields/checkbox prove mine-win (stale on user side).
+    Clear audit brightened to #BC5A4E.
+82. Backup black boards: manager + audit flush side-by-side
+    (inline vars remapped so every inline span/box follows);
+    three-tier buttons (filled pair/send/backup, outline
+    check/save/export/restore, red disconnect/clear); cream
+    checkboxes, filled time/freq slots, outline day pills with
+    cream-fill active; audit cream rows + caps Action + quiet By.
+    Harness-verified on served bytes.
+81. Bin audit (user order — all bins red): machine-checked every
+    remove mark on the served page — bubble, picker clears,
+    student + tile bins, popup trash all #8A3A3A; board × the
+    #A65147 dark-surface variant. Zero black bins in source.
+80. Global serif (explicit user override of the sans/mono lock):
+    --sans/--mono redefined to the Newsreader stack plus one late
+    italic rule — every interface text serif-italic, glyphs/SVG
+    untouched. Locked type docs now describe the default system
+    only; this override stands while unreverted.
+79. Popup numerals: day-bubble title, picker titles/day grids/time
+    columns, and view-table date cells wear the italic serif;
+    editable inputs deliberately stay sans/mono.
+78. Editorial numerals everywhere: the holiday italic-serif day
+    number now runs on all five month materials (ink still per
+    state); holiday tag keeps following its number, other tags
+    stay sans.
+77. Attendance wall: KPI cubes share the row equally (flex:none
+    left right-side air); boards marginless with records square
+    and unknown rounded only at the bottom; preset blanks squared
+    (mid-structure joints carry no radius). Outer corners only:
+    KPI tops + unknown bottoms.
+76. Grid rows: full-width hairline between top/bottom pairs (3+
+    groups), Global inset off the card corner, header full-ink 500
+    with items a step lighter (picked pill stays cream). Columns
+    already stretch equal by grid law; caps/dividers verified
+    served — reload past the grid turn to see them.
+75. Grid panel fit: 400px/60vh panel cap, independent per-column
+    scrollers (Global pinned by flow), selected fills at cube
+    radius, hairline + air left of non-first columns; placement
+    math matches the 400 cap.
+74. Schedule grid dropdown: Global full-width + CLASSES/BATCHES/
+    HOLIDAYS/OVERRIDES columns (builder wraps optgroups, empty
+    groups omitted); class/batch filter as before, holiday/override
+    picks jump the month on the global template (context parses to
+    global, selection cleared like Global); 400px/320px scroll
+    panel, black-pill selection; outside/Esc close inherited.
+73. Dropdown label ghost: the visible text is a `gsel-lab` span with
+    its own light rule — the button-level plain-text rule never
+    reached it. Label pinned dark; served-bytes check shows only
+    two `.gsel-lab` color rules and the dark one wins.
+72. Popup trash (user order): Edit Class/Batch (board × flow reused
+    verbatim via onCbDel shim — confirm + API + batch guard, popup
+    closes first), Edit Holiday/Override (staged record commits
+    deleted, board parity, no confirm); Add modes render none.
+    Trash far LEFT + red, tick/cross right. Board × brightened to
+    #A65147 for 3:1 on black (cream keeps #8A3A3A).
+71. Destructive split (user order): trash far LEFT + RED everywhere
+    — day bubble (auto-margin split), academic + time picker feet
+    (`:has` space-between), student + tile bins (static red, no
+    flip), board × re-inked red (layout kept — data rows are not
+    action rows). Add/Edit popups + confirms checked: no trash
+    present, untouched.
+70. Time follow-ups: `@` banned in names/notes (inline errors +
+    backend single-`@` enforcement + 400 tests); month tag and row
+    titles carry `· HH:MM–HH:MM` (never raw `@`); display-only note
+    atop `_parse_holiday`.
+69. Holiday/override hours (user order — Option A record-keeping):
+    optional `@HH:MM-HH:MM` on settings strings (old strings
+    untouched, empty = all-day); backend parser/validation strip
+    `@` before date checks, resolution day-granular (reconcile,
+    KPIs, absence-runner untouched); all five popups gain
+    Start/End time boxes with HH:MM guard; boards/tables/bubble
+    display times; time picker commits + closes on tap. Backend
+    round-trip + 400 tests, E2E timed round-trip.
+68. Selected-option ghost (user order — screenshots proved it):
+    the old list-hover preview law outranked my picked-pill when
+    the cursor sat elsewhere in the list (white text, no pill).
+    Picked option now pinned black-pill + cream in ALL hover
+    contexts; same counting as the dt fix.
+67. Cream-ink sweep: full light-text enumeration found only three
+    live ghosts in Setup (harness-verified, rest already beaten):
+    Classes/Batches tabs (white idle/active), view-table verbs
+    (danger reads matte red), focused time/date segments (the
+    cutoff-vanishing mechanism, both :focus orders). Selection
+    fix from 65 covers mid-edit select-all.
+66. Hover ghosts: screenshots showed ghosted hovers, but the
+    harness hover-audit on the served page proves current CSS
+    already resolves them (gsel hover dark, selected stays
+    black-pill, day/column/title/foot text dark) — the ghost
+    frames predate the picker re-ink. Only live hover response
+    left was the day-cell wash; retired, hover reads resting.
