@@ -713,40 +713,6 @@
       border-color: var(--ink)
     }
 
-    .btn {
-      height: 30px;
-      padding: 0 12px;
-      border: 1px solid var(--line);
-      background: #F2F3F6;
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 180ms var(--ease);
-      white-space: nowrap;
-      flex-shrink: 0
-    }
-
-    .btn:hover {
-      border-color: var(--ink)
-    }
-
-    .btn.primary {
-      background: var(--ink);
-      color: #F2F3F6;
-      border-color: var(--ink)
-    }
-
-    .btn.danger {
-      color: var(--danger);
-      border-color: var(--line)
-    }
-
-    .btn.danger:hover {
-      border-color: var(--danger)
-    }
-
     .badge {
       font-size: 9px;
       letter-spacing: 0.12em;
@@ -1359,129 +1325,6 @@
       transform: translateY(0)
     }
 
-    .modal-card h3 {
-      font-family: var(--serif);
-      font-size: 22px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 6px
-    }
-
-    .modal-card p {
-      font-size: 11px;
-      color: var(--ink-2);
-      line-height: 1.5;
-      margin-bottom: 18px
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px
-    }
-
-    .form-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-width: 0
-    }
-
-    .form-field.full {
-      grid-column: 1 / -1
-    }
-
-    .form-field label {
-      font-size: 9px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--ink-3)
-    }
-
-    .form-field input,
-    .form-field select,
-    .form-field textarea {
-      height: 36px;
-      border: 1px solid var(--line);
-      background: #F2F3F6;
-      padding: 0 12px;
-      font-size: 11px;
-      outline: 0;
-      transition: border-color 180ms;
-      min-width: 0
-    }
-
-    .form-field textarea {
-      height: 72px;
-      padding: 10px 12px;
-      resize: vertical
-    }
-
-    .form-field input:focus,
-    .form-field select:focus,
-    .form-field textarea:focus {
-      border-color: var(--ink)
-    }
-
-    .enroll-scan-box {
-      border: 1px solid var(--line);
-      background: var(--paper);
-      padding: 18px;
-      text-align: center
-    }
-
-    .enroll-scan-count {
-      font-family: var(--mono);
-      font-size: 28px;
-      font-weight: 300
-    }
-
-    .enroll-scan-label {
-      margin-top: 8px;
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-2)
-    }
-
-    .finger-visual {
-      width: 92px;
-      height: 122px;
-      margin: 16px auto 0;
-      border: 1px solid var(--line-strong);
-      background: #F2F3F6;
-      position: relative;
-      overflow: hidden
-    }
-
-    .finger-line {
-      position: absolute;
-      left: -10px;
-      right: -10px;
-      height: 1px;
-      background: var(--ink);
-      top: 0;
-      animation: scanSweep 0.92s var(--ease-2) infinite alternate
-    }
-
-    .lift-hint {
-      margin-top: 12px;
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-3)
-    }
-
-    .inline-error {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border: 1px solid var(--danger);
-      background: #FFF6F5;
-      color: var(--danger);
-      font-size: 11px;
-      line-height: 1.4
-    }
-
     /* Frosted glass overlay — surfaces only, no layout change.
        Ambient: desert image + 0.12 near-black pass + #050507 base.
        The pass stays light because all text sits under the dark
@@ -1514,12 +1357,6 @@
       -webkit-backdrop-filter: blur(24px) saturate(1.4)
     }
 
-    .modal {
-      background: rgba(252, 251, 247, 0.38);
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur)
-    }
-
     .detail-pane,
     .admin-body,
     .admin-pane,
@@ -1540,14 +1377,6 @@
     .calendar-cell.head,
     .weekly-table th {
       background: rgba(246, 244, 239, 0.6)
-    }
-
-    .modal-card {
-      background: var(--glass-bg-strong);
-      backdrop-filter: var(--glass-blur-sm);
-      -webkit-backdrop-filter: var(--glass-blur-sm);
-      border: 1px solid var(--glass-line);
-      box-shadow: var(--glass-shadow)
     }
 
     .detail-card,
@@ -1590,29 +1419,6 @@
     .unknown-layer .unknown-title {
       color: #F2F3F6 !important;
       text-shadow: none !important;
-    }
-
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
-
-      .admin-layer.open,
-      .modal {
-        background: var(--bg)
-      }
-
-      .modal-card,
-      .detail-card,
-      .stat,
-      .table-wrap,
-      .list-pane,
-      .tab-toolbar,
-      .admin-top,
-      .admin-nav,
-      .calendar-grid,
-      .weekly-table {
-        background: #F2F3F6;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none
-      }
     }
 
     /* Borderless reference type — text clickables, white-on-image */
@@ -1703,17 +1509,6 @@
 
     html[data-ink="dark"] .admin-trigger:hover {
       color: #F2F3F6 !important;
-    }
-
-    .btn:not(.primary):not(.danger) {
-      background: transparent;
-      border-color: transparent;
-      color: var(--ink)
-    }
-
-    .btn:not(.primary):not(.danger):hover {
-      border-color: transparent;
-      text-decoration: underline
     }
 
     .admin-nav button:focus-visible,
@@ -1902,9 +1697,6 @@
        construction (no fix needed): search inputs (flex), seg strip
        (uniform weight), stat rows + date row + fixed tables (done),
        full-width form selects, roster rows, detail fields. */
-    #pane-students .tab-toolbar .gsel:has(> select#classFilter) > .gsel-btn { width: 128px !important; }
-    #pane-students .tab-toolbar .gsel:has(> select#batchFilter) > .gsel-btn { width: 128px !important; }
-    #pane-students .tab-toolbar .gsel:has(> select#studentStatusFilter) > .gsel-btn { width: 112px !important; }
     #pane-attendance .tab-toolbar .gsel:has(> select#attClassFilter) > .gsel-btn { width: 120px !important; }
     #pane-attendance .tab-toolbar .gsel:has(> select#attBatchFilter) > .gsel-btn { width: 120px !important; }
     #pane-attendance .tab-toolbar .gsel:has(> select#attStudentFilter) > .gsel-btn { width: 150px !important; }
@@ -1924,23 +1716,6 @@
 
     .gsel-form {
       width: 100%
-    }
-
-    .form-field .gsel-btn {
-      width: 100%;
-      height: 36px;
-      background: transparent;
-      border: 0;
-      border-bottom: 1px solid var(--line);
-      border-radius: 0;
-      justify-content: space-between;
-      padding: 0 2px;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none
-    }
-
-    .form-field .gsel-btn:hover {
-      border-bottom-color: var(--ink)
     }
 
     .gsel-pop {
@@ -1993,48 +1768,12 @@
     }
 
     /* Enrollment photo dropzone + borderless modal fields */
-    .photo-drop {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-height: 64px;
-      padding: 10px 12px;
-      border: 0;
-      border-bottom: 1px solid var(--line);
-      background: rgba(242, 243, 246, 0.5)
-    }
-
-    .photo-drop.over {
-      border-bottom-color: var(--ink);
-      background: rgba(242, 243, 246, 0.75)
-    }
-
     .photo-drop input[type=file] {
       position: absolute;
       width: 1px;
       height: 1px;
       opacity: 0;
       pointer-events: none
-    }
-
-    .photo-thumb {
-      width: 52px;
-      height: 52px;
-      flex-shrink: 0;
-      border: 1px solid var(--line);
-      background: var(--paper);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden
-    }
-
-    .photo-thumb span {
-      font-size: 8px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--ink-3)
     }
 
     .photo-thumb img {
@@ -2049,72 +1788,10 @@
       min-width: 0
     }
 
-    .photo-name {
-      font-size: 12px;
-      color: var(--ink);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis
-    }
-
-    .photo-sub {
-      font-size: 10px;
-      color: var(--ink-3);
-      margin-top: 3px
-    }
-
     .photo-acts {
       display: flex;
       gap: 10px;
       flex-shrink: 0
-    }
-
-    .photo-choose {
-      background: transparent;
-      border: 0;
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: var(--ink);
-      cursor: pointer;
-      padding: 6px 2px
-    }
-
-    .photo-choose:hover {
-      text-decoration: underline
-    }
-
-    .photo-remove {
-      background: transparent;
-      border: 0;
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--danger);
-      cursor: pointer;
-      padding: 6px 2px
-    }
-
-    .photo-remove:hover {
-      text-decoration: underline
-    }
-
-    .modal-card .form-field input:not([type=file]):not([type=checkbox]),
-    .modal-card .form-field textarea {
-      background: transparent;
-      border: 0;
-      border-bottom: 1px solid var(--line);
-      border-radius: 0;
-      padding: 0 2px
-    }
-
-    .modal-card .form-field input:focus,
-    .modal-card .form-field textarea:focus {
-      border-color: var(--ink);
-      background: transparent;
-      box-shadow: none;
-      outline: 0
     }
 
     .modal-card .form-field input:-webkit-autofill {
@@ -2958,42 +2635,7 @@
        `#newStudentToolbarBtn`/`.btn.primary` rules still match.
        This twin restores text-first with the same metrics as the
        Import/Export siblings; specificity (2 IDs) outranks both. */
-    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn,
-    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover {
-      background: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      text-decoration: none !important;
-      transition: none !important;
-    }
-
-    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn {
-      height: 40px !important;
-      min-width: 0 !important;
-      width: 100% !important;
-      margin-left: 0 !important;
-      padding: 0 24px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: flex-start !important;
-      text-align: left !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      font-size: 11px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      cursor: pointer !important;
-      white-space: nowrap !important;
-    }
-
-    #adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover {
-      color: #181A20 !important;
-    }
-
-    html[data-ink="dark"] #adminLayer#adminLayer #adminSide .side-ctx #newStudentToolbarBtn:hover {
-      color: #F2F3F6 !important;
-    }
+    /* A14 retired — button lives in roster card */
 
     /* Reference sidebar language (user-ordered): no separator bars —
        text only. Active nav reads via 500 only (washes retired
@@ -3636,13 +3278,7 @@
       column-gap: 12px !important;
     }
 
-    html[data-ink="dark"] #pane-students .student-row {
-      border-bottom-color: rgba(24, 26, 32, 0.08) !important;
-    }
-
-    #pane-students .student-row:hover {
-      background: transparent !important;
-    }
+    /* A9+A2 retired — owned by wall hover/border rules */
 
     /* Selected row: 500 name + full-ink text only (user order — the
        directional fade wash is retired; selection never paints a fade).
@@ -3663,13 +3299,7 @@
       color: #F2F3F6 !important;
     }
 
-    #pane-students .student-row.active .student-name {
-      font-weight: 500 !important;
-    }
-
-    #pane-students .student-name {
-      font-weight: 400 !important;
-    }
+    /* A3+A4 retired — owned by wall 400/active-500 */
 
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active,
     html[data-ink="dark"] #adminLayer#adminLayer #pane-students .student-row.active:hover {
@@ -3684,12 +3314,7 @@
       color: #181A20 !important;
     }
 
-    #pane-students .student-thumb {
-      border: none !important;
-      background: transparent !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-    }
+    /* A5 retired — owned by wall thumb reset */
 
     /* Initials are identity text, not tiles: no box, no fill —
        same flat treatment as the profile placeholder. */
@@ -3701,36 +3326,17 @@
       color: rgba(242, 243, 246, 0.85) !important;
     }
 
-    html[data-ink="dark"] #pane-students .student-thumb-fallback {
-      color: rgba(24, 26, 32, 0.85) !important;
-    }
+    /* A6 retired — owned by wall belt */
 
     /* Uploaded photos render as pure image — no frame, square corners */
-    #pane-students .student-thumb img {
-      border: none !important;
-      outline: none !important;
-      border-radius: 0 !important;
-    }
+    /* A7 retired — owned by wall img reset */
 
     /* ============================================================
        STUDENTS WORKSPACE (#pane-students)
        Text-first, hairline editorial layout
        ============================================================ */
 
-    #pane-students .tab-toolbar {
-      border-bottom: 1px solid rgba(242, 243, 246, 0.12) !important;
-      padding: 10px clamp(16px, 3vw, 32px) !important;
-      margin-bottom: 20px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 10px 18px !important;
-      flex-wrap: wrap !important;
-      background: transparent !important;
-      height: auto !important;
-      min-height: 48px !important;
-      overflow: visible !important;
-    }
+    /* A13 retired — dead node; killer display:none stays */
 
     /* Search magnifier: static text glyph, never interactive.
        Wrapper keeps the full-width search row so icon + field
@@ -3767,11 +3373,7 @@
 
     /* (Search bar retired: the wrap's fade wash carries both inks now) */
 
-    html[data-ink="dark"] #pane-students #searchInput::placeholder,
-    html[data-ink="dark"] #pane-students #studentSearchInput::placeholder,
-    html[data-ink="dark"] #studentSearchInput::placeholder {
-      color: rgba(24, 26, 32, 0.5) !important;
-    }
+    /* A15a retired — nodes absent under #pane-students */
 
     #pane-students .split-view {
       display: flex !important;
@@ -4026,12 +3628,7 @@
       font-size: 12px !important;
       font-weight: 400 !important;
     }
-    #pane-students #rosterSearch::placeholder {
-      color: rgba(24, 26, 32, 0.5) !important;
-    }
-    #pane-students #rosterSearch:focus {
-      background: rgba(255, 255, 255, 0.5) !important;
-    }
+    /* A11+A12 retired — owned by wall placeholder/focus pin */
     /* Roster ink pins, both poles (detail-editorial language): names +
        monograms near-black, meta/roll graphite, selected rows full-ink
        with the 500 name — never flipping with the mode. The #studentList
@@ -4127,9 +3724,7 @@
 
     /* Text-only rows: no separator bars, no side marker — selection reads
        via the soft wash + 500 name only. */
-    #pane-students .student-row {
-      border-bottom: none !important;
-    }
+    /* A10 retired — identical value owned by wall */
     #pane-students .student-row,
     #pane-students .student-row.active,
     #pane-students .student-row.active:hover {
@@ -4301,31 +3896,7 @@
     }
 
     /* Search input: bare text on the wrap's wash (bar retired) */
-    #pane-students #searchInput,
-    #pane-students #studentSearchInput,
-    #studentSearchInput {
-      background: transparent !important;
-      border: none !important;
-      border-radius: 0 !important;
-      color: #F2F3F6 !important;
-      padding: 2px 0 !important;
-      font-family: var(--sans) !important;
-      font-size: 11.5px !important;
-      font-weight: 400 !important;
-      height: 28px !important;
-      outline: none !important;
-      box-shadow: none !important;
-      flex: 1 1 100% !important;
-      width: 100% !important;
-      min-width: 200px !important;
-      max-width: 560px !important;
-    }
-
-    #pane-students #searchInput::placeholder,
-    #pane-students #studentSearchInput::placeholder,
-    #studentSearchInput::placeholder {
-      color: rgba(242, 243, 246, 0.4) !important;
-    }
+    /* A15b+A15c retired — nodes absent under #pane-students */
 
     #pane-students select,
     #pane-students .gsel-btn,
@@ -4668,123 +4239,6 @@
       filter: none !important;
     }
 
-    /* 1. High-Contrast Monochromatic Typography */
-    #studentModal h2,
-    #studentModal h3,
-    #studentModal .modal-title,
-    #enrollModal h2,
-    #enrollModal h3,
-    #enrollModal .modal-title,
-    #enrollModal #enrollTitle,
-    .modal-card h2,
-    .modal-card h3,
-    .modal-title,
-    #enrollTitle {
-      font-family: var(--sans) !important;
-      font-size: 16px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.02em !important;
-      text-transform: none !important;
-      color: #F2F3F6 !important;
-      opacity: 1 !important;
-      text-shadow: none !important;
-      filter: none !important;
-      margin-bottom: 6px !important;
-    }
-
-    #studentModal p,
-    #studentModal .modal-sub,
-    #enrollModal p,
-    #enrollModal .modal-sub,
-    #enrollModal #enrollSub,
-    .modal-card p,
-    .modal-sub,
-    #enrollSub {
-      color: #F2F3F6 !important;
-      opacity: 0.8 !important;
-      font-weight: 300 !important;
-      font-size: 11px !important;
-      line-height: 1.5 !important;
-      text-shadow: none !important;
-      margin-bottom: 20px !important;
-    }
-
-    #studentModal label,
-    #studentModal .form-label,
-    #enrollModal label,
-    #enrollModal .form-label,
-    .modal-card label,
-    .modal-card .form-label,
-    .modal-card .form-field label {
-      color: #F2F3F6 !important;
-      opacity: 0.9 !important;
-      font-size: 10px !important;
-      letter-spacing: 0.12em !important;
-      text-transform: uppercase !important;
-      font-weight: 500 !important;
-      text-shadow: none !important;
-      margin-bottom: 4px !important;
-    }
-
-    /* All input text & selects (#studentModal input, #studentModal select) */
-    .modal-card input:not([type=file]):not([type=checkbox]),
-    .modal-card select,
-    .modal-card textarea,
-    .modal-card .form-field input:not([type=file]):not([type=checkbox]),
-    .modal-card .form-field select,
-    .modal-card .form-field textarea,
-    .modal-card .form-field .gsel-btn,
-    #studentModal input,
-    #studentModal select,
-    #studentModal textarea,
-    #enrollModal input:not([type=file]):not([type=checkbox]),
-    #enrollModal select,
-    #enrollModal textarea {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.3) !important;
-      border-radius: 0 !important;
-      padding: 8px 0 !important;
-      color: #F2F3F6 !important;
-      opacity: 1 !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      text-shadow: none !important;
-      box-shadow: none !important;
-      outline: none !important;
-      width: 100% !important;
-      height: auto !important;
-    }
-
-    .modal-card input:focus,
-    .modal-card select:focus,
-    .modal-card textarea:focus,
-    .modal-card .form-field input:focus,
-    .modal-card .form-field select:focus,
-    .modal-card .form-field textarea:focus,
-    .modal-card .form-field .gsel-btn:focus,
-    #studentModal input:focus,
-    #studentModal select:focus,
-    #studentModal textarea:focus,
-    #enrollModal input:focus,
-    #enrollModal select:focus,
-    #enrollModal textarea:focus {
-      border-bottom-color: #F2F3F6 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    .modal-card input::placeholder,
-    .modal-card textarea::placeholder,
-    #studentModal input::placeholder,
-    #studentModal textarea::placeholder,
-    #enrollModal input::placeholder,
-    #enrollModal textarea::placeholder {
-      color: rgba(242, 243, 246, 0.45) !important;
-      font-weight: 400 !important;
-      text-shadow: none !important;
-    }
-
     /* 1. Balanced Form Grid (Zero Empty Gaps) */
     .modal-card .form-grid {
       display: grid !important;
@@ -4865,78 +4319,6 @@
     .modal-card .form-field:last-child {
       order: 10 !important;
       grid-column: 1 / -1 !important;
-    }
-
-    /* 4. 100% Transparent Photo Container */
-    .modal-card .photo-drop,
-    #studentPhotoDrop,
-    .photo-uploader {
-      background: transparent !important;
-      border: 1px dashed rgba(242, 243, 246, 0.25) !important;
-      border-radius: 8px !important;
-      padding: 12px 14px !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 14px !important;
-      box-shadow: none !important;
-    }
-
-    .modal-card .photo-thumb,
-    .photo-preview-box {
-      width: 44px !important;
-      height: 44px !important;
-      background: transparent !important;
-      border: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 6px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      overflow: hidden !important;
-      flex-shrink: 0 !important;
-      box-shadow: none !important;
-    }
-
-    .modal-card .photo-thumb span,
-    .photo-preview-box span {
-      font-size: 8.5px !important;
-      letter-spacing: 0.12em !important;
-      text-transform: uppercase !important;
-      color: rgba(242, 243, 246, 0.8) !important;
-      font-weight: 500 !important;
-      text-shadow: none !important;
-    }
-
-    .modal-card .photo-name {
-      color: #F2F3F6 !important;
-      font-size: 12px !important;
-      font-weight: 400 !important;
-      text-shadow: none !important;
-    }
-
-    .modal-card .photo-sub {
-      color: rgba(242, 243, 246, 0.7) !important;
-      font-size: 10.5px !important;
-      font-weight: 300 !important;
-      margin-top: 2px !important;
-      text-shadow: none !important;
-    }
-
-    .modal-card .photo-choose,
-    #studentPhotoDrop .photo-choose,
-    .photo-uploader .photo-choose,
-    .photo-trigger {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: #F2F3F6 !important;
-      font-weight: 500 !important;
-      font-size: 10px !important;
-      letter-spacing: 0.1em !important;
-      text-transform: uppercase !important;
-      text-decoration: underline !important;
-      cursor: pointer !important;
-      padding: 4px 6px !important;
-      text-shadow: none !important;
     }
 
     /* ============================================================
@@ -5047,70 +4429,6 @@
       margin-top: 10px !important;
     }
 
-    /* 3. Fix CTA Button Legibility */
-    .modal-card #studentModalSubmitBtn,
-    .modal-card #nsSave,
-    .modal-card #edSave,
-    .modal-card .btn.primary,
-    #studentModalSubmitBtn {
-      background: rgba(242, 243, 246, 0.28) !important;
-      border: 1px solid rgba(242, 243, 246, 0.6) !important;
-      border-radius: 8px !important;
-      box-shadow: none !important;
-      color: #F2F3F6 !important;
-      font-weight: 500 !important;
-      font-size: 11px !important;
-      letter-spacing: 0.1em !important;
-      text-transform: uppercase !important;
-      padding: 10px 20px !important;
-      cursor: pointer !important;
-      height: auto !important;
-      line-height: inherit !important;
-      text-shadow: none !important;
-      transition: all 160ms ease !important;
-    }
-
-    .modal-card #studentModalSubmitBtn:hover,
-    .modal-card #nsSave:hover,
-    .modal-card #edSave:hover,
-    .modal-card .btn.primary:hover,
-    #studentModalSubmitBtn:hover {
-      background: rgba(242, 243, 246, 0.38) !important;
-      border-color: rgba(242, 243, 246, 0.8) !important;
-      color: #F2F3F6 !important;
-    }
-
-    .modal-card #studentModalCancelBtn,
-    .modal-card #nsCancel,
-    .modal-card #edCancel,
-    .modal-card .btn:not(.primary),
-    #studentModalCancelBtn {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: #F2F3F6 !important;
-      opacity: 0.75 !important;
-      font-weight: 400 !important;
-      font-size: 11px !important;
-      letter-spacing: 0.08em !important;
-      text-transform: uppercase !important;
-      padding: 10px 16px !important;
-      cursor: pointer !important;
-      height: auto !important;
-      line-height: inherit !important;
-      text-shadow: none !important;
-      transition: opacity 160ms ease !important;
-    }
-
-    .modal-card #studentModalCancelBtn:hover,
-    .modal-card #nsCancel:hover,
-    .modal-card #edCancel:hover,
-    .modal-card .btn:not(.primary):hover,
-    #studentModalCancelBtn:hover {
-      opacity: 1 !important;
-      color: #181A20 !important;
-    }
-
     /* ============================================================
        NEW STUDENT ENROLLMENT MODAL — frosted dropdown visual language
        Scoped to #enrollModal only. Single soft translucent sheet,
@@ -5137,164 +4455,10 @@
       text-shadow: none !important;
     }
 
-    #enrollModal #enrollTitle {
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      letter-spacing: 0.01em !important;
-      text-transform: none !important;
-      color: #F2F3F6 !important;
-    }
-
-    #enrollModal #enrollSub {
-      color: rgba(242, 243, 246, 0.65) !important;
-      opacity: 1 !important;
-      font-weight: 400 !important;
-      font-size: 11px !important;
-      letter-spacing: normal !important;
-    }
-
-    #enrollModal label,
-    #enrollModal .form-label,
-    #enrollModal .form-field label {
-      color: rgba(242, 243, 246, 0.7) !important;
-      opacity: 1 !important;
-      font-size: 9.5px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-    }
-
-    #enrollModal input:not([type=file]):not([type=checkbox]),
-    #enrollModal select,
-    #enrollModal textarea {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 0 !important;
-      color: #F2F3F6 !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      letter-spacing: normal !important;
-      box-shadow: none !important;
-    }
-
-    #enrollModal input:focus,
-    #enrollModal select:focus,
-    #enrollModal textarea:focus {
-      border-bottom-color: #F2F3F6 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    #enrollModal input::placeholder,
-    #enrollModal textarea::placeholder {
-      color: rgba(242, 243, 246, 0.4) !important;
-      font-weight: 400 !important;
-    }
-
     /* CLASS field: native select stays invisible truth under the custom
        button, so the selected value renders exactly once via .gsel-lab */
     #enrollModal .gsel > select {
       opacity: 0 !important;
-    }
-
-    #enrollModal .gsel-btn,
-    #enrollModal .form-field .gsel-btn {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      color: #F2F3F6 !important;
-      font-size: 13px !important;
-      font-weight: 400 !important;
-      letter-spacing: normal !important;
-    }
-
-    #enrollModal .gsel-btn:hover,
-    #enrollModal .gsel.open .gsel-btn {
-      border-bottom-color: #F2F3F6 !important;
-      color: #F2F3F6 !important;
-    }
-
-    #enrollModal .gsel-chev {
-      color: rgba(242, 243, 246, 0.6) !important;
-    }
-
-    #enrollModal .photo-drop,
-    #enrollModal .photo-uploader {
-      background: transparent !important;
-      border: 1px solid rgba(242, 243, 246, 0.1) !important;
-      border-radius: 3px !important;
-      box-shadow: none !important;
-    }
-
-    #enrollModal .photo-thumb,
-    #enrollModal .photo-preview-box {
-      background: rgba(242, 243, 246, 0.02) !important;
-      border: 1px solid rgba(242, 243, 246, 0.1) !important;
-      border-radius: 2px !important;
-      box-shadow: none !important;
-    }
-
-    #enrollModal .photo-thumb span,
-    #enrollModal .photo-preview-box span {
-      font-size: 8.5px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      color: rgba(242, 243, 246, 0.6) !important;
-    }
-
-    #enrollModal .photo-name {
-      color: #F2F3F6 !important;
-      font-size: 12px !important;
-      font-weight: 400 !important;
-    }
-
-    #enrollModal .photo-sub {
-      color: rgba(242, 243, 246, 0.6) !important;
-      font-size: 10.5px !important;
-      font-weight: 400 !important;
-    }
-
-    #enrollModal .photo-choose {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      font-weight: 400 !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      text-decoration: underline !important;
-    }
-
-    #enrollModal .photo-choose:hover {
-      color: #F2F3F6 !important;
-    }
-
-    /* Photo REMOVE is plain text too (base layer left it red) */
-    #enrollModal .photo-remove {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      font-weight: 400 !important;
-      font-size: 10.5px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-      text-decoration: none !important;
-      cursor: pointer !important;
-      padding: 4px 6px !important;
-      transition: none !important;
-    }
-
-    #enrollModal .photo-remove:hover {
-      color: #F2F3F6 !important;
-      text-decoration: none !important;
     }
 
     /* Button row pinned explicitly (immune to error-div DOM order).
@@ -5443,45 +4607,6 @@
       text-transform: none !important;
     }
 
-    #enrollModal #nsSave,
-    #enrollModal .btn.primary {
-      background: rgba(242, 243, 246, 0.12) !important;
-      border: 1px solid rgba(242, 243, 246, 0.3) !important;
-      border-radius: 3px !important;
-      box-shadow: none !important;
-      color: #F2F3F6 !important;
-      font-weight: 500 !important;
-      font-size: 11px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-    }
-
-    #enrollModal #nsSave:hover,
-    #enrollModal .btn.primary:hover {
-      background: rgba(242, 243, 246, 0.18) !important;
-      border-color: rgba(242, 243, 246, 0.5) !important;
-      color: #F2F3F6 !important;
-    }
-
-    #enrollModal #nsCancel,
-    #enrollModal .btn:not(.primary) {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: rgba(242, 243, 246, 0.85) !important;
-      opacity: 1 !important;
-      font-weight: 400 !important;
-      font-size: 11px !important;
-      letter-spacing: 0.04em !important;
-      text-transform: uppercase !important;
-    }
-
-    #enrollModal #nsCancel:hover,
-    #enrollModal .btn:not(.primary):hover {
-      color: #181A20 !important;
-      opacity: 1 !important;
-    }
-
     /* Edit/Enroll reference pass (user order — frosted-login inspiration):
        hidden card bars, airy card, filled-slot fields, black-pill SAVE.
        Scoped #enrollModal (shared New + Edit form); labels/IDs untouched
@@ -5499,164 +4624,12 @@
     #enrollModal .form-grid {
       gap: 16px !important;
     }
-    /* Filled slots (reference login inputs): soft fill + full pill
-       radius replace the underline maze. Micro-caps labels stay above
-       (required markers + a11y preserved). */
-    #enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
-    #enrollModal .modal-card .form-field select,
-    #enrollModal .modal-card .form-field textarea,
-    #enrollModal .modal-card .form-field .gsel-btn {
-      background: rgba(242, 243, 246, 0.10) !important;
-      border: none !important;
-      border-radius: 999px !important;
-      box-shadow: none !important;
-      padding: 0 18px !important;
-      min-height: 44px !important;
-      color: #F2F3F6 !important;
-    }
-    #enrollModal .modal-card .form-field input:focus,
-    #enrollModal .modal-card .form-field select:focus,
-    #enrollModal .modal-card .form-field textarea:focus,
-    #enrollModal .modal-card .form-field .gsel-btn:focus,
-    #enrollModal .modal-card .form-field .gsel.open .gsel-btn {
-      background: rgba(242, 243, 246, 0.16) !important;
-      border: none !important;
-      box-shadow: none !important;
-      outline: none !important;
-    }
-    /* SAVE/CONTINUE = white pill (inverted primary on the black card). */
-    #enrollModal .btn.primary {
-      background: #F2F3F6 !important;
-      border: 1px solid #F2F3F6 !important;
-      border-radius: 999px !important;
-      color: #181A20 !important;
-      height: 42px !important;
-      padding: 0 26px !important;
-      font-weight: 500 !important;
-      box-shadow: none !important;
-    }
     /* Photo preview: rounded frameless thumb; dropzone joins the slots;
        CHOOSE becomes a black mini-pill (no underline text). */
     #enrollModal #edPhotoPreview img {
       border: none !important;
       border-radius: 16px !important;
     }
-    #enrollModal .modal-card .photo-drop {
-      background: rgba(242, 243, 246, 0.10) !important;
-      border: none !important;
-      border-radius: 18px !important;
-      padding: 14px 16px !important;
-      box-shadow: none !important;
-    }
-    #enrollModal .modal-card .photo-choose {
-      background: #F2F3F6 !important;
-      border: 1px solid #F2F3F6 !important;
-      border-radius: 999px !important;
-      color: #181A20 !important;
-      text-decoration: none !important;
-      padding: 8px 18px !important;
-      box-shadow: none !important;
-    }
-    /* Black-card light text (both inks, no twins): `html
-       #enrollModal#enrollModal` (2 IDs) beats the D1/D2 graphite
-       blankets, so silver holds in white AND dark mode. */
-    html #enrollModal#enrollModal #enrollTitle {
-      color: #FFFFFF !important;
-    }
-    html #enrollModal#enrollModal #enrollSub {
-      color: rgba(242, 243, 246, 0.6) !important;
-    }
-    html #enrollModal#enrollModal .modal-card .form-field label {
-      color: rgba(242, 243, 246, 0.6) !important;
-    }
-    html #enrollModal#enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
-    html #enrollModal#enrollModal .modal-card .form-field select,
-    html #enrollModal#enrollModal .modal-card .form-field textarea,
-    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn {
-      color: #F2F3F6 !important;
-    }
-    html #enrollModal#enrollModal .modal-card .form-field input::placeholder,
-    html #enrollModal#enrollModal .modal-card .form-field textarea::placeholder {
-      color: rgba(242, 243, 246, 0.4) !important;
-    }
-    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn .gsel-chev {
-      color: rgba(242, 243, 246, 0.7) !important;
-    }
-    html #enrollModal#enrollModal .modal-card .photo-name {
-      color: #F2F3F6 !important;
-    }
-    html #enrollModal#enrollModal .modal-card .photo-sub {
-      color: rgba(242, 243, 246, 0.6) !important;
-    }
-    html #enrollModal#enrollModal #edPhotoPreview div {
-      color: rgba(242, 243, 246, 0.55) !important;
-    }
-    html #enrollModal#enrollModal .modal-card .photo-remove {
-      color: rgba(242, 243, 246, 0.7) !important;
-    }
-    /* Frosted slots on black (user order): the shaded pills keep
-       position/size and gain a milky glow + lit top edge, so they read
-       frosted-glass against the opaque black card in both inks (blur
-       alone melts nothing over flat black — the inset highlight does
-       the work). */
-    html #enrollModal#enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
-    html #enrollModal#enrollModal .modal-card .form-field select,
-    html #enrollModal#enrollModal .modal-card .form-field textarea,
-    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn,
-    html #enrollModal#enrollModal .modal-card .photo-drop {
-      background: rgba(242, 243, 246, 0.16) !important;
-      backdrop-filter: blur(12px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
-      box-shadow: inset 0 1px 0 rgba(242, 243, 246, 0.12) !important;
-    }
-    html #enrollModal#enrollModal .modal-card .form-field input:focus,
-    html #enrollModal#enrollModal .modal-card .form-field select:focus,
-    html #enrollModal#enrollModal .modal-card .form-field textarea:focus,
-    html #enrollModal#enrollModal .modal-card .form-field .gsel-btn:focus,
-    html #enrollModal#enrollModal .modal-card .form-field .gsel.open .gsel-btn {
-      background: rgba(242, 243, 246, 0.22) !important;
-      backdrop-filter: blur(12px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
-      box-shadow: inset 0 1px 0 rgba(242, 243, 246, 0.18) !important;
-    }
-    html #enrollModal#enrollModal .btn.primary,
-    html #enrollModal#enrollModal .modal-card .photo-choose {
-      color: #181A20 !important;
-    }
-    html #enrollModal#enrollModal #nsCancel,
-    html #enrollModal#enrollModal #edCancel,
-    html #enrollModal#enrollModal #edClearPhoto {
-      color: #F2F3F6 !important;
-    }
-    /* CANCEL + Clear photo = light outline pills (beat the older text
-       rules by IDs + order). */
-    html #enrollModal#enrollModal #nsCancel,
-    html #enrollModal#enrollModal #edCancel,
-    html #enrollModal#enrollModal #edClearPhoto {
-      background: transparent !important;
-      border: 1px solid rgba(242, 243, 246, 0.35) !important;
-      border-radius: 999px !important;
-      height: 42px !important;
-      padding: 0 22px !important;
-      font-weight: 500 !important;
-      box-shadow: none !important;
-      text-decoration: none !important;
-      opacity: 1 !important;
-    }
-
-    #enrollModal .inline-error,
-    #enrollModal #nsErr {
-      background: transparent !important;
-      border: 1px solid rgba(242, 243, 246, 0.2) !important;
-      border-radius: 3px !important;
-      box-shadow: none !important;
-      color: #F2F3F6 !important;
-      font-size: 11px !important;
-      font-weight: 400 !important;
-      letter-spacing: normal !important;
-      text-transform: none !important;
-    }
-
     /* ============================================================
        DAY-EDITOR WINDOW — same locked treatment as enrollment.
        Scoped to its shell only. Zero JS/DOM change.
@@ -6899,38 +5872,7 @@
 
     /* Students toolbar: one quiet row — no underlines anywhere, one
        thin voice (11/400/0.04em, 28px) across filters + actions */
-    #pane-students .tab-toolbar select,
-    #pane-students .tab-toolbar .gsel-btn,
-    #pane-students .tab-toolbar .btn {
-      border-bottom: none !important;
-      font-size: 11px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0.04em !important;
-      height: 28px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      text-decoration: none !important;
-      color: rgba(242, 243, 246, 0.75) !important;
-      margin-left: 0 !important;
-    }
-
-    #pane-students .tab-toolbar select:hover,
-    #pane-students .tab-toolbar .gsel-btn:hover,
-    #pane-students .tab-toolbar .btn:not(.primary):hover {
-      color: #181A20 !important;
-    }
-
-    /* Contained primary keeps its brightening hover (quiet-row resting
-       outranks the old Lattice rule, so the text goes explicit here) */
-    #pane-students .tab-toolbar .btn.primary:hover {
-      color: #F2F3F6 !important;
-    }
-
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .tab-toolbar select:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .tab-toolbar .gsel-btn:hover,
-    html[data-ink="dark"] #adminLayer#adminLayer #pane-students .tab-toolbar .btn:not(.primary):hover {
-      color: #F2F3F6 !important;
-    }
+    /* A16a retired — toolbar has zero children */
 
     #pane-attendance .tab-toolbar select:hover,
     #pane-attendance .tab-toolbar select:focus,
@@ -11935,16 +10877,7 @@
     }
 
     /* D13 — students filter underlines (same 0.2/FFF family) */
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar select,
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar .gsel-btn {
-      border-bottom-color: rgba(24, 26, 32, 0.35) !important;
-    }
-
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar select:hover,
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar select:focus,
-    html[data-ink="dark"] #adminLayer #pane-students .tab-toolbar .gsel-btn:hover {
-      border-bottom-color: #181A20 !important;
-    }
+    /* A16b retired — toolbar has zero children */
 
     /* D14 — custom-dropdown buttons: the visible Academic-Year line is the
        .gsel-btn (JS wraps EVERY select), not the hidden native select.
@@ -12322,6 +11255,156 @@
     html #enrollModal#enrollModal #edErr {
       color: var(--danger) !important;
       border-color: rgba(138, 58, 58, 0.4) !important;
+    }
+    /* ENROLL CREAM-FROST POLISH — scan legibility + button rhythm + textarea + photo row.
+       Cream frost card stays (black reserved for data boards). Re-inks white-on-cream scan parts
+       to dark ink, unifies 42px pills with identical resting/hover, gives textareas multi-line
+       padding, aligns photo row. Belted html #enrollModal#enrollModal wins ties. Sizes/positions
+       kept; radii: card 24 / slots 999 / dropzone 18 / thumb 14 / errors 0. */
+    html #enrollModal#enrollModal .enroll-scan-count {
+      color: #181A20 !important;
+    }
+    html #enrollModal#enrollModal .enroll-scan-label {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal .finger-line {
+      background: #181A20 !important;
+    }
+    html #enrollModal#enrollModal .lift-hint {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal #nsSave,
+    html #enrollModal#enrollModal #edSave,
+    html #enrollModal#enrollModal .btn.primary,
+    html #enrollModal#enrollModal #scanStartBtn {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 42px !important;
+      padding: 0 26px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+      cursor: pointer !important;
+      transition: none !important;
+    }
+    html #enrollModal#enrollModal #nsSave:hover,
+    html #enrollModal#enrollModal #edSave:hover,
+    html #enrollModal#enrollModal .btn.primary:hover,
+    html #enrollModal#enrollModal #scanStartBtn:hover,
+    html #enrollModal#enrollModal #nsSave:focus,
+    html #enrollModal#enrollModal #edSave:focus,
+    html #enrollModal#enrollModal .btn.primary:focus,
+    html #enrollModal#enrollModal #scanStartBtn:focus,
+    html #enrollModal#enrollModal #nsSave:active,
+    html #enrollModal#enrollModal #edSave:active,
+    html #enrollModal#enrollModal .btn.primary:active,
+    html #enrollModal#enrollModal #scanStartBtn:active {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      height: 42px !important;
+      padding: 0 26px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      opacity: 1 !important;
+    }
+    html #enrollModal#enrollModal #nsCancel,
+    html #enrollModal#enrollModal #edCancel,
+    html #enrollModal#enrollModal #edClearPhoto,
+    html #enrollModal#enrollModal #scanCancelBtn {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.35) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      height: 42px !important;
+      padding: 0 22px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      opacity: 1 !important;
+      white-space: nowrap !important;
+      cursor: pointer !important;
+      transition: none !important;
+    }
+    html #enrollModal#enrollModal #nsCancel:hover,
+    html #enrollModal#enrollModal #edCancel:hover,
+    html #enrollModal#enrollModal #edClearPhoto:hover,
+    html #enrollModal#enrollModal #scanCancelBtn:hover,
+    html #enrollModal#enrollModal #nsCancel:focus,
+    html #enrollModal#enrollModal #edCancel:focus,
+    html #enrollModal#enrollModal #edClearPhoto:focus,
+    html #enrollModal#enrollModal #scanCancelBtn:focus,
+    html #enrollModal#enrollModal #nsCancel:active,
+    html #enrollModal#enrollModal #edCancel:active,
+    html #enrollModal#enrollModal #edClearPhoto:active,
+    html #enrollModal#enrollModal #scanCancelBtn:active {
+      background: transparent !important;
+      border: 1px solid rgba(24, 26, 32, 0.35) !important;
+      border-radius: 999px !important;
+      color: var(--ref-ink) !important;
+      height: 42px !important;
+      padding: 0 22px !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+      opacity: 1 !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-choose {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      text-decoration: none !important;
+      padding: 8px 18px !important;
+      box-shadow: none !important;
+      white-space: nowrap !important;
+      cursor: pointer !important;
+      transition: none !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-choose:hover,
+    html #enrollModal#enrollModal .modal-card .photo-choose:focus,
+    html #enrollModal#enrollModal .modal-card .photo-choose:active {
+      background: var(--ref-pill) !important;
+      border: 1px solid var(--ref-pill) !important;
+      border-radius: 999px !important;
+      color: #F2F3F6 !important;
+      text-decoration: none !important;
+      padding: 8px 18px !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+    }
+    html #enrollModal#enrollModal .modal-card .form-field textarea {
+      padding: 12px 18px !important;
+      min-height: 88px !important;
+      height: auto !important;
+      line-height: 1.5 !important;
+      resize: vertical !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-drop {
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+    }
+    html #enrollModal#enrollModal .modal-card .photo-thumb {
+      width: 44px !important;
+      height: 44px !important;
+      flex-shrink: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+    }
+    html #enrollModal#enrollModal #scanErr {
+      background: transparent !important;
+      border-color: rgba(138, 58, 58, 0.4) !important;
+      border-radius: 0 !important;
+      color: var(--danger) !important;
+      box-shadow: none !important;
     }
 
     /* NOTICE / CONFIRM / PROMPT dialogs (glassAlert/glassConfirm/
@@ -13106,9 +12189,8 @@
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupRefreshBtn,
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupSelectAllBtn,
     html #adminLayer#adminLayer #pane-backup#pane-backup #gdriveRefreshListBtn,
-    html #adminLayer#adminLayer #pane-backup#pane-backup #telegramClearStatusBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #gdriveBackupRowBtn,
     html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn,
-    html #adminLayer#adminLayer #pane-backup#pane-backup #usbClearStatusBtn,
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedSaveBtn,
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupDownloadBtn,
     html #adminLayer#adminLayer #pane-backup#pane-backup label.btn:has(#backupFileInput),
@@ -13122,12 +12204,28 @@
       color: #141414 !important;
     }
     /* Destructive text (user order): red, no pill. */
-    html #adminLayer#adminLayer #pane-backup#pane-backup #gdriveDisconnectBtn {
+    html #adminLayer#adminLayer #pane-backup#pane-backup #gdriveDisconnectBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #telegramClearStatusBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbClearStatusBtn {
       background: transparent !important;
       background-image: none !important;
       border: none !important;
       box-shadow: none !important;
       color: #8A3A3A !important;
+    }
+    /* USB not-ready primary (user order): Check USB becomes the solid
+       black pill while the service cannot send, mirroring Drive's Pair. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:hover,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:active,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:focus,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:focus-visible {
+      background: #141414 !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      color: #F4EEE1 !important;
     }
     /* Checkboxes (user order): cream squares, 3px black outline,
        matte red tick when checked. */
@@ -13181,14 +12279,15 @@
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard .gsel:has(> select#backupSchedFreq) .gsel-lab {
       color: #141414 !important;
     }
-    /* Weekday pills (user order): outline idle, black-fill active. */
+    /* Weekday pills (user order): soft-wash idle, black-fill active — same
+       day grid, inactive days quiet so chosen days pop. */
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedDays button {
-      background: transparent !important;
+      background: rgba(20, 20, 20, 0.06) !important;
       background-image: none !important;
-      border: 1px solid rgba(20, 20, 20, 0.5) !important;
+      border: 1px solid rgba(20, 20, 20, 0.18) !important;
       border-radius: 999px !important;
       box-shadow: none !important;
-      color: #141414 !important;
+      color: rgba(20, 20, 20, 0.62) !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedDays button:hover,
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedDays button.active,
@@ -13231,6 +12330,25 @@
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:last-child {
       color: rgba(244, 238, 225, 0.55) !important;
+    }
+    /* Audit ink tiers (user order — time + action full cream, details
+       one step below, header quiet but legible; rows stay hover-off,
+       columns/widths untouched; belt path so nothing older outranks). */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) th {
+      color: rgba(244, 238, 225, 0.68) !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(1),
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(2) {
+      color: #F4EEE1 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(3) {
+      color: rgba(244, 238, 225, 0.8) !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(4) {
+      color: rgba(244, 238, 225, 0.55) !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody tr:hover {
+      background: transparent !important;
     }
 
     /* I2. Backup geometry fixes (user order — screenshot audit):
@@ -13303,13 +12421,15 @@
       min-height: 34px !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #telegramBackupNowBtn),
-    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #usbBackupNowBtn) {
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #usbBackupNowBtn),
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #gdriveBackupRowBtn) {
       flex-wrap: wrap !important;
       gap: 8px !important;
       margin-top: 8px !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #telegramBackupNowBtn) .btn,
-    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #usbBackupNowBtn) .btn {
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #usbBackupNowBtn) .btn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #gdriveBackupRowBtn) .btn {
       padding: 0 12px !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupNowStatus {
@@ -13757,6 +12877,12 @@
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard {
       overflow-y: auto !important;
       overflow-x: hidden !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard#backupManagerCard::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditFoot {
       height: 68px !important;
@@ -13871,7 +12997,8 @@
       margin-top: 8px !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #telegramBackupNowBtn),
-    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #usbBackupNowBtn) {
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #usbBackupNowBtn),
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #gdriveBackupRowBtn) {
       margin-top: 6px !important;
     }
     html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) .table-scroll {
@@ -13879,6 +13006,40 @@
       overflow-y: auto !important;
       overflow-y: overlay !important;
       overscroll-behavior: contain !important;
+    }
+    /* U. Footer baseline lock (user order — P's margin-top/padding-top
+       beat I2's auto-dock and S/T's 68px min, and 30px manager pills
+       sat against 40px audit pills, so bars and buttons drifted apart.
+       Both feet re-declared whole and last: one fixed 68px border-box
+       each, top-auto docked to the card bottom, full-bleed sideways —
+       both bars sit 68px above the shared bottom edge as one line and
+       both button rows center on the same baseline. Bar paint untouched
+       (dark dashed left, cream right); no hover, no motion. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #backupLastInfo),
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditFoot {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      height: 68px !important;
+      min-height: 68px !important;
+      max-height: 68px !important;
+      flex: none !important;
+      margin: auto -18px -16px !important;
+      padding: 0 18px !important;
+      box-sizing: border-box !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #backupLastInfo) .btn {
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      box-sizing: border-box !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #backupLastInfo) {
+      justify-content: space-between !important;
+      flex-wrap: wrap !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditFoot {
+      justify-content: flex-end !important;
     }
 
     /* J. Single admin window (user order — one panel total): the workspace
@@ -14552,26 +13713,8 @@
       color: rgba(24, 26, 32, 0.35) !important;
     }
 
-    /* P. Static 4-across board row (user order): Classes · Batches ·
-       Holidays · Overrides as four equal black rectangles in ONE
-       horizontal row under the month (pages flatten via display:contents
-       so tables grid directly). Fixed 240px cards, 12px gutters, even
-       header verbs. 2-col under 1100px, single column under 640px. */
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
-      display: grid !important;
-      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-      column-gap: 12px !important;
-      row-gap: 12px !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-page,
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-page[hidden] {
-      display: contents !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
-      height: 240px !important;
-      max-height: 240px !important;
-      min-width: 0 !important;
-    }
+    /* P. Static 4-across board row — retired: the single fused-strip
+       block below owns display/columns/gaps/pages/corners/joints. */
     html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-act {
       padding: 4px 8px !important;
     }
@@ -14811,66 +13954,8 @@
       max-height: none !important;
       min-height: 240px !important;
     }
-    /* Fused wall (user order — Attendance wall): the four boards
-       touch edge to edge, joints drawn as single 3px cream lines
-       (one side draws, never doubled); radius lives only on the
-       four outer corners, every inner joint sharp 90°. Headers,
-       rows, and rhythm untouched. */
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
-      column-gap: 0 !important;
-      row-gap: 0 !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
-      border-radius: 0 !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child,
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-      border-left: 3px solid #F4EEE1 !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child {
-      border-top-left-radius: var(--ref-radius) !important;
-      border-bottom-left-radius: var(--ref-radius) !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-      border-top-right-radius: var(--ref-radius) !important;
-      border-bottom-right-radius: var(--ref-radius) !important;
-    }
-    @media (max-width: 1100px) {
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
-        border-left: none !important;
-        border-top: 3px solid #F4EEE1 !important;
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: var(--ref-radius) !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child {
-        border-top-right-radius: var(--ref-radius) !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-        border-top: 3px solid #F4EEE1 !important;
-      }
-    }
-    @media (max-width: 640px) {
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child {
-        border-top-left-radius: var(--ref-radius) !important;
-        border-top-right-radius: var(--ref-radius) !important;
-        border-bottom-left-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child {
-        border-left: none !important;
-        border-top: 3px solid #F4EEE1 !important;
-        border-top-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
-        border-bottom-left-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-        border-left: none !important;
-        border-bottom-left-radius: var(--ref-radius) !important;
-        border-bottom-right-radius: var(--ref-radius) !important;
-      }
-    }
+    /* Fused wall — retired: the single fused-strip block below owns
+       gaps/corners/joints/columns. */
     /* Fill guards (user order): roster and editor keep natural
        height so only the boards absorb leftover; nothing else
        moves. */
@@ -14935,111 +14020,10 @@
     html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
       margin: 8px 0 0 !important;
     }
-    /* Sharp-outer corners (user order): edge-touching panels go
-       square ONLY where they meet the borders; gap-facing corners
-       stay round. First/last cards addressed inside their pages
-       (pager-proof); date cubes by grid column. */
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
-      border-radius: var(--ref-radius) !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child,
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
-      border-top-left-radius: 0 !important;
-      border-bottom-left-radius: 0 !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-      border-top-right-radius: 0 !important;
-      border-bottom-right-radius: 0 !important;
-    }
-    @media (max-width: 1100px) {
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-        border-top-right-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
-        border-top-left-radius: 0 !important;
-        border-bottom-left-radius: 0 !important;
-      }
-    }
-    @media (max-width: 640px) {
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
-        border-top-left-radius: 0 !important;
-        border-bottom-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-    }
-    /* Fused-wall corner correction (user order — supersedes the
-       Sharp-outer law directly above, which assumed gutters and
-       now rounds every joint it touches): radius lives only on
-       the four outer corners; all inner joints sharp. Later =
-       wins ties at equal strength. */
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
-      border-radius: 0 !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child {
-      border-top-left-radius: var(--ref-radius) !important;
-      border-bottom-left-radius: var(--ref-radius) !important;
-    }
-    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-      border-top-right-radius: var(--ref-radius) !important;
-      border-bottom-right-radius: var(--ref-radius) !important;
-    }
-    @media (max-width: 1100px) {
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child {
-        border-top-left-radius: var(--ref-radius) !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child {
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: var(--ref-radius) !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
-        border-left: none !important;
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: var(--ref-radius) !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: var(--ref-radius) !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: var(--ref-radius) !important;
-      }
-    }
-    @media (max-width: 640px) {
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child {
-        border-top-left-radius: var(--ref-radius) !important;
-        border-top-right-radius: var(--ref-radius) !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child {
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-      }
-      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: var(--ref-radius) !important;
-        border-bottom-right-radius: var(--ref-radius) !important;
-      }
-    }
+    /* Sharp-outer corners — retired: the single fused-strip block
+       below owns every corner (all sharp). */
+    /* Fused-wall corner correction — retired: the single fused-strip
+       block below owns every corner (all sharp). */
     html #adminLayer#adminLayer #pane-setup#pane-setup #calendarGrid .calendar-cell[data-date]:nth-child(7n+1) {
       border-top-left-radius: 0 !important;
       border-bottom-left-radius: 0 !important;
@@ -15411,7 +14395,7 @@
       transform: none !important;
     }
     /* Day-sheet single silhouette (user order): the card border is
-       OFF — one live SVG path draws rounded rect + tail in a single
+       OFF — one live SVG path draws sharp rect + tail in a single
        3px stroke (see dsSilhouette). Glued-triangle pseudos deleted;
        this guard kills any other pseudo art on this card. */
     html #daySheetModal#daySheetModal .modal-card {
@@ -16332,7 +15316,7 @@
       box-shadow: none !important;
       outline: none !important;
       outline-offset: 0 !important;
-      color: #8A3A3A !important;
+      color: #A65147 !important;
       font-family: var(--sans) !important;
       font-size: 11px !important;
       font-weight: 500 !important;
@@ -16384,7 +15368,7 @@
       font-weight: 500 !important;
       letter-spacing: 0.06em !important;
       text-transform: uppercase !important;
-      color: rgba(244, 238, 225, 0.55) !important;
+      color: rgba(244, 238, 225, 0.75) !important;
       background: transparent !important;
       border: none !important;
       border-bottom: 1px solid rgba(244, 238, 225, 0.12) !important;
@@ -16421,7 +15405,7 @@
        inside both boards, headers included). */
     html #adminLayer#adminLayer #pane-attendance#pane-attendance .att-board #attTableHead th,
     html #adminLayer#adminLayer #pane-attendance#pane-attendance #attUnknownView thead th {
-      color: rgba(244, 238, 225, 0.55) !important;
+      color: rgba(244, 238, 225, 0.75) !important;
       background: #141414 !important;
       z-index: 2 !important;
       border: none !important;
@@ -16729,17 +15713,2007 @@
     html #adminLayer#adminLayer #pane-attendance .att-board * {
       transition: none !important;
     }
+    /* Board breakpoint columns — retired: the single fused-strip
+       block below owns columns per breakpoint. */
+    /* Fused board strip — final word (user order): Classes · Batches ·
+       Holidays · Overrides as ONE continuous black block, edge to edge.
+       Pages flatten (display:contents) so all four tables grid directly;
+       gaps zero; joints single-sided 3px cream, never doubled; every
+       corner sharp at every breakpoint so the block touches the UI
+       left/right borders. Tables stretch to the tallest so joints run
+       full height; headers/rows/counts/add buttons untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 0 !important;
+      column-gap: 0 !important;
+      row-gap: 0 !important;
+      align-items: stretch !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-page,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-page[hidden] {
+      display: contents !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip .cb-table {
+      border-radius: 0 !important;
+      box-sizing: border-box !important;
+      min-width: 0 !important;
+      margin: 0 !important;
+      height: auto !important;
+      align-self: stretch !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table {
+      border-left: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
+      border-top-left-radius: 0 !important;
+      border-top-right-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
     @media (max-width: 1100px) {
       html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child,
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child,
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+      }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
+        border-left: none !important;
+        border-top: none !important;
+      }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
+        border-top: none !important;
       }
     }
     @media (max-width: 640px) {
       html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip {
         grid-template-columns: minmax(0, 1fr) !important;
       }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:first-child {
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+      }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageCb .cb-table:last-child,
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:first-child {
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        border-left: none !important;
+        border-top: none !important;
+      }
+      html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #cbStrip #cbPageHo .cb-table:last-child {
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-left: none !important;
+        border-top: none !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+      }
     }
 
+    /* ============================================================
+       STUDENTS WALL (user order — black-and-cream conversion):
+       Roster + detail share ONE continuous matte-black (#141414)
+       block: zero internal gap, single 1px cream hairline seam
+       (list-pane border-right only, never doubled), radius on the
+       four outer corners only (10px, Backup black-board precedent).
+       Ink tiers on black only: primary #F4EEE1 (names, values,
+       headers, counts) / secondary rgba(244,238,225,0.65) (meta,
+       labels, empty body) / quiet rgba(244,238,225,0.45)
+       (history caps header). Red #8A3A3A destructive-only
+       (#A65147 trash on black — the already-used brightened
+       variant, board-x precedent). Serif display name untouched;
+       sans interface; mono rolls/fids/dates/times. Pills all
+       34px/999px/10px/500/0.08em uppercase: cream-filled (New
+       Enrollment, Edit information, Re-activate) vs cream-outline
+       (Import/Export/Re-enroll/Print/Correct); Correct-today keeps
+       its inline dashed style (no border-style declared here —
+       the inline style wins that sub-property either way); trash
+       red text, no pill. History: quiet caps header, hairline
+       grid, monochrome badges, no hover wash, no motion. Rail
+       STUDENT CONTROLS re-inked dark-on-light (rail scope at the
+       end — those nodes live outside #pane-students). Belt path
+       wins every earlier tie by order; zero earlier rules deleted.
+       ============================================================ */
+    /* Wall vars (Backup-audit pattern): remap first so every
+       inline-styled span/box follows at once. */
+    html #adminLayer#adminLayer #pane-students#pane-students .list-pane,
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-pane {
+      --ink: #F4EEE1;
+      --ink-2: rgba(244, 238, 225, 0.65);
+      --ink-3: rgba(244, 238, 225, 0.45);
+      --line: rgba(244, 238, 225, 0.14);
+      --paper: transparent;
+      --panel: transparent;
+    }
+    /* One continuous block: split gap zero; frost/blur/shadow gone. */
+    html #adminLayer#adminLayer #pane-students#pane-students .split-view {
+      gap: 0 !important;
+      column-gap: 0 !important;
+      row-gap: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .split-view > .list-pane {
+      background: #141414 !important;
+      background-image: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-right: 1px solid rgba(244, 238, 225, 0.14) !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: #F4EEE1 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .split-view > .detail-pane {
+      background: #141414 !important;
+      background-image: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-left: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: #F4EEE1 !important;
+    }
+    /* Cream ink blanket (Backup pattern): frost-era direct dark
+       rules are beaten by the belt; muted tiers re-pinned below. */
+    html #adminLayer#adminLayer #pane-students#pane-students .list-pane div,
+    html #adminLayer#adminLayer #pane-students#pane-students .list-pane span,
+    html #adminLayer#adminLayer #pane-students#pane-students .list-pane label,
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-pane div,
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-pane span,
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-pane label,
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-pane td {
+      color: #F4EEE1 !important;
+    }
+    /* Roster rows: transparent, separator-free (text-only law kept),
+       every state identical — selection reads via 500 name +
+       full-ink text only (existing mechanism). */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active:hover {
+      background: transparent !important;
+      background-image: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-bottom: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      transform: none !important;
+      transition: none !important;
+      animation: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-name,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-thumb-fallback {
+      color: #F4EEE1 !important;
+      font-weight: 400 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-meta,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-meta span,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-roll {
+      color: rgba(244, 238, 225, 0.65) !important;
+      font-family: var(--mono) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active .student-name,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active:hover .student-name {
+      font-weight: 500 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active .student-meta,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active:hover .student-meta,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active .student-meta span,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active:hover .student-meta span,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active .student-roll,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active:hover .student-roll {
+      color: #F4EEE1 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-thumb,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-thumb-fallback {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-thumb img {
+      border: none !important;
+      outline: none !important;
+      border-radius: 0 !important;
+    }
+    /* Roster search: cream slot pill, dark text; focus identical
+       (wall law: states swap nothing). Divider cream-dashed. */
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-search {
+      border-bottom: 1px dashed rgba(244, 238, 225, 0.25) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch,
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch:focus {
+      background: #F4EEE1 !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #141414 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch::placeholder {
+      color: rgba(20, 20, 20, 0.5) !important;
+    }
+    /* Roster actions dock: transparent, cream-dashed top divider. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-top: 1px dashed rgba(244, 238, 225, 0.25) !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    /* Dock layout: New Enrollment full row, Import / Export side by side. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard {
+      flex-flow: row wrap !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn {
+      flex: 1 1 100% !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      width: auto !important;
+    }
+    /* Cream-filled pill: New Enrollment. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:focus-visible {
+      background: #F4EEE1 !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #141414 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      transition: none !important;
+      animation: none !important;
+      text-decoration: none !important;
+    }
+    /* Cream-outline pills: Import / Export. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:focus-visible {
+      background: transparent !important;
+      background-image: none !important;
+      border: 2px solid #F4EEE1 !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #F4EEE1 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      transition: none !important;
+      animation: none !important;
+      text-decoration: none !important;
+    }
+    /* Detail card: transparent section inside the black wall. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-card {
+      background: transparent !important;
+      background-image: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    /* Profile head: serif name untouched, cream only; sub secondary. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-name {
+      color: #F4EEE1 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-sub {
+      color: rgba(244, 238, 225, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-field label {
+      color: rgba(244, 238, 225, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-field span {
+      color: #F4EEE1 !important;
+    }
+    /* Mono identifiers in the grid (Roll / Student ID / Phone /
+       Fingerprint are grid children 1/5/7/9; names stay sans.
+       Falls back to sans harmlessly if the template ever shifts. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-grid > .detail-field:nth-child(1) span,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-grid > .detail-field:nth-child(5) span,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-grid > .detail-field:nth-child(7) span,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-grid > .detail-field:nth-child(9) span {
+      font-family: var(--mono) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-photo {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-photo-fallback {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: #F4EEE1 !important;
+    }
+    /* Detail actions row: wrapping pill row. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      gap: 8px !important;
+      margin-top: 24px !important;
+    }
+    /* Cream-filled pills: Edit information (+ Re-activate primary). */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:focus-visible {
+      background: #F4EEE1 !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #141414 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      padding: 0 18px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      transition: none !important;
+      animation: none !important;
+      text-decoration: none !important;
+    }
+    /* Cream-outline pills: Re-enroll / Print. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:focus-visible {
+      background: transparent !important;
+      background-image: none !important;
+      border: 2px solid #F4EEE1 !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #F4EEE1 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      padding: 0 18px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      transition: none !important;
+      animation: none !important;
+      text-decoration: none !important;
+    }
+    /* Correct pills (Correct-today + per-row Correct share this hook):
+       cream outline, full pill box. No border-style declared — the
+       Correct-today inline border-style:dashed wins that
+       sub-property; per-row buttons take the shorthand solid. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:focus-visible {
+      background: transparent !important;
+      background-image: none !important;
+      border: 2px solid #F4EEE1 !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #F4EEE1 !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      padding: 0 18px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      transition: none !important;
+      animation: none !important;
+      text-decoration: none !important;
+      text-shadow: none !important;
+    }
+    /* Trash: brightened red text on black, no pill, every state same. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-action="delete"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-action="delete"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-action="delete"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-action="delete"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-action="delete"]:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn.danger.icon-del,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn.danger.icon-del:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn.danger.icon-del:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn.danger.icon-del:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn.danger.icon-del:focus-visible {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #A65147 !important;
+      transition: none !important;
+      animation: none !important;
+      text-decoration: none !important;
+    }
+    /* History: transparent wrap, cream caps title, hairline grid. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .hist-title {
+      color: #F4EEE1 !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      padding-bottom: 8px !important;
+      margin-bottom: 8px !important;
+      border-bottom: 1px solid rgba(244, 238, 225, 0.2) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll table,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll thead,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tr,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll th,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll td {
+      background: transparent !important;
+      background-image: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll thead th {
+      background: #141414 !important;
+      color: rgba(244, 238, 225, 0.45) !important;
+      font-family: var(--sans) !important;
+      font-size: 9.5px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      border-bottom: 1px solid rgba(244, 238, 225, 0.2) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody td {
+      color: #F4EEE1 !important;
+      border-bottom: 1px solid rgba(244, 238, 225, 0.09) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody td:nth-child(1),
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody td:nth-child(2),
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody td:nth-child(4) {
+      font-family: var(--mono) !important;
+    }
+    /* No hover wash, no motion anywhere in the history table. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody tr,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody tr:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody tr:active {
+      background: transparent !important;
+      transition: none !important;
+      animation: none !important;
+      transform: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tr:hover td {
+      background: transparent !important;
+    }
+    /* Status badges: monochrome cream tiers, hooks kept, fills gone —
+       the status word carries meaning; Present reads full. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge.late,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge.absent,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge.unknown,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge.duplicate,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge.not-scheduled,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .badge,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active .badge {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: rgba(244, 238, 225, 0.65) !important;
+      text-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .badge.present,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .badge.present {
+      color: #F4EEE1 !important;
+    }
+    /* Empty states: secondary body, primary lead. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .empty,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .empty {
+      color: rgba(244, 238, 225, 0.65) !important;
+      text-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .empty b,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .empty b {
+      color: #F4EEE1 !important;
+      text-shadow: none !important;
+    }
+    /* Thin cream scrollbars on black (detail + history only — the
+       roster stays barless per the live no-slide-bar order). */
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-scroll,
+    html #adminLayer#adminLayer #pane-students#pane-students .table-scroll {
+      scrollbar-width: thin !important;
+      scrollbar-color: rgba(244, 238, 225, 0.25) transparent !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-scroll::-webkit-scrollbar,
+    html #adminLayer#adminLayer #pane-students#pane-students .table-scroll::-webkit-scrollbar {
+      width: 4px !important;
+      height: 4px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-scroll::-webkit-scrollbar-track,
+    html #adminLayer#adminLayer #pane-students#pane-students .table-scroll::-webkit-scrollbar-track {
+      background: transparent !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-scroll::-webkit-scrollbar-thumb,
+    html #adminLayer#adminLayer #pane-students#pane-students .table-scroll::-webkit-scrollbar-thumb {
+      background: rgba(244, 238, 225, 0.25) !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-scroll::-webkit-scrollbar-thumb:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students .table-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(244, 238, 225, 0.4) !important;
+    }
+    /* Motion kill-all in the wall scope. */
+    html #adminLayer#adminLayer #pane-students#pane-students button,
+    html #adminLayer#adminLayer #pane-students#pane-students .btn,
+    html #adminLayer#adminLayer #pane-students#pane-students input {
+      transition: none !important;
+      animation: none !important;
+    }
+    /* Rail STUDENT CONTROLS label (context retired — filters moved to
+       the roster header line; node stays hidden for tab toggling). */
+    html #adminLayer#adminLayer #adminSide#adminSide #sideCtx-students .side-label {
+      color: rgba(20, 20, 20, 0.6) !important;
+    }
+    /* ============================================================
+       STUDENTS SIZING (type/geometry tier — monochrome cream only):
+       Belt order wins; no color/pill-split changes, no border-style
+       on [data-correct], no cmdPal/print/toolbar/modal touch.
+       Tiers: display 28 / lead 14 / body 13 / meta 11.
+       ============================================================ */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-name {
+      font-family: var(--serif) !important;
+      font-size: 28px !important;
+      font-weight: 500 !important;
+      font-style: italic !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.02em !important;
+      color: #F4EEE1 !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      overflow-wrap: anywhere !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-sub {
+      font-size: 13px !important;
+      font-weight: 400 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-field label {
+      font-size: 9.5px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      color: rgba(244, 238, 225, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-grid {
+      gap: 20px 32px !important;
+      margin-top: 24px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-field {
+      gap: 6px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-name {
+      font-size: 14px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-meta,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-meta span,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-roll {
+      font-size: 11px !important;
+      font-family: var(--mono) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row .student-meta {
+      margin-top: 3px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch {
+      font-size: 13px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #newStudentToolbarBtn:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #importStudentsBtn:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard #exportStudentsBtn:focus-visible {
+      height: 40px !important;
+      min-height: 40px !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      padding: 0 20px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="edit"]:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reactivate"]:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="reenroll"]:focus-visible,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .btn[data-action="print"]:focus-visible {
+      height: 40px !important;
+      min-height: 40px !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      padding: 0 20px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct],
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .btn[data-correct]:focus-visible {
+      height: 40px !important;
+      min-height: 40px !important;
+      font-size: 11px !important;
+      padding: 0 20px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll thead th {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      font-family: var(--sans) !important;
+      color: rgba(244, 238, 225, 0.45) !important;
+      background: #141414 !important;
+      border-bottom: 1px solid rgba(244, 238, 225, 0.2) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll tbody td {
+      font-size: 13px !important;
+      padding: 10px 12px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .empty,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .empty {
+      font-size: 13px !important;
+      line-height: 1.5 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .empty b,
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .empty b {
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+    }
+    html #adminLayer#adminLayer #adminSide#adminSide #sideCtx-students .side-label {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: rgba(20, 20, 20, 0.6) !important;
+    }
+    /* ============================================================
+       STUDENTS DETAIL PRESENCE (CSS-only pass — avatar anchor /
+       summary strip / fingerprint dot / full-width history):
+       Belt order wins; paint/layout only, no markup/class/ID/data
+       changes; no cmdPal/print/toolbar/modal/rail/roster/pill/
+       badge/empty/focus touch; cream tiers only; no motion.
+       Defensive: every .stat-* rule no-ops if the JS node is absent.
+       Tiers: name 28 loudest / stat-num 22 second / values third /
+       caps/labels quietest.
+       ============================================================ */
+    /* 1. Avatar anchor: 88px hairline-ring monogram locked to name. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-head {
+      gap: 14px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-photo {
+      width: 88px !important;
+      height: 88px !important;
+      flex-shrink: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-photo img {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      display: block !important;
+      border: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-del {
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-del .del-ic {
+      width: 20px !important;
+      height: 20px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-photo-fallback {
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 22px !important;
+      color: #F4EEE1 !important;
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    /* 2. Summary strip: quiet caps cap + figures row, own band. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: flex-end !important;
+      column-gap: 28px !important;
+      row-gap: 12px !important;
+      margin-top: 26px !important;
+      margin-bottom: 26px !important;
+      padding: 0 !important;
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip .stat-cap {
+      flex: 1 1 100% !important;
+      min-width: 0 !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: rgba(244, 238, 225, 0.55) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip .stat {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 4px !important;
+      min-width: 0 !important;
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip .stat-num {
+      font-family: var(--mono) !important;
+      font-size: 22px !important;
+      font-weight: 500 !important;
+      line-height: 1.1 !important;
+      font-variant-numeric: tabular-nums !important;
+      color: #F4EEE1 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip .stat-lab {
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: rgba(244, 238, 225, 0.65) !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip .stat-note {
+      font-family: var(--sans) !important;
+      font-size: 13px !important;
+      font-weight: 400 !important;
+      font-style: normal !important;
+      line-height: 1.5 !important;
+      color: rgba(244, 238, 225, 0.65) !important;
+    }
+    /* 3. Fingerprint dot: 8px round, hollow bare / filled live. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-dot {
+      display: inline-block !important;
+      width: 8px !important;
+      height: 8px !important;
+      border-radius: 999px !important;
+      vertical-align: middle !important;
+      margin-right: 8px !important;
+      box-sizing: border-box !important;
+      background: transparent !important;
+      border: 1px solid rgba(244, 238, 225, 0.4) !important;
+      box-shadow: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-dot.live {
+      background: #F4EEE1 !important;
+      border-color: #F4EEE1 !important;
+    }
+    /* 4. Full-width history: release the 940px cap, table full-bleed. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-card {
+      max-width: 100% !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Roster header filter line: search + three filters in one flex
+       line; empty rail students context retired (node stays for tab
+       toggling). Compact slots with ellipsis; popups overlay. */
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-search {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      gap: 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch {
+      flex: 1 1 100% !important;
+      min-width: 0 !important;
+      width: auto !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters {
+      display: contents !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel,
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters select {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel-btn {
+      width: 100% !important;
+      height: 40px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      border: none !important;
+      border-bottom: none !important;
+      font-size: 11px !important;
+      color: #F4EEE1 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel-btn:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel-btn:focus,
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel.open .gsel-btn {
+      border: none !important;
+      border-bottom: none !important;
+      background: transparent !important;
+      color: #F4EEE1 !important;
+    }
+    html #adminLayer#adminLayer #adminSide#adminSide #sideCtx-students {
+      display: none !important;
+    }
+    /* Attendance records readability: 11px caps headers/counts,
+       13px body/empty, roomier rows. Paint and logic untouched. */
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attTableHead th,
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attUnknownWrap th {
+      font-size: 11px !important;
+      letter-spacing: 0.08em !important;
+      padding: 10px 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attTableBody td,
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attUnknownWrap td {
+      font-size: 13px !important;
+      padding: 10px 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attTableBody .badge {
+      font-size: 11px !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attTableBody [data-correct],
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attTableBody button {
+      font-size: 11px !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance .att-board-count,
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attModeBadge {
+      font-size: 11px !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance .empty b {
+      font-size: 14px !important;
+      letter-spacing: 0.08em !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance .empty {
+      font-size: 13px !important;
+    }
+    /* Sharp calendar cubes: every date/weekday cube square in all
+       states. Rings, fills, and selection insets untouched. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.working,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.non-working,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.holiday,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.vacation,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.override,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.today,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarGrid .calendar-cell.head,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #classDetail #calendarHeadGrid > *,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .weekly-day-card {
+      border-radius: 0 !important;
+    }
+    /* Schedule popup action row: trash far-left, cross + tick docked
+       right (belt re-pin of the row intent). Day pills rebuilt as real
+       chips — the text-only law washed out on the cream card (white
+       text colliding); working = black fill, off = outline, dark ink. */
+    /* Trio glyph rows (user order — three slots): trash far LEFT,
+       empty middle that flexes, cross + tick grouped in .form-pair
+       far RIGHT with 24px between. space-between docks both ends;
+       the pair travels as one unit. Plain hooks — no :has. No hover,
+       no motion. */
+    html #schedModal#schedModal #schedModalBody .form-field.form-actions,
+    html #holidayModal#holidayModal #holidayModalBody .form-field.form-actions,
+    html #overrideModal#overrideModal #overrideModalBody .form-field.form-actions {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      grid-column: 1 / -1 !important;
+      gap: 0 !important;
+      margin: 0 -21px -4px -11px !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-actions .form-pair,
+    html #holidayModal#holidayModal #holidayModalBody .form-actions .form-pair,
+    html #overrideModal#overrideModal #overrideModalBody .form-actions .form-pair {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 24px !important;
+      margin: 0 !important;
+      margin-left: auto !important;
+    }
+    html #schedModal#schedModal #schedModalBody #pbDel,
+    html #holidayModal#holidayModal #holidayModalBody #holidayDel,
+    html #overrideModal#overrideModal #overrideModalBody #overrideDel,
+    html #schedModal#schedModal #schedModalBody #pbCancel,
+    html #holidayModal#holidayModal #holidayModalBody #holidayCancel,
+    html #overrideModal#overrideModal #overrideModalBody #overrideCancel,
+    html #schedModal#schedModal #schedModalBody #pbSave,
+    html #holidayModal#holidayModal #holidayModalBody #holidaySave,
+    html #overrideModal#overrideModal #overrideModalBody #overrideSave {
+      margin: 0 !important;
+    }
+    /* Schedule popup vertical stack + cube day pills (user order):
+       name full row, days full row with label above, cutoffs halves,
+       actions bottom. Pills are grid cubes on equal tracks — toggling
+       WORKING/OFF never shifts the row. Same cream card, cube fill,
+       3px black outline. No hover, no motion. */
+    html #schedModal#schedModal #schedModalBody .form-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 16px !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-grid > .form-field.sched-name,
+    html #schedModal#schedModal #schedModalBody .form-grid > .form-field.sched-days {
+      grid-column: 1 / -1 !important;
+      min-width: 0 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .form-grid > .form-field.sched-cut {
+      min-width: 0 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .sched-days > label {
+      display: block !important;
+      margin: 0 0 8px !important;
+    }
+    html #schedModal#schedModal #schedModalBody .sched-days .pb-days {
+      display: grid !important;
+      grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card,
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card:hover,
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card:focus,
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card:active {
+      min-width: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 2px !important;
+      padding: 8px 2px !important;
+      border-radius: 10px !important;
+      border: 3px solid #141414 !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      cursor: pointer !important;
+      box-shadow: none !important;
+      outline: none !important;
+      transform: none !important;
+      transition: none !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.working {
+      background: #141414 !important;
+      background-image: none !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.off {
+      background: #F4EEE1 !important;
+      background-image: none !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card .w-name {
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.04em !important;
+      white-space: nowrap !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card .w-status {
+      font-size: 8px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      white-space: nowrap !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.working .w-name,
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.working .w-status {
+      color: #F4EEE1 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.off .w-name {
+      color: #141414 !important;
+    }
+    html #schedModal#schedModal #schedModalBody .pb-days .weekly-day-card.off .w-status {
+      color: rgba(20, 20, 20, 0.55) !important;
+    }
+    /* Global sharp law (user order — 90° corners everywhere): every
+       popup card, button, field, dropdown, picker, badge, chip, pill,
+       panel edge and tab strip goes border-radius:0. Scopes use 4 IDs
+       so they beat the 3-ID cube/pill/bubble inner rules; later order
+       wins remaining ties. Paint-only: no colors/sizes/positions/
+       materials touched. Deliberately excluded (keep as-is):
+       .calendar-cell month day tiles, .ink-moon crescent glyph,
+       .stat-dot/.cb-dot status dots. */
+    html #adminLayer#adminLayer #pane-students#pane-students,
+    html #adminLayer#adminLayer #pane-students#pane-students *:not(.calendar-cell):not(.ink-moon):not(.stat-dot):not(.cb-dot),
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance,
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance *:not(.calendar-cell):not(.ink-moon):not(.stat-dot):not(.cb-dot),
+    html #adminLayer#adminLayer #pane-setup#pane-setup,
+    html #adminLayer#adminLayer #pane-setup#pane-setup *:not(.calendar-cell):not(.ink-moon):not(.stat-dot):not(.cb-dot),
+    html #adminLayer#adminLayer #pane-backup#pane-backup,
+    html #adminLayer#adminLayer #pane-backup#pane-backup *:not(.calendar-cell):not(.ink-moon):not(.stat-dot):not(.cb-dot),
+    html #holidayModal#holidayModal#holidayModal #holidayModalBody,
+    html #holidayModal#holidayModal#holidayModal #holidayModalBody *:not(.ink-moon),
+    html #overrideModal#overrideModal#overrideModal #overrideModalBody,
+    html #overrideModal#overrideModal#overrideModal #overrideModalBody *:not(.ink-moon),
+    html #schedModal#schedModal#schedModal #schedModalBody,
+    html #schedModal#schedModal#schedModal #schedModalBody *:not(.ink-moon),
+    html #daySheetModal#daySheetModal#daySheetModal #daySheetBody,
+    html #daySheetModal#daySheetModal#daySheetModal #daySheetBody *:not(.ink-moon),
+    html #schoolInfoModal#schoolInfoModal#schoolInfoModal .modal-card,
+    html #schoolInfoModal#schoolInfoModal#schoolInfoModal .modal-card *:not(.ink-moon),
+    html #enrollModal#enrollModal#enrollModal #enrollBody,
+    html #enrollModal#enrollModal#enrollModal #enrollBody *:not(.ink-moon),
+    html #correctionModal#correctionModal#correctionModal #correctionModalBody,
+    html #correctionModal#correctionModal#correctionModal #correctionModalBody *:not(.ink-moon),
+    html #holidayViewModal#holidayViewModal#holidayViewModal .exc-table-wrap,
+    html #holidayViewModal#holidayViewModal#holidayViewModal .exc-table-wrap *:not(.ink-moon),
+    html #overrideViewModal#overrideViewModal#overrideViewModal .exc-table-wrap,
+    html #overrideViewModal#overrideViewModal#overrideViewModal .exc-table-wrap *:not(.ink-moon),
+    html #holidayModal#holidayModal .modal-card,
+    html #overrideModal#overrideModal .modal-card,
+    html #schedModal#schedModal .modal-card,
+    html #daySheetModal#daySheetModal .modal-card,
+    html #schoolInfoModal#schoolInfoModal .modal-card,
+    html #enrollModal#enrollModal .modal-card,
+    html #correctionModal#correctionModal .modal-card,
+    html #holidayViewModal#holidayViewModal .modal-card,
+    html #holidayViewModal#holidayViewModal .modal-card *:not(.ink-moon),
+    html #overrideViewModal#overrideViewModal .modal-card,
+    html #overrideViewModal#overrideViewModal .modal-card *:not(.ink-moon),
+    html body .gsel-pop.gsel-pop,
+    html body .gsel-pop.gsel-pop *,
+    html body .dt-pop.dt-pop,
+    html body .dt-pop.dt-pop *,
+    html body .gconfirm-ov,
+    html body .gconfirm-ov * {
+      border-radius: 0 !important;
+    }
+    /* Sharp sweep — named survivors (user order, item by item so no
+       older pill rule survives anywhere): sched day pills, toolbar
+       School Information + tabs + legend, sched selector panel +
+       selected row + options, date/time picker panels + cells,
+       every Backup button, scheduler weekday pills, checkboxes,
+       audit footer buttons, confirm dialogs. Paint-only. */
+    html #schedModal#schedModal#schedModal #schedModalBody .pb-days .weekly-day-card,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #setupToolbar #openSchoolInfoBtn,
+    html #adminLayer#adminLayer #pane-setup#pane-setup #setupToolbar .cube-tab,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-monthview-legend .setup-legend-item,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-monthview-legend .setup-monthview-title,
+    html body > .gsel-pop.gsel-pop.gsel-sched,
+    html body > .gsel-pop.gsel-pop.gsel-sched .gsel-opt,
+    html body > .gsel-pop.gsel-pop.gsel-sched .gsel-opt.sel,
+    html body > .gsel-pop.gsel-pop,
+    html body > .gsel-pop.gsel-pop .gsel-opt,
+    html body > .dt-pop.dt-pop,
+    html body > .dt-pop.dt-pop .dt-col button,
+    html body > .dt-pop.dt-pop .dt-day,
+    html body > .dt-pop.dt-pop .dt-acad-btn,
+    html body > .dt-pop.dt-pop .dt-foot,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupRefreshBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupSelectAllBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #telegramBackupNowBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbBackupNowBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupNowBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedSaveBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupDownloadBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup label.btn:has(#backupFileInput),
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditExportBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditClearBtn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedDays button,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #destCheckGdrive,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #destCheckTelegram,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #destCheckUsb,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedEnabled,
+    html body .gconfirm-ov .gconfirm,
+    html body .gconfirm-ov .gconfirm-ok,
+    html body .gconfirm-ov .gconfirm-cancel,
+    html body .gconfirm-ov .gconfirm-row {
+      border-radius: 0 !important;
+    }
+    /* Scrollbar arrows off everywhere (user order): no triangle
+       buttons — thin thumb only, thumbs squared to match. Firefox
+       has no arrow buttons; nothing to do there. */
+    html #adminLayer#adminLayer #pane-students#pane-students *::-webkit-scrollbar-button,
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance *::-webkit-scrollbar-button,
+    html #adminLayer#adminLayer #pane-setup#pane-setup *::-webkit-scrollbar-button,
+    html #adminLayer#adminLayer #pane-backup#pane-backup *::-webkit-scrollbar-button,
+    html #holidayModal#holidayModal .modal-card *::-webkit-scrollbar-button,
+    html #overrideModal#overrideModal .modal-card *::-webkit-scrollbar-button,
+    html #schedModal#schedModal .modal-card *::-webkit-scrollbar-button,
+    html #daySheetModal#daySheetModal .modal-card *::-webkit-scrollbar-button,
+    html #schoolInfoModal#schoolInfoModal .modal-card *::-webkit-scrollbar-button,
+    html #enrollModal#enrollModal .modal-card *::-webkit-scrollbar-button,
+    html #correctionModal#correctionModal .modal-card *::-webkit-scrollbar-button,
+    html #holidayViewModal#holidayViewModal .modal-card *::-webkit-scrollbar-button,
+    html #overrideViewModal#overrideViewModal .modal-card *::-webkit-scrollbar-button,
+    html body .gsel-pop.gsel-pop *::-webkit-scrollbar-button,
+    html body .gsel-pop.gsel-pop::-webkit-scrollbar-button,
+    html body .dt-pop.dt-pop *::-webkit-scrollbar-button,
+    html body .dt-pop.dt-pop::-webkit-scrollbar-button {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students *::-webkit-scrollbar-thumb,
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance *::-webkit-scrollbar-thumb,
+    html #adminLayer#adminLayer #pane-setup#pane-setup *::-webkit-scrollbar-thumb,
+    html #adminLayer#adminLayer #pane-backup#pane-backup *::-webkit-scrollbar-thumb,
+    html #holidayModal#holidayModal .modal-card *::-webkit-scrollbar-thumb,
+    html #overrideModal#overrideModal .modal-card *::-webkit-scrollbar-thumb,
+    html #schedModal#schedModal .modal-card *::-webkit-scrollbar-thumb,
+    html #daySheetModal#daySheetModal .modal-card *::-webkit-scrollbar-thumb,
+    html #schoolInfoModal#schoolInfoModal .modal-card *::-webkit-scrollbar-thumb,
+    html #enrollModal#enrollModal .modal-card *::-webkit-scrollbar-thumb,
+    html #correctionModal#correctionModal .modal-card *::-webkit-scrollbar-thumb,
+    html #holidayViewModal#holidayViewModal .modal-card *::-webkit-scrollbar-thumb,
+    html #overrideViewModal#overrideViewModal .modal-card *::-webkit-scrollbar-thumb,
+    html body .gsel-pop.gsel-pop *::-webkit-scrollbar-thumb,
+    html body .dt-pop.dt-pop *::-webkit-scrollbar-thumb {
+      border-radius: 0 !important;
+    }
+    /* Sharp confirmations (user order — four survivors, each beaten
+       before on specificity or missed outright): School Information
+       needs its toolbar class + full state list (rival pins radius in
+       every state); CHECK USB needs the .primary state list (rival
+       sets the pill there, and USB is not-ready so the class is live);
+       TIME/FREQUENCY/INTERVAL were never listed (6-ID rival owned
+       them) — listed now with the manager path; FREQ dropdown button
+       mirrors its 7-ID gsel chain; weekday pills gain their .btn class
+       so element selectors stop losing to class pill rules. Later
+       order wins every remaining tie. No hover/motion. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:hover,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:active,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:focus,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar #openSchoolInfoBtn:focus-visible,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:hover,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:active,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:focus,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #usbRefreshBtn.primary:focus-visible,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedTime,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedFreq,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedInterval,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard .gsel:has(> select#backupSchedFreq) > .gsel-btn,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupSchedDays button.btn {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedDays button.btn {
+      border-radius: 0 !important;
+    }
+    /* Audit readability: 13px body / 11px headers, 44px rows,
+       full timestamps, short action labels, wrapping details,
+       full ADMIN right. Paint + type only. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditTable th {
+      font-size: 11px !important;
+      letter-spacing: 0.08em !important;
+      padding: 12px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditTable th:nth-child(1),
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(1) {
+      width: 185px !important;
+      min-width: 185px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditTable th:nth-child(2),
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(2) {
+      width: 165px !important;
+      min-width: 165px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditTable th:nth-child(4),
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(4) {
+      width: 90px !important;
+      min-width: 90px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td {
+      font-size: 13px !important;
+      line-height: 1.5 !important;
+      padding: 12px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(1) {
+      white-space: nowrap !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(2) {
+      white-space: nowrap !important;
+      text-transform: none !important;
+      letter-spacing: 0.02em !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(3) {
+      white-space: normal !important;
+      word-break: break-word !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditBody td:nth-child(4) {
+      white-space: nowrap !important;
+      text-align: right !important;
+      text-transform: uppercase !important;
+    }
+    /* Audit readability hardening: belt-path type/widths so no older
+       rule keeps 12px or narrow columns; scroll clears the footer;
+       short time/action columns fit their new content. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td {
+      font-size: 13px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditTable th:nth-child(1),
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(1) {
+      width: 150px !important;
+      min-width: 150px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditTable th:nth-child(4),
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditBody td:nth-child(4) {
+      width: 100px !important;
+      min-width: 100px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) .table-scroll {
+      padding-bottom: 20px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditTable {
+      table-layout: fixed !important;
+    }
+    /* Backup Manager geometry: shared right edge for actions and
+       status, uniform gaps, equal field grid, aligned details,
+       one 7-column weekday row. Positions only. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard .dest-btns {
+      justify-content: flex-end !important;
+      gap: 8px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupNowBtn {
+      margin-right: auto !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedBody > div:first-child > div {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #telegramDetailsBox,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #usbDetailsBox,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #gdriveAuthBox,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #gdriveActionBox {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedDays {
+      display: grid !important;
+      grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+      gap: 6px !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedDays .btn {
+      min-width: 0 !important;
+    }
+    /* Back Up Now / Save Schedule: shared baseline, opposite edges.
+       Dual auto-margins pin them left/right regardless of the status
+       span between them; identical box metrics kill the 8px drift. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupNowBtn {
+      margin: 0 !important;
+      margin-right: auto !important;
+      height: 40px !important;
+      min-height: 40px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      vertical-align: middle !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard #backupSchedSaveBtn {
+      margin: 0 !important;
+      margin-left: auto !important;
+      height: 40px !important;
+      min-height: 40px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      vertical-align: middle !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #backupNowBtn) {
+      align-items: flex-start !important;
+    }
+    /* Audit header bar: cream 500 title, quiet count, sharp
+       corners. Black background untouched. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #auditTitle#auditTitle {
+      color: #F4EEE1 !important;
+      font-weight: 500 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) #auditCount {
+      color: rgba(244, 238, 225, 0.55) !important;
+    }
+    /* Setup toolbar rhythm (user order): zone hairlines, chip context
+       select, tight month-nav cluster. The divider reuses this bar's own
+       setup hairline (1px solid rgba(24,26,32,0.15) — the OVERRIDE|select
+       rule; the boards' 3px cream joints vanish on a cream surface).
+       Legend words, School Information pill, and legend active state
+       untouched. No hover, no motion — every state identical. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) {
+      border-left: 1px solid rgba(24, 26, 32, 0.15) !important;
+      border-right: 1px solid rgba(24, 26, 32, 0.15) !important;
+      padding-left: 14px !important;
+      padding-right: 14px !important;
+      margin-left: 2px !important;
+      margin-right: 2px !important;
+    }
+    /* Context dropdown plain text (user order — chip retired): same
+       tier as the legend words (transparent, no border, 11px/500/0.04em,
+       full dark ink); chevron stays as the pickability hint. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn:hover,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn:active,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn:focus,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn:focus-visible {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      color: #141414 !important;
+      font-family: var(--sans) !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      text-decoration: none !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn .gsel-lab,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn:hover .gsel-lab,
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn:focus .gsel-lab {
+      background: transparent !important;
+      background-image: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: #141414 !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-legend .gsel:has(> select#calClassSelect) > .gsel-btn .gsel-chev {
+      color: #141414 !important;
+    }
+    /* Month-nav cluster (user order): tight 4px group so PREV hugs the
+       label's left and NEXT hugs its right; TODAY stands apart behind
+       its own hairline; label steps up to 13px mono 500 as the anchor. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar .setup-monthview-nav {
+      gap: 4px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar #calMonthLabel#calMonthLabel {
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      padding: 0 6px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar #calPrevBtn#calPrevBtn {
+      margin-right: 2px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar #calNextBtn#calNextBtn {
+      margin-left: 2px !important;
+    }
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-toolbar#setupToolbar#setupToolbar #calTodayBtn#calTodayBtn {
+      border-left: 1px solid rgba(24, 26, 32, 0.15) !important;
+      padding-left: 12px !important;
+      margin-left: 8px !important;
+    }
+    /* Schedule popup header group (user order): title→sub 4px,
+       sub→first field 14px; sub stays 11px quiet one line. The grid
+       carries no outer margin, so the sub margin owns the gap. */
+    html #schedModal#schedModal #schedModalTitle {
+      margin: 0 0 4px !important;
+    }
+    html #schedModal#schedModal #schedModalSub {
+      margin: 0 0 14px !important;
+    }
+    /* POPUP TYPE SYSTEM (user order — one scale, every popup):
+       T1 title 14/500/plain/primary · T2 sub 11/400/muted · T3 label
+       9.5/400/upper/0.04/muted · T4 value 13/400/primary · T5 helper
+       11/400 · T6 button 11/500/upper/0.06 · T7 picker header
+       10/500/upper/0.06/muted · T8 option 12/400. Glyph buttons
+       (font-size:0) and picked-pill colors excluded by order.
+       Paint only. */
+    html #daySheetModal#daySheetModal#daySheetModal #daySheetTitle {
+      font-size: 14px !important;
+      font-weight: 500 !important;
+    }
+    html #enrollModal#enrollModal#enrollModal #enrollTitle {
+      text-transform: none !important;
+    }
+    html #holidayModal#holidayModal#holidayModal .modal-card > p,
+    html #overrideModal#overrideModal#overrideModal .modal-card > p,
+    html #schoolInfoModal#schoolInfoModal#schoolInfoModal .modal-card > p,
+    html #holidayViewModal#holidayViewModal#holidayViewModal .modal-card > p,
+    html #overrideViewModal#overrideViewModal#overrideViewModal .modal-card > p {
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html #enrollModal#enrollModal#enrollModal #enrollSub {
+      font-size: 11px !important;
+      font-weight: 400 !important;
+    }
+    html #enrollModal#enrollModal#enrollModal .modal-card .form-field label {
+      font-size: 9.5px !important;
+      font-weight: 400 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.04em !important;
+    }
+    html #enrollModal#enrollModal#enrollModal .modal-card .form-field input:not([type=file]):not([type=checkbox]),
+    html #enrollModal#enrollModal#enrollModal .modal-card .form-field select,
+    html #enrollModal#enrollModal#enrollModal .modal-card .form-field textarea,
+    html #enrollModal#enrollModal#enrollModal .modal-card .form-field .gsel-btn {
+      font-size: 13px !important;
+      font-weight: 400 !important;
+    }
+    html #enrollModal#enrollModal#enrollModal .inline-error,
+    html #enrollModal#enrollModal#enrollModal #nsErr,
+    html #enrollModal#enrollModal#enrollModal #edErr,
+    html #enrollModal#enrollModal#enrollModal #scanErr,
+    html #schedModal#schedModal#schedModal .inline-error,
+    html #schedModal#schedModal#schedModal #pbErr {
+      font-size: 11px !important;
+      font-weight: 400 !important;
+    }
+    html #holidayViewModal#holidayViewModal .exc-empty-sub,
+    html #overrideViewModal#overrideViewModal .exc-empty-sub {
+      font-size: 11px !important;
+    }
+    html #enrollModal#enrollModal#enrollModal .btn,
+    html #correctionModal#correctionModal#correctionModal .btn {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+    }
+    html #holidayViewModal#holidayViewModal#holidayViewModal .btn,
+    html #overrideViewModal#overrideViewModal#overrideViewModal .btn,
+    html #schoolInfoModal#schoolInfoModal#schoolInfoModal #settingsExportBtn {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+    }
+    html #holidayViewModal#holidayViewModal .exc-act-btn,
+    html #overrideViewModal#overrideViewModal .exc-act-btn {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+    }
+    html body .dt-pop.dt-pop .dt-nav button:not(.dt-glyph),
+    html body .dt-pop.dt-pop .dt-foot button:not(.dt-glyph) {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+    }
+    html .gconfirm-ov.gconfirm-ov .gconfirm .gconfirm-cancel {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+    }
+    html body .dt-pop.dt-pop .dt-title {
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html body > .gsel-pop.gsel-pop .gsel-grp {
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html body .dt-pop.dt-pop .dt-sec,
+    html body .dt-pop.dt-pop .dt-dow {
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: rgba(24, 26, 32, 0.6) !important;
+    }
+    html body .dt-pop.dt-pop .dt-day {
+      font-size: 12px !important;
+    }
+    html body .dt-pop.dt-pop .dt-day.sel,
+    html body .dt-pop.dt-pop .dt-col button.sel,
+    html body .dt-pop.dt-pop .dt-acad-btn.sel,
+    html body .dt-pop.dt-pop .dt-acad-main {
+      font-weight: 400 !important;
+    }
+    html body > .gsel-pop.gsel-pop .gsel-opt {
+      font-size: 12px !important;
+    }
+    html body > .gsel-pop.gsel-pop .gsel-opt.sel {
+      font-weight: 400 !important;
+    }
+    /* STUDENTS RHYTHM (user order — layout inside the wall only):
+       56px rows · tight filter group · flex-filled history · header
+       unit · TODAY band · grid bands · 24px action offset · centered
+       history empty. Flush wall, seam, corners, pills untouched. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row {
+      height: 56px !important;
+      min-height: 56px !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-search {
+      padding: 12px 0 !important;
+      margin: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel::before,
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters .gsel::after,
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters select::before,
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-filters select::after {
+      content: none !important;
+    }
+    /* Detail fills the pane: scroll column, card stretches, history
+       takes the remainder — no void below the table. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-card {
+      display: flex !important;
+      flex-direction: column !important;
+      flex: 1 0 auto !important;
+      min-height: 100% !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap {
+      flex: 1 0 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-scroll.large {
+      flex: 1 0 auto !important;
+      max-height: none !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap table {
+      height: 100% !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap tbody td {
+      vertical-align: middle !important;
+    }
+    /* Header unit: badges side by side under the name. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-sub {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+    }
+    /* TODAY band: one row, label left, figures right, no hairlines. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip {
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      border-top: none !important;
+      border-bottom: none !important;
+      padding: 12px 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .stat-strip .stat-cap {
+      flex: 0 0 auto !important;
+      margin-right: auto !important;
+      font-size: 9.5px !important;
+      letter-spacing: 0.06em !important;
+    }
+    /* Grid bands: dashed hairline between row 1 (fields 1-4) and row 2
+       (fields 5-8) at the 4-column layout only. */
+    @media (min-width: 1001px) {
+      html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-grid > .detail-field:nth-child(n+5):nth-child(-n+8) {
+        border-top: 1px dashed rgba(244, 238, 225, 0.25) !important;
+        padding-top: 12px !important;
+      }
+    }
+    /* History empty: centered in the remaining table space. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap .empty b {
+      font-size: 14px !important;
+      letter-spacing: 0.06em !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .table-wrap .empty {
+      font-size: 13px !important;
+    }
+    /* Header badges: ACTIVE filled capsule, batch outline capsule. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-sub .badge:first-child {
+      background: #F4EEE1 !important;
+      background-image: none !important;
+      border: 1px solid #F4EEE1 !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      color: #141414 !important;
+      font-size: 9px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      line-height: 1.4 !important;
+      padding: 3px 8px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .pf-sub .badge:nth-child(2) {
+      background: transparent !important;
+      background-image: none !important;
+      border: 1px solid rgba(244, 238, 225, 0.25) !important;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      color: rgba(244, 238, 225, 0.65) !important;
+      font-size: 9px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      line-height: 1.4 !important;
+      padding: 3px 8px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+    }
+    /* Actions dock: guaranteed 8px between Import and Export. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentActionsCard {
+      column-gap: 8px !important;
+      row-gap: 8px !important;
+    }
+    /* Roster name re-pin: 14px belt, max specificity. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList#studentList .student-row .student-name {
+      font-size: 14px !important;
+    }
+    /* Bin lives in the action row now: right-aligned outlier, 12px
+       from Correct today (8px row gap + 4px pad), in the wrap flow. */
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll .detail-actions .pf-del {
+      margin-left: auto !important;
+      padding-left: 4px !important;
+    }
+    /* Active-row marker: 2px cream bar, full row height, flush left.
+       Row anchors it (grid is static); bar + 500 name, no wash. */
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active {
+      position: relative !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList .student-row.active::before {
+      content: "" !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      width: 2px !important;
+      background: #F4EEE1 !important;
+    }
+    /* Students sharp sweep (user order): every pill/capsule square at
+       5-6 ID strength so the 999px rules lose. stat-dot stays round. */
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch#rosterSearch,
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch#rosterSearch:hover,
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch#rosterSearch:active,
+    html #adminLayer#adminLayer #pane-students#pane-students #rosterSearch#rosterSearch:focus {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #newStudentToolbarBtn#newStudentToolbarBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #importStudentsBtn#importStudentsBtn,
+    html #adminLayer#adminLayer #pane-students#pane-students #exportStudentsBtn#exportStudentsBtn {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll#detailScroll .detail-actions .btn {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #detailScroll#detailScroll .pf-sub .badge {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students #studentList#studentList .student-row .badge {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .roster-search .roster-filters .gsel-btn {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-students#pane-students .list-pane *:not(.stat-dot),
+    html #adminLayer#adminLayer #pane-students#pane-students .detail-pane *:not(.stat-dot) {
+      border-radius: 0 !important;
+    }
+    /* Attendance float lock (user order — Setup wall pattern, end-belt):
+       stripe + outline live on the .att-wall wrapper; outer section
+       ends defer to it; corners stay squared. */
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance .detail-scroll {
+      padding: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance .att-wall {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      max-width: calc(100% - 28px) !important;
+      max-height: calc(100% - 28px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      box-sizing: border-box !important;
+      margin: 14px !important;
+      border: 1px solid #141414 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      padding: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attStats#attStats {
+      margin: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attStats#attStats .stat:first-child {
+      border-left: none !important;
+      border-top-left-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attStats#attStats .stat:last-child {
+      border-right: none !important;
+      border-top-right-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attPresetRow#attPresetRow .att-blank:first-child {
+      border-left: none !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attPresetRow#attPresetRow .att-blank:last-child {
+      border-right: none !important;
+    }
+    html #adminLayer#adminLayer #pane-attendance#pane-attendance #attRecordsBoard#attRecordsBoard {
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    /* Setup wall experiment retired (user order): black wall + 14px
+       float reverted; cube language untouched. */
+    /* Setup wall box (user order): ONE outlined rectangle holding
+       toolbar + scroll in DOM order; 14px cream margin; square;
+       interior untouched. Static. */
+    html #adminLayer#adminLayer #pane-setup#pane-setup .setup-wall {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      max-width: calc(100% - 28px) !important;
+      max-height: calc(100% - 28px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+      margin: 14px !important;
+      border: 1px solid #141414 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      padding: 0 !important;
+    }
+    /* Gutter lock (user order — de-clutter: two older rules tie on
+       this pane's scroll padding, 12px vs 0; this outranks both and
+       pins 0, so the ring's gutters are exactly the wall margins). */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-scroll.detail-scroll {
+      padding: 0 !important;
+    }
+    /* Panel containment (user order — ring zone must stay clear): the
+       audit card's max-width:none era lets black table/footer paint
+       bleed into the margins, swallowing the ring. Pin both panels
+       inside the wall content box. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-scroll > .backup-wall.backup-wall > div > .detail-card:has(#auditBody) {
+      max-width: 100% !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+    /* Backup wall box (user order): outlined rect around the two
+       panels; 14px cream margin; square; panels keep surfaces. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-scroll > .backup-wall.backup-wall {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: stretch !important;
+      gap: 14px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      max-width: calc(100% - 29px) !important;
+      height: calc(100% - 29px) !important;
+      min-height: 0 !important;
+      margin: 14px 15px 15px 14px !important;
+      outline: 1px solid #141414 !important;
+      outline-offset: 0 !important;
+      border-radius: 0 !important;
+      background-color: #F4EEE1 !important;
+      background-image: none !important;
+      position: relative !important;
+      overflow: visible !important;
+      padding: 0 !important;
+    }
+    /* Pellet ring: SVG snake, plain-attribute build (user order —
+       motion for this element only). Geometry is written by JS as
+       plain attributes and motion runs on SMIL, so no CSS shorthand
+       can distort it and no stylesheet rule can freeze it. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .backup-ring-svg {
+      position: absolute !important;
+      top: -14px !important;
+      right: -15px !important;
+      bottom: -15px !important;
+      left: -14px !important;
+      display: block !important;
+      overflow: visible !important;
+      pointer-events: none !important;
+      z-index: 2 !important;
+    }
+    /* Corner Ls (user order): static sharp 90° L at each corner, above
+       the flowing rect — dashes pour in one arm and out the other, so
+       every turn reads crisp with no vanish point. Plain layers only. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .backup-ring-svg path {
+      pointer-events: stroke !important;
+      cursor: grab !important;
+      touch-action: pan-y !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .backup-ring-svg path:active {
+      cursor: grabbing !important;
+    }
+    /* Corner tunnels (user order): a static L bracket per corner over
+       the flow — dashes run in one arm and out the other underneath.
+       Arms 24px, band-matched widths. Nothing else touched. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .backup-wall::before {
+      content: "" !important;
+      position: absolute !important;
+      top: -14px !important;
+      right: -15px !important;
+      bottom: -15px !important;
+      left: -14px !important;
+      pointer-events: none !important;
+      z-index: 3 !important;
+      background-image:
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%),
+        linear-gradient(to bottom, #141414 0, #141414 100%) !important;
+      background-size: 38px 14px, 14px 38px, 38px 14px, 15px 38px, 38px 15px, 14px 38px, 38px 15px, 15px 38px !important;
+      background-position: left 0 top 0, left 0 top 0, right 0 top 0, right 0 top 0, left 0 bottom 0, left 0 bottom 0, right 0 bottom 0, right 0 bottom 0 !important;
+      background-repeat: no-repeat !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard#backupManagerCard,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard#backupManagerCard:hover,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard#backupManagerCard:active,
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard#backupManagerCard:focus {
+      border-radius: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) {
+      border-radius: 0 !important;
+    }
+    /* Wall layout repair (user order): pre-wrapper side-by-side runs
+       through the existing row div (the wall's single child), so the
+       bind chain is wall > row > cards. Row fills + stretches; both
+       panels min-height:0; audit scroll flex-bounds its 500 rows.
+       Panel paint untouched. */
+    html #adminLayer#adminLayer #pane-backup#pane-backup .backup-wall > div {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      align-items: stretch !important;
+      padding-left: 0 !important;
+      margin-left: 0 !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard#backupManagerCard {
+      min-height: 0 !important;
+      height: 100% !important;
+      margin-left: 0 !important;
+      box-sizing: border-box !important;
+      max-width: 100% !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) {
+      min-height: 0 !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      box-sizing: border-box !important;
+      max-width: 100% !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup .detail-card:has(#auditBody) .table-scroll {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+    }
+    html #adminLayer#adminLayer #pane-backup#pane-backup #backupManagerCard div:has(> #destRowGdrive) {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      border: none !important;
+    }
     @media print {
 
       .terminal,
@@ -16823,7 +17797,15 @@
           </div>
           <div class="split-view" style="flex:1 1 0%;min-height:0;display:flex;flex-direction:row;overflow:hidden">
             <div class="list-pane">
-              <div class="roster-search"><input id="rosterSearch" placeholder="Search students" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search students"></div>
+              <div class="roster-search"><input id="rosterSearch" placeholder="Search students" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search students"><span class="roster-filters" role="group" aria-label="Student filters"><select id="classFilter" aria-label="Filter by class">
+              <option value="">All Classes</option>
+            </select><select id="batchFilter" aria-label="Filter by batch">
+              <option value="">All Batches</option>
+            </select><select id="studentStatusFilter" aria-label="Filter by status">
+              <option value="active">Active only</option>
+              <option value="all">All</option>
+              <option value="inactive">Inactive only</option>
+            </select></span></div>
               <div class="list-scroll" id="studentList"></div>
               <div class="student-actions-card" id="studentActionsCard" aria-label="Student actions">
                 <button class="btn primary" id="newStudentToolbarBtn">New Enrollment</button>
@@ -16884,6 +17866,7 @@
               <div id="attDateLabel" style="font-size:11px;letter-spacing:0.06em;color:var(--ink-2);font-weight:500">
                 Today — --</div>
             </div>
+            <div class="att-wall">
             <div class="stats-row" id="attStats"></div>
             <div class="att-presets" id="attPresetRow" role="group" aria-label="Date range">
               <span class="att-blank" aria-hidden="true"></span><button type="button" class="att-cube" data-v="today">Today</button>
@@ -16947,6 +17930,7 @@
                 </table>
               </div>
             </div>
+            </div>
           </div>
         </div>
         <!-- Setup: School Configuration & Schedule (Unified) -->
@@ -16954,6 +17938,7 @@
           <!-- Setup secondary bar: same two-bar geometry as Students /
                Attendance (thin control row under TOP NAV). Left: list
                tabs. Center: month context. Right: month navigation. -->
+          <div class="setup-wall">
           <div class="setup-toolbar" id="setupToolbar">
             <button class="btn" id="openSchoolInfoBtn">School Information</button>
             <div class="setup-toolbar-left">
@@ -17048,12 +18033,15 @@
               </div>
             </div>
           </div>
+          </div>
           <!-- Record tables and School Information live in the Setup popups below. -->
           <div id="setupUndoBar" hidden><span id="setupUndoMsg"></span><button type="button" id="setupUndoBtn">UNDO</button></div>
         </div>
         <!-- Backup -->
         <div class="admin-pane hidden" id="pane-backup">
           <div class="detail-scroll">
+            <div class="backup-wall">
+              <svg class="backup-ring-svg" data-ring="smil" aria-hidden="true" focusable="false"><path d="" fill="none" stroke="#141414" stroke-width="14" stroke-dasharray="38 38" stroke-miterlimit="1.41"><animate attributeName="stroke-dashoffset" from="0" to="-152" dur="16s" repeatCount="indefinite" /></path></svg>
             <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
               <!-- Unified Backup Manager Card -->
               <div class="detail-card" style="flex:1 1 420px;max-width:540px" id="backupManagerCard">
@@ -17078,8 +18066,8 @@
                   <div
                     style="display:flex;flex-direction:column;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:8px 10px">
                     <!-- Google Drive Destination -->
-                    <div style="padding:4px 0" id="destRowGdrive">
-                      <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="padding:4px 0" id="destRowGdrive" class="dest-row">
+                      <div class="dest-head" style="display:flex;justify-content:space-between;align-items:center">
                         <label
                           style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;font-weight:500">
                           <input type="checkbox" id="destCheckGdrive" style="accent-color:var(--ink);cursor:pointer">
@@ -17092,8 +18080,8 @@
                       <!-- Google Drive Pairing Box (Device Flow) -->
                       <div id="gdriveAuthBox"
                         style="display:none;margin-top:6px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;font-size:11px">
-                        <div id="gdriveInitBox" style="display:flex;justify-content:space-between;align-items:center">
-                          <span style="color:var(--ink-2);font-size:10px">Authorization required</span>
+                        <!-- Row 3: Pair is the not-ready primary. -->
+                        <div id="gdriveInitBox" style="display:flex;justify-content:flex-end;align-items:center">
                           <button id="gdriveDeviceStartBtn" class="btn primary"
                             style="padding:2px 8px;font-size:10px">Pair with Google</button>
                         </div>
@@ -17119,15 +18107,16 @@
                       <!-- Google Drive Connected Management Box -->
                       <div id="gdriveActionBox"
                         style="display:none;margin-top:6px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;font-size:11px">
-                        <div
-                          style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px">
-                          <span style="font-size:10px;color:var(--ink-2)">Cloud Storage (ATL-Attendance-Backups)</span>
-                          <div style="display:flex;gap:6px">
-                            <button class="btn" id="gdriveRefreshListBtn" style="padding:2px 6px;font-size:10px">Refresh
-                              list</button>
-                            <button class="btn" id="gdriveDisconnectBtn"
-                              style="padding:2px 6px;font-size:10px;color:var(--danger)">Disconnect</button>
-                          </div>
+                        <!-- Row 2: detail line -->
+                        <div class="dest-detail" style="margin-bottom:6px">Cloud Storage (ATL-Attendance-Backups)</div>
+                        <!-- Row 3: actions — READY sends, maintenance stays secondary -->
+                        <div class="dest-btns" style="display:flex;gap:6px;flex-wrap:wrap">
+                          <button class="btn primary" id="gdriveBackupRowBtn" style="padding:2px 6px;font-size:10px">Send
+                            backup now</button>
+                          <button class="btn" id="gdriveRefreshListBtn" style="padding:2px 6px;font-size:10px">Refresh
+                            list</button>
+                          <button class="btn" id="gdriveDisconnectBtn"
+                            style="padding:2px 6px;font-size:10px;color:var(--danger)">Disconnect</button>
                         </div>
                         <div id="gdriveStatusMsg" style="font-size:10px;color:var(--ink-2);margin-bottom:4px"></div>
                         <div class="table-wrap"
@@ -17147,8 +18136,8 @@
                     </div>
 
                     <!-- Telegram Destination -->
-                    <div style="padding:4px 0" id="destRowTelegram">
-                      <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="padding:4px 0" id="destRowTelegram" class="dest-row">
+                      <div class="dest-head" style="display:flex;justify-content:space-between;align-items:center">
                         <label
                           style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;font-weight:500">
                           <input type="checkbox" id="destCheckTelegram" style="accent-color:var(--ink);cursor:pointer">
@@ -17161,17 +18150,16 @@
                       <!-- Telegram Details & Actions Box -->
                       <div id="telegramDetailsBox"
                         style="margin-top:6px;padding:6px 8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;font-size:10px;color:var(--ink-2)">
-                        <div
-                          style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
-                          <div>Target Chat: <span id="telegramChatId"
+                        <!-- Row 2: detail line -->
+                        <div class="dest-detail" style="margin-bottom:6px">Target Chat: <span id="telegramChatId"
                               style="font-family:Newsreader,Times New Roman,Georgia,serif;font-weight:600;color:var(--ink)">--</span>
-                          </div>
-                          <div style="display:flex;gap:6px">
-                            <button class="btn" id="telegramBackupNowBtn" style="padding:2px 6px;font-size:10px">Send
-                              backup now</button>
-                            <button class="btn" id="telegramClearStatusBtn" style="padding:2px 6px;font-size:10px">Clear
-                              status</button>
-                          </div>
+                        </div>
+                        <!-- Row 3: actions -->
+                        <div class="dest-actions dest-btns" style="margin-top:6px;display:flex;gap:6px">
+                          <button class="btn primary" id="telegramBackupNowBtn" style="padding:2px 6px;font-size:10px">Send
+                            backup now</button>
+                          <button class="btn dest-clear" id="telegramClearStatusBtn" style="padding:2px 6px;font-size:10px">Clear
+                            status</button>
                         </div>
                         <div id="telegramLastError"
                           style="color:var(--danger);display:none;margin-top:4px;font-size:10px"></div>
@@ -17179,8 +18167,8 @@
                     </div>
 
                     <!-- USB Drive Destination -->
-                    <div style="padding:4px 0" id="destRowUsb">
-                      <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="padding:4px 0" id="destRowUsb" class="dest-row">
+                      <div class="dest-head" style="display:flex;justify-content:space-between;align-items:center">
                         <label
                           style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;font-weight:500">
                           <input type="checkbox" id="destCheckUsb" style="accent-color:var(--ink);cursor:pointer">
@@ -17193,23 +18181,24 @@
                       <!-- USB Details & Actions Box -->
                       <div id="usbDetailsBox"
                         style="margin-top:6px;padding:6px 8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;font-size:10px;color:var(--ink-2)">
-                        <div
-                          style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
-                          <div>
-                            Mount: <span id="usbMountPath"
+                        <!-- Row 2: detail line (collapses when no detail) -->
+                        <div class="dest-detail" id="usbDetailLine" style="margin-bottom:6px">
+                          <span id="usbMountInfo">Mount: <span id="usbMountPath"
                               style="font-family:Newsreader,Times New Roman,Georgia,serif;font-weight:600;color:var(--ink)">Not
                               detected</span>
                             <span style="margin:0 4px;color:var(--line)">|</span>
                             Space: <span id="usbFreeSpace" style="color:var(--ink)">--</span>
-                          </div>
-                          <div style="display:flex;gap:6px">
-                            <button class="btn" id="usbBackupNowBtn" style="padding:2px 6px;font-size:10px">Backup to USB</button>
-                            <button class="btn" id="usbRefreshBtn" style="padding:2px 6px;font-size:10px">Check
-                              USB</button>
-                            <button class="btn" id="usbClearStatusBtn" style="padding:2px 6px;font-size:10px">Clear
-                              status</button>
-                          </div>
+                          </span>
                         </div>
+                        <!-- Row 3: actions -->
+                        <div class="dest-actions dest-btns" style="margin-top:6px;display:flex;gap:6px">
+                          <button class="btn primary" id="usbBackupNowBtn" style="padding:2px 6px;font-size:10px">Backup to USB</button>
+                          <button class="btn" id="usbRefreshBtn" style="padding:2px 6px;font-size:10px">Check
+                            USB</button>
+                          <button class="btn dest-clear" id="usbClearStatusBtn" style="padding:2px 6px;font-size:10px">Clear
+                            status</button>
+                        </div>
+                        <!-- Row 2b: specific error line (kept when present) -->
                         <div id="usbLastError" style="color:var(--danger);display:none;margin-top:4px;font-size:10px">
                         </div>
                       </div>
@@ -17305,13 +18294,13 @@
               <!-- Audit History Card -->
               <div class="detail-card" style="flex:2 1 460px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                  <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600">Audit
+                  <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600" id="auditTitle">Audit
                     history</div>
                   <span id="auditCount" style="font-size:10px"></span>
                 </div>
                 <div class="table-wrap">
                   <div class="table-scroll large">
-                    <table>
+                    <table id="auditTable">
                       <thead>
                         <tr>
                           <th>Time</th>
@@ -17334,6 +18323,7 @@
           </div>
         </div>
         </div>
+        </div>
         <aside class="admin-side" id="adminSide" aria-label="Global navigation">
           <div class="admin-nav" id="adminNav">
             <button data-tab="students" class="active">Students</button>
@@ -17348,17 +18338,8 @@
           <div class="side-ctx" id="sideCtx-students" data-side="students">
             <div class="side-sep" aria-hidden="true"></div>
             <div class="side-label">Student controls</div>
-            <select id="classFilter">
-              <option value="">All Classes</option>
-            </select>
-            <select id="batchFilter">
-              <option value="">All Batches</option>
-            </select>
-            <select id="studentStatusFilter">
-              <option value="active">Active only</option>
-              <option value="all">All</option>
-              <option value="inactive">Inactive only</option>
-            </select>
+            <!-- Filters moved into the roster header line (roster-filters) —
+                 this context stays as an empty anchor so tab toggling holds. -->
             <!-- Student actions live in #studentActionsCard under the roster
                  (reference black-box pair) — IDs unchanged so wiring holds. -->
           </div>

@@ -695,19 +695,25 @@ function renderStudentDetail(id){
   const initials=s.name.trim().split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
   const photo=s.photo?`<img src="${esc(s.photo)}" alt="">`:`<div class="detail-photo-fallback">${esc(initials)}</div>`;
   const history=Attendance.filter(a=>a.studentId===s.id).slice(-60).reverse();
-  const histRows=history.length?history.map(a=>`<tr><td>${esc(a.date)}</td><td>${esc(a.time)}</td><td><span class="badge ${a.status.toLowerCase().replace(" ","-")}">${esc(a.status)}</span></td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"")}</td><td><button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(a.date)}" data-correct-status="${esc(a.status)}" style="height:22px;padding:0 8px;font-size:9px">Correct</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty"><b>No records</b>Scan results will appear here from the sensor.</div></td></tr>`;
+  const histRows=history.length?history.map(a=>`<tr><td>${esc(a.date)}</td><td>${esc(a.time)}</td><td><span class="badge ${a.status.toLowerCase().replace(" ","-")}">${esc(a.status)}</span></td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"")}</td><td><button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(a.date)}" data-correct-status="${esc(a.status)}">Correct</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty"><b>No records</b>Scan results will appear here from the sensor.</div></td></tr>`;
+  const _rows=Attendance.filter(a=>a.studentId===s.id);
+  const _p=_rows.filter(a=>a.status==="Present").length;
+  const _l=_rows.filter(a=>a.status==="Late").length;
+  const _a=_rows.filter(a=>a.status==="Absent").length;
+  const _t=_p+_l+_a;
+  const _rate=_t?Math.round(100*(_p+_l)/_t):null;
   detailScroll.innerHTML=`
     <div class="detail-card">
       <div class="pf-head">
         <div class="detail-photo">${photo}</div>
         <div class="pf-id">
           <div class="pf-title-row">
-            <div style="font-family:var(--serif);font-size:30px;text-transform:uppercase;letter-spacing:-0.02em;line-height:0.95">${esc(s.name)}</div>
-            ${s.active ? `<button class="btn danger icon-del pf-del" data-action="delete" data-id="${s.id}" aria-label="Deactivate">${TRASH_ICON}</button>` : ``}
+            <div class="pf-name">${esc(s.name)}</div>
           </div>
-          <div style="margin-top:4px"><span class="badge ${s.active?'present':'not-scheduled'}">${esc(s.active?"Active":"Inactive")}</span>${s.batch?` <span class="badge">${esc(s.batch)}</span>`:""}</div>
+          <div class="pf-sub"><span class="badge ${s.active?'present':'not-scheduled'}">${esc(s.active?"Active":"Inactive")}</span>${s.batch?`<span class="badge">${esc(s.batch)}</span>`:""}</div>
         </div>
       </div>
+      <div class="stat-strip" aria-label="Today's attendance summary"${_t>0?"":' style="display:none !important"'}><span class="stat-cap">Today</span>${_t>0?`<span class="stat"><span class="stat-num">${_p}</span><span class="stat-lab">Present</span></span><span class="stat"><span class="stat-num">${_l}</span><span class="stat-lab">Late</span></span><span class="stat"><span class="stat-num">${_a}</span><span class="stat-lab">Absent</span></span><span class="stat"><span class="stat-num">${_rate}%</span><span class="stat-lab">Attendance</span></span>`:`<span class="stat-note">No scans yet today</span>`}</div>
           <div class="detail-grid">
             <div class="detail-field"><label>Roll</label><span>${esc(s.roll)}</span></div>
             <div class="detail-field"><label>Class</label><span>${esc(s.class)}</span></div>
@@ -717,16 +723,17 @@ function renderStudentDetail(id){
             <div class="detail-field"><label>Parent</label><span>${esc(s.parent||"—")}</span></div>
             <div class="detail-field"><label>Phone</label><span>${esc(s.phone||"—")}</span></div>
             <div class="detail-field"><label>Address</label><span>${esc(s.address||"—")}</span></div>
-            <div class="detail-field"><label>Fingerprint</label><span>${esc(s.fid||"—")} · ${s.active?"Active":"Inactive"}</span></div>
+            <div class="detail-field"><label>Fingerprint</label><span><span class="stat-dot${s.fid?" live":""}"></span>${esc(s.fid||"—")} · ${s.active?"Active":"Inactive"}</span></div>
           </div>
-          <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap">
+          <div class="detail-actions">
             <button class="btn primary" data-action="edit" data-id="${s.id}">Edit information</button>
             <button class="btn" data-action="reenroll" data-id="${s.id}">Re-enroll fingerprint</button>
             ${s.active ? `` : `<button class="btn primary" data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
             <button class="btn" data-action="print" data-id="${s.id}">Print profile</button>
             <button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(todayISO())}" data-correct-status="Present" style="border-style:dashed">Correct today</button>
+            ${s.active ? `<button class="btn danger icon-del pf-del" data-action="delete" data-id="${s.id}" aria-label="Deactivate">${TRASH_ICON}</button>` : ``}
           </div>
-      <div class="table-wrap"><div style="padding:10px 12px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;border-bottom:1px solid var(--line)"><span>Attendance history — recent scans</span></div><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Fingerprint</th><th>Action</th></tr></thead><tbody>${histRows}</tbody></table></div></div>
+      <div class="table-wrap"><div class="hist-title"><span>Attendance history — recent scans</span></div><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Fingerprint</th><th>Action</th></tr></thead><tbody>${histRows}</tbody></table></div></div>
     </div>`;
 }
 function selectStudent(id){ selectedStudentId=id; renderStudentList(); renderStudentDetail(id); }
@@ -1816,6 +1823,27 @@ function formatAuditDetails(raw, action){
     }
   }
 
+  if(obj && typeof obj === "object" && !Array.isArray(obj) &&
+     ("frequency" in obj || "weekdays" in obj || "intervalDays" in obj)){
+    // Backup schedule shapes read as short human words ("Daily · 18:30").
+    if(obj.enabled === false) return "Off";
+    const t = obj.time || "";
+    const f = String(obj.frequency || "daily").toLowerCase();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = Array.isArray(obj.weekdays)
+      ? obj.weekdays.map(d => dayNames[d]).filter(Boolean) : [];
+    if(f === "weekdays"){
+      if(days.length === 0 || days.length === 7) return t ? `Daily · ${t}` : "Daily";
+      return t ? `${days.join(", ")} · ${t}` : days.join(", ");
+    }
+    if(f === "interval"){
+      const n = parseInt(obj.intervalDays, 10) || 1;
+      if(n <= 1) return t ? `Daily · ${t}` : "Daily";
+      return t ? `Every ${n} days · ${t}` : `Every ${n} days`;
+    }
+    return t ? `Daily · ${t}` : "Daily";
+  }
+
   if(obj && typeof obj === "object" && !Array.isArray(obj)){
     const labelMap = {
       schoolName: "School",
@@ -1873,13 +1901,108 @@ function formatAuditDetails(raw, action){
     }
   }
 
+  const cap = (s, n) => s.length > n ? s.slice(0, n).trimEnd() + "…" : s;
+
+  // Backup runs ("Uploaded atl-backup-….db (123 bytes, sha256:…, trigger:manual)")
+  // read as short human words — filename plus trigger only.
+  let m = text.match(/^(Uploaded|Saved)\s+(\S+?)\s*\(([^)]*)\)\s*$/);
+  if(m){
+    const trig = (m[3].match(/trigger\s*:\s*([A-Za-z]+)/) || [])[1] || "";
+    const verb = m[1] === "Saved" ? "Saved" : "Sent";
+    return trig ? `${verb} ${m[2]} · ${trig}` : `${verb} ${m[2]}`;
+  }
+
+  // Attendance correction ("sid 5 2026-09-11 PRESENT->LATE reason:late bus").
+  m = text.match(/^sid\s+(\S+)\s+(\S+)\s+(\S+?)\s*->\s*(\S+)\s+reason:(.*)$/);
+  if(m) return `${m[1]} · ${m[2]} · ${m[3]} → ${m[4]} · ${m[5].trim()}`;
+
+  // Absence reconciliation ("4 absent 0 not_scheduled 2026-09-11").
+  m = text.match(/^(\d+)\s+absent\s+(\d+)\s+not_scheduled\s+(\S+)\s*$/);
+  if(m) return `${m[1]} absent · ${m[2]} not scheduled · ${shortAuditDate(m[3])}`;
+
+  // Student field update ("id 3 ['name','phone']").
+  m = text.match(/^id\s+(\d+)\s*\[(.*)\]\s*$/);
+  if(m){
+    const fields = m[2].replace(/['"]/g, "").split(/\s*,\s*/).filter(Boolean).join(", ");
+    return fields ? `Student ${m[1]} · ${fields}` : `Student ${m[1]}`;
+  }
+
+  // Finger slot move ("id 5 3->7").
+  m = text.match(/^id\s+(\d+)\s+(\d+)\s*->\s*(\d+)\s*$/);
+  if(m) return `Student ${m[1]} · slot ${m[2]} → ${m[3]}`;
+
+  // Removed student ("Aarav fid 5 ok").
+  m = text.match(/^(.+?)\s+fid\s+(\d+)\s*(.*)$/);
+  if(m) return `${m[1].trim()} · slot ${m[2]}${m[3].trim() ? " · " + m[3].trim() : ""}`;
+
+  // Any other JSON-ish fragment: strip brackets/quotes, join the pairs.
+  if(/[{}\[\]"]/.test(text)){
+    const pretty = text.replace(/^[{\[]\s*|\s*[}\]]$/g, "")
+      .replace(/["']/g, "")
+      .split(/\s*,\s*/)
+      .map(p => p.replace(/\s*:\s*/g, ": ").trim())
+      .filter(Boolean)
+      .join(" · ")
+      .replace(/^[·\s]+|[·\s]+$/g, "");
+    if(pretty) return cap(pretty, 160);
+  }
+
+  return cap(text.replace(/\s+/g, " "), 160);
+}
+
+function formatAuditTime(raw){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  if(!raw) return "—";
+  const text=String(raw).trim();
+  // DD/MM/YYYY first (also matches the tail of "YYYY-MM-DD DD/MM/YYYY, HH:MM:SS" composites).
+  let m=text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})/);
+  if(m) return `${parseInt(m[1],10)} ${months[parseInt(m[2],10)-1]||""} · ${String(m[4]).padStart(2,"0")}:${m[5]}`;
+  m=text.match(/(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})/);
+  if(m) return `${parseInt(m[3],10)} ${months[parseInt(m[2],10)-1]||""} · ${String(m[4]).padStart(2,"0")}:${m[5]}`;
   return text;
+}
+
+function shortAuditDate(iso){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return String(iso||"");
+  return `${parseInt(m[3],10)} ${months[parseInt(m[2],10)-1]||""}`;
+}
+
+function formatAuditAction(action){
+  const map = {
+    GDRIVE_BACKUP: "GDrive Backup",
+    TELEGRAM_BACKUP: "Telegram Backup",
+    USB_BACKUP: "USB Backup",
+    GDRIVE_SCHEDULE_CHANGED: "GDrive Schedule",
+    TELEGRAM_SCHEDULE_CHANGED: "Telegram Schedule",
+    USB_SCHEDULE_CHANGED: "USB Schedule",
+    GDRIVE_RESTORE: "GDrive Restore",
+    SETTINGS_CHANGED: "Settings",
+    STUDENT_ENROLLED: "Enrollment",
+    STUDENT_IMPORTED: "Import",
+    STUDENT_IMPORTED_CSV: "Import",
+    STUDENT_UPDATED: "Student Update",
+    STUDENT_DELETED: "Student Removed",
+    FINGER_REENROLLED: "Re-enroll",
+    ATTENDANCE_CORRECTED: "Correction",
+    ATTENDANCE_RECORDED: "Attendance",
+    DUPLICATE_SCAN: "Duplicate",
+    UNKNOWN_FINGERPRINT: "Unknown Finger",
+    NON_WORKING_DAY_SCAN: "Off-day Scan",
+    NOT_SCHEDULED_SCAN: "Unscheduled Scan",
+    ABSENCE_RECONCILIATION: "Reconciliation",
+    GALLERY_CLEARED: "Gallery Cleared"
+  };
+  if(!action) return "—";
+  if(map[action]) return map[action];
+  return String(action).split("_").map(w=>w.charAt(0)+w.slice(1).toLowerCase()).join(" ");
 }
 
 function renderAudit(){
   const cc=$("auditCount"); if(cc) cc.textContent=Audit.length+(Audit.length===1?" record":" records");
   if(!Audit.length){ auditBody.innerHTML=`<tr><td colspan="4"><div class="empty"><b>No audit history</b>Changes appear here.</div></td></tr>`; return; }
-  auditBody.innerHTML=Audit.map(a=>`<tr><td>${esc(a.time)}</td><td>${esc(a.action)}</td><td>${esc(formatAuditDetails(a.details, a.action))}</td><td>${esc(a.by)}</td></tr>`).join("");
+  auditBody.innerHTML=Audit.map(a=>`<tr><td title="${esc(a.time)}">${esc(formatAuditTime(a.time))}</td><td>${esc(formatAuditAction(a.action))}</td><td>${esc(formatAuditDetails(a.details, a.action))}</td><td>${esc(a.by)}</td></tr>`).join("");
 }
 function renderAll(){
   renderClassFilters();
@@ -2013,7 +2136,7 @@ function openEditStudent(id){
       <div class="form-field full"><label>Address</label><input id="edAddress" value="${esc(s.address)}"></div>
       <div class="form-field full"><label>Photo (max 2MB)</label><input type="file" id="edPhoto" accept="image/*"></div>
       <div class="form-field"><label>Status</label><select id="edActive"><option value="1" ${s.active?"selected":""}>Active</option><option value="0" ${!s.active?"selected":""}>Inactive</option></select></div>
-      ${s.photo ? `<div class="form-field full" id="edPhotoPreview"><img src="${esc(s.photo)}" style="width:92px;height:92px;object-fit:cover;display:block"><div style="font-size:10px;color:var(--ink-3);margin-top:6px">Current photo</div><button class="btn" id="edClearPhoto" style="margin-top:8px">Clear photo</button></div>` : ``}
+      ${s.photo ? `<div class="form-field full" id="edPhotoPreview"><img src="${esc(s.photo)}" style="width:92px;height:92px;object-fit:cover;display:block"><div style="font-size:11px;color:var(--ink-3);margin-top:6px">Current photo</div><button class="btn" id="edClearPhoto" style="margin-top:8px">Clear photo</button></div>` : ``}
       <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save changes</button></div>
       <div class="inline-error" id="edErr" style="display:none"></div>
     </div>`;
@@ -2409,6 +2532,107 @@ async function openAdmin(){
   adminLayer.classList.add("open"); renderAll();
   setTimeout(()=>{ updateTabs(); }, 80);
 }
+/* Backup ring snake, plain-attribute build (user order): measure the
+   wall and write stone-age SVG attributes — no CSS geometry, no vars.
+   Motion runs on SMIL so no stylesheet rule can freeze or distort it. */
+function paintRing(){
+  try{
+    const svg=document.querySelector("#pane-backup .backup-ring-svg");
+    if(!svg) return;
+    const wall=svg.parentElement;
+    const w=wall?wall.offsetWidth:0, h=wall?wall.offsetHeight:0;
+    if(!w||!h) return;
+    const W=w+29, H=h+29;
+    svg.setAttribute("width",W); svg.setAttribute("height",H);
+    const r=svg.querySelector("path");
+    if(r){ r.setAttribute("d","M 7 7 H "+(W-7)+" V "+(H-7)+" H 7 V 7 Z"); }
+    try{ console.info("[backup-ring] smil "+W+"x"+H); }catch(_){}
+  }catch(e){}
+}
+try{ window.addEventListener("resize", ()=>{ try{ paintRing(); }catch(e){} }); }catch(e){}
+try{
+  if(window.ResizeObserver){
+    const ringRO=new ResizeObserver(()=>{ try{ paintRing(); }catch(e){} });
+    const ringWall=document.querySelector("#pane-backup .backup-wall");
+    if(ringWall){ try{ ringRO.observe(ringWall); }catch(e){} }
+  }
+}catch(e){}
+/* Ring snake steering (user order): press-and-hold pauses him,
+   sliding pushes the dashes along the ring, release sends him off in
+   the push direction (keeps calm base speed). Tap = brief pause only.
+   WAAPI owns motion (immune to stylesheet animation kills). */
+let ringAnim=null;
+function initRingSnake(){
+  try{
+    const svg=document.querySelector("#pane-backup .backup-ring-svg");
+    if(!svg||svg.dataset.snakeInit) return;
+    const ringEl=svg.querySelector("path");
+    if(!ringEl) return;
+    svg.dataset.snakeInit="1";
+    try{ const smil=ringEl.querySelector("animate"); if(smil) smil.remove(); }catch(e){}
+    const LOOP_PX=152, LOOP_MS=16000;
+    const drive=(dir)=>{
+      try{
+        let cur=0;
+        try{ cur=parseFloat(getComputedStyle(ringEl).strokeDashoffset)||0; }catch(_){}
+        if(ringAnim){ try{ ringAnim.cancel(); }catch(_){} }
+        ringAnim=ringEl.animate(
+          [{strokeDashoffset:cur+"px"},{strokeDashoffset:(cur-dir*LOOP_PX)+"px"}],
+          {duration:LOOP_MS,iterations:Infinity});
+      }catch(e){ ringAnim=null; }
+    };
+    drive(1);
+    const PXMS=152/16000, DUR=16000;
+    let sx=null, sy=0, lx=0, ly=0, moved=false, side="top", prevDir=1, sPos=0, box=null;
+    let samples=[];
+    const wallBox=()=>{ try{ const w=svg.parentElement; return w?w.getBoundingClientRect():null; }catch(e){ return null; } };
+    const nearSide=(x,y,box)=>{
+      if(!box) return "top";
+      const dT=Math.abs(y-box.top), dB=Math.abs(y-box.bottom),
+            dL=Math.abs(x-box.left), dR=Math.abs(x-box.right);
+      const m=Math.min(dT,dB,dL,dR);
+      return m===dT?"top":m===dB?"bottom":m===dL?"left":"right";
+    };
+    svg.addEventListener("pointerdown",(e)=>{
+      if(!ringAnim) return;
+      sx=e.clientX; sy=e.clientY; lx=e.clientX; ly=e.clientY;
+      moved=false; sPos=0; samples=[{t:e.timeStamp,s:0}];
+      box=wallBox();
+      side=nearSide(e.clientX,e.clientY,box);
+      try{ ringAnim.pause(); }catch(_){}
+      try{ svg.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    svg.addEventListener("pointermove",(e)=>{
+      if(sx===null||!ringAnim) return;
+      const ddx=e.clientX-lx, ddy=e.clientY-ly;
+      lx=e.clientX; ly=e.clientY;
+      if(!moved&&Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<8) return;
+      moved=true;
+      try{ e.preventDefault(); }catch(_){}
+      side=nearSide(e.clientX,e.clientY,box);
+      const ds=(side==="top")?ddx:(side==="right")?ddy:(side==="bottom")?-ddx:-ddy;
+      sPos+=ds;
+      try{ const now=ringAnim.currentTime||0; ringAnim.currentTime=((now+ds/PXMS)%DUR+DUR)%DUR; }catch(_){}
+      samples.push({t:e.timeStamp,s:sPos});
+      while(samples.length>2&&e.timeStamp-samples[0].t>120) samples.shift();
+    });
+    const release=(e)=>{
+      if(sx===null) return;
+      sx=null;
+      if(!ringAnim) return;
+      let dir=prevDir;
+      if(moved&&samples.length>1){
+        const a=samples[0], b=samples[samples.length-1];
+        const v=(b.s-a.s)/Math.max(1,(b.t-a.t));
+        if(Math.abs(v)>0.03) dir=(v>0?1:-1);
+      }
+      prevDir=dir;
+      drive(dir);
+    };
+    svg.addEventListener("pointerup",release);
+    svg.addEventListener("pointercancel",()=>{ sx=null; drive(prevDir); });
+  }catch(e){}
+}
 function updateTabs(){
   document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
   let tab = currentTab;
@@ -2453,7 +2677,7 @@ function updateTabs(){
     renderOverrides();
     renderCalendarMonth();
   }
-  if(tab === "backup"){ renderAudit(); loadBackupManagerStatus(); }
+  if(tab === "backup"){ renderAudit(); loadBackupManagerStatus(); paintRing(); initRingSnake(); try{ requestAnimationFrame(()=>paintRing()); }catch(e){} }
 }
 document.getElementById("openAdminBtn").onclick=openAdmin;
 const _frontEnrollBtn=document.getElementById("openEnrollBtn"); if(_frontEnrollBtn) _frontEnrollBtn.onclick=openNewStudent;
@@ -2863,9 +3087,10 @@ function positionDaySheet(){
   try{ card.style.setProperty("--tail-x",tx+"px"); }catch(e){}
   dsSilhouette();
 }
-/* Single-silhouette outline (user order): one SVG path = rounded
-   rect grown into its tail, one 3px stroke, no seam. Redrawn from
-   the measured box on every position. */
+/* Single-silhouette outline (user order): one SVG path = sharp
+   rect grown into its tail, one 3px stroke, no seam. Square 90°
+   corners (R=0) with miter joins; tail apex already straight
+   segments. Redrawn from the measured box on every position. */
 function dsSilhouette(){
   try{
     const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
@@ -2874,7 +3099,7 @@ function dsSilhouette(){
     const tail=card.dataset.tail||"top";
     let tx=parseFloat((card.style.getPropertyValue("--tail-x")||"").replace("px",""));
     if(!isFinite(tx)) tx=W/2;
-    const R=24, B=17, T=21, o=1.5;
+    const R=0, B=17, T=21, o=1.5;
     const f=n=>Math.round(n*10)/10;
     let d;
     if(tail==="bottom"){
@@ -2891,7 +3116,7 @@ function dsSilhouette(){
     if(!p){ p=document.createElementNS(NS,"path"); svg.appendChild(p); }
     p.setAttribute("d",d);
     p.setAttribute("fill","#F4EEE1"); p.setAttribute("stroke","#141414");
-    p.setAttribute("stroke-width","3"); p.setAttribute("stroke-linejoin","round");
+    p.setAttribute("stroke-width","3"); p.setAttribute("stroke-linejoin","miter");
   }catch(e){}
 }
 function openDaySheet(iso, cell){
@@ -2940,7 +3165,7 @@ function openDaySheet(iso, cell){
       <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
       <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
       <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
+      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
       <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
     openModal(overrideModal);
     $("overrideCancel").onclick=()=>closeModal(overrideModal);
@@ -3022,7 +3247,7 @@ function openHolidayCreate(){
     <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime"></div>
     <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime"></div>
     <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday">Holiday</option><option value="vacation">Vacation</option><option value="exam">Exam day (working)</option></select></div>
-    <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></div>
+    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></span></div>
     <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
   openModal(holidayModal);
   $("holidayCancel").onclick=()=>closeModal(holidayModal);
@@ -3044,7 +3269,7 @@ function openOverrideCreate(){
     <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
     <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
     <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
-    <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
+    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
     <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
   openModal(overrideModal);
   $("overrideCancel").onclick=()=>closeModal(overrideModal);
@@ -3084,14 +3309,16 @@ function openSchedPopup(kind, name){
   for(let i=0;i<7;i++) _pbDays[i]=asBool(srcWd[i]??srcWd[String(i)]);
   const kindWord=kind==="global"?"Schedule":(kind==="class"?"Class":"Batch");
   schedModalTitle.textContent=isEdit?("Edit schedule"+(ctx.type==="global"?" — Global":" — "+ctx.name)):("Add "+kindWord.toLowerCase());
-  schedModalSub.textContent=isEdit?("Weekly template and cutoff thresholds for "+ctx.label+"."):(kind==="class"?"Name the class and set its weekly schedule. The calendar switches to it on save.":"Name the batch and set its weekly schedule. The calendar switches to it on save.");
+  /* Sub explains what the screen controls (user order): no names
+     (title + SCHEDULE FOR already carry them), no dev words. */
+  schedModalSub.textContent=!isEdit?(kind==="class"?"Name the class and set its weekly schedule. The calendar switches to it on save.":"Name the batch and set its weekly schedule. The calendar switches to it on save."):(ctx.type==="batch"?"Set which days this batch meets, and when scans count as on-time or late.":ctx.type==="global"?"Set which days the school meets, and when scans count as on-time or late.":"Set which days this class meets, and when scans count as on-time or late.");
   const names=["SUN","MON","TUE","WED","THU","FRI","SAT"];
   schedModalBody.innerHTML=`<div class="form-grid">
-    <div class="form-field full"><label>${isEdit?"Schedule for":kindWord+" name"}</label><input id="pbName" placeholder="${kind==="batch"?"Batch Morning":"Grade 11-A"}" value="${isEdit?esc(ctx.type==="global"?"Global":ctx.name):""}" ${isEdit?"disabled":""}></div>
-    <div class="form-field full"><label>Working days</label><div class="pb-days">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-pb-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;}).join("")}</div></div>
-    <div class="form-field"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
-    <div class="form-field"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
-    <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end">${name?`<button type="button" class="btn" id="pbDel" aria-label="Delete this schedule">${TRASH_ICON}</button>`:""}<button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></div>
+    <div class="form-field full sched-name"><label>${isEdit?"Schedule for":kindWord+" name"}</label><input id="pbName" placeholder="${kind==="batch"?"Batch Morning":"Grade 11-A"}" value="${isEdit?esc(ctx.type==="global"?"Global":ctx.name):""}" ${isEdit?"disabled":""}></div>
+    <div class="form-field full sched-days"><label>Working days</label><div class="pb-days">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-pb-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;}).join("")}</div></div>
+    <div class="form-field sched-cut"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
+    <div class="form-field sched-cut"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
+    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end">${name?`<button type="button" class="btn" id="pbDel" aria-label="Delete this schedule">${TRASH_ICON}</button>`:""}<span class="form-pair"><button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></span></div>
     <div class="inline-error" id="pbErr" style="display:none"></div></div>`;
   openModal(schedModal);
   schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
@@ -3250,7 +3477,7 @@ function openHolidayEdit(startKey){
       <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime" value="${esc(h.startTime||"")}"></div>
       <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime" value="${esc(h.endTime||"")}"></div>
       <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday" ${h.type==="holiday"?"selected":""}>Holiday</option><option value="vacation" ${h.type==="vacation"?"selected":""}>Vacation</option><option value="exam" ${h.type==="exam"?"selected":""}>Exam day (working)</option></select></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="holidayDel" aria-label="Delete this holiday">${TRASH_ICON}</button><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></div>
+      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="holidayDel" aria-label="Delete this holiday">${TRASH_ICON}</button><span class="form-pair"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></span></div>
       <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
     const origStart=h.start;
     Holidays=Holidays.filter(x=>x.start!==origStart);
@@ -3286,7 +3513,7 @@ function openOverrideEdit(dateKey){
       <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime" value="${esc(o.startTime||"")}"></div>
       <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime" value="${esc(o.endTime||"")}"></div>
       <div class="form-field full"><label>Note</label><input id="overrideNote" value="${esc(o.note)}"></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="overrideDel" aria-label="Delete this override">${TRASH_ICON}</button><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></div>
+      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="overrideDel" aria-label="Delete this override">${TRASH_ICON}</button><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
       <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
     const orig=o.date;
     Overrides=Overrides.filter(x=>x.date!==orig);
@@ -3476,6 +3703,38 @@ function renderDeviceCodeBox(df){
   }
 }
 
+/* Uniform 3-row service rows (user order): Row-1 head, Row-2 optional
+   detail, Row-3 primary/secondary actions. Wiring/IDs untouched — this
+   only swaps the black primary pill onto the state-correct button and
+   collapses an empty optional detail line. */
+function setPrimary(btn, on){
+  if(!btn) return;
+  try{ btn.classList.toggle("primary", !!on); }catch(e){}
+}
+function applyDestRowState(){
+  try{
+    const gd = _destStates.gdrive || {};
+    const usb = _destStates.usb || {};
+    const gdReady = !!gd.authenticated;
+    const usbReady = !!(usb.connected && usb.enabled && usb.lastStatus !== "ERROR");
+    // Drive: not-ready -> Pair is the primary; ready -> send is primary.
+    setPrimary($("gdriveDeviceStartBtn"), !gdReady);
+    setPrimary($("gdriveBackupRowBtn"), gdReady);
+    // Telegram: primary is always the send action (user: actions always visible).
+    setPrimary($("telegramBackupNowBtn"), true);
+    // USB: not-ready -> Check USB is the primary; ready -> backup is primary.
+    setPrimary($("usbRefreshBtn"), !usbReady);
+    setPrimary($("usbBackupNowBtn"), usbReady);
+    // USB Row-2 collapses when the optional line is empty (or the drive is
+    // simply not present — the status pill + Check USB are the one message).
+    const usbLine = $("usbDetailLine");
+    if(usbLine){
+      const empty = !usbLine.textContent.trim() || !usbReady;
+      usbLine.style.display = empty ? "none" : "";
+    }
+  }catch(e){}
+}
+
 function startGDrivePolling(intervalSec){
   stopGDrivePolling();
   const pollInterval = Math.max((intervalSec || 5) * 1000, 3000);
@@ -3567,6 +3826,7 @@ function renderUnifiedSchedule(sched){
   if(label) label.textContent = enabled ? "ON" : "OFF";
   if($("backupSchedTime")) $("backupSchedTime").value = sched.time || "18:30";
   if($("backupSchedFreq")) $("backupSchedFreq").value = sched.frequency || "daily";
+  try{ if($("backupSchedFreq")) $("backupSchedFreq").dispatchEvent(new Event("change")); }catch(e){}
   if($("backupSchedInterval")) $("backupSchedInterval").value = sched.intervalDays || 1;
 
   _unifiedActiveWeekdays = Array.isArray(sched.weekdays) ? [...sched.weekdays] : [0, 1, 2, 3, 4, 5, 6];
@@ -3641,11 +3901,12 @@ async function loadBackupManagerStatus(){
       } else if(!gd.authenticated){
         gdStatus.textContent = "Not paired"; gdStatus.className = "pill danger";
         if(gdActionBox) gdActionBox.style.display = "none";
-        if(gdAuthBox) gdAuthBox.style.display = "block";
         if(gd.deviceFlow){
+          if(gdAuthBox) gdAuthBox.style.display = "block";
           renderDeviceCodeBox(gd.deviceFlow);
           if(!_gdrivePollTimer) startGDrivePolling(gd.deviceFlow.interval || 5);
         } else {
+          if(gdAuthBox) gdAuthBox.style.display = "block";
           renderDeviceCodeBox(null);
         }
       } else {
@@ -3727,6 +3988,9 @@ async function loadBackupManagerStatus(){
 
     // 5. Last Backup Info
     updateUnifiedLastBackupInfo([gd, tg, usb]);
+
+    // 6. Uniform row rhythm: state-correct primaries, collapsed Row-2s.
+    applyDestRowState();
 
   }catch(err){
     console.warn("loadBackupManagerStatus error:", err);
@@ -4006,6 +4270,24 @@ if($("gdriveFilesBody")) {
       await glassAlert("Restore failed: " + (err.message || "error"));
       btn.disabled = false;
       btn.textContent = "Restore";
+    }
+  };
+}
+
+// Google Drive Row Management (per-row send: same endpoint as Back Up Now)
+if($("gdriveBackupRowBtn")) {
+  $("gdriveBackupRowBtn").onclick = async () => {
+    const btn = $("gdriveBackupRowBtn");
+    try {
+      btn.disabled = true;
+      const res = await api("/api/backup/gdrive/backup", {method: "POST"});
+      await glassAlert("Backup sent to Google Drive successfully: " + (res.name || "complete"));
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("Google Drive backup failed: " + (e.message || "error"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Send backup now";
     }
   };
 }
@@ -4412,6 +4694,13 @@ function glassPrompt(message,defaultValue,opts){
     setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 40);
   });
 }
+/* Human-readable byte size for the photo readout */
+function fmtPhotoSize(bytes){
+  const n=Number(bytes)||0;
+  if(n<1024) return n+' B';
+  if(n<1048576){ const s=(n/1024).toFixed(1); return (s.slice(-2)==='.0'?s.slice(0,-2):s)+' KB'; }
+  return (n/1048576).toFixed(2)+' MB';
+}
 /* Photo dropzone — re-skins native file input, preserves files[0] read path + validation */
 function enhancePhotoField(input){
   if(!input||input.tagName!=='INPUT'||input.type!=='file'||input.dataset.ph) return;
@@ -4580,7 +4869,15 @@ function _railBridge(popEl){
   }
   function labelOf(sel){
     const o=sel.options[sel.selectedIndex];
-    return o ? o.textContent : '';
+    const t=o ? o.textContent : '';
+    /* Setup context display (user order): short names on the bar —
+       "Global" for the empty value, bare name for class/batch
+       ("1212", never "Class: 1212"). Options keep full labels. */
+    if(sel&&sel.id==="calClassSelect"){
+      if(!o||!sel.value) return "Global";
+      return String(t).replace(/^(Class|Batch):\s*/,"").trim()||t;
+    }
+    return t;
   }
   function pick(sel,btn,v){
     if(sel.value!==v){ sel.value=v; try{ sel.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){ const ev=document.createEvent('HTMLEvents'); ev.initEvent('change',true,false); sel.dispatchEvent(ev); } }
@@ -5019,7 +5316,7 @@ function openAcadPop(anchor){
 function _monthGrid(box,label,view,onPick,isSel){
   if(label){ const sec=document.createElement("div"); sec.className="dt-sec"; sec.textContent=label; box.appendChild(sec); }
   const head=document.createElement("div"); head.className="dt-head";
-  const title=document.createElement("div"); title.className="dt-title"; title.style.fontSize="10.5px";
+  const title=document.createElement("div"); title.className="dt-title"; title.style.fontSize="10px";
   const nav=document.createElement("div"); nav.className="dt-nav";
   const prev=document.createElement("button"); prev.type="button"; prev.textContent="‹";
   const next=document.createElement("button"); next.type="button"; next.textContent="›";
