@@ -1,0 +1,5628 @@
+// ============================================================
+// ATL Smart Attendance — UI application script (DB-driven)
+// Source: backend/ui_app.js  (spliced into the single-file HTML)
+// LocalStorage is only an offline cache; SQLite /api is truth.
+// ============================================================
+const LS = {
+  students:"atl_students", attendance:"atl_attendance", holidays:"atl_holidays",
+  overrides:"atl_overrides", settings:"atl_settings", classes:"atl_classes",
+  audit:"atl_audit", batches:"atl_batches",
+  classSchedules:"atl_class_schedules", batchSchedules:"atl_batch_schedules"
+};
+
+// ---- state (mirrors backend SQLite) ----
+let Students = [];      // mapped: id,name,roll,class,section,parent,phone,address,photo,fid,active,enroll,batch
+let Attendance = [];    // mapped: id,studentId,date,time,status(UI),isDuplicate,fingerId
+let Unknowns = [];      // {date, time, finger, note}
+let Settings = {
+  schoolName:"ATL Model School", academicYear:"", startDate:"", endDate:"",
+  lateAfter:"08:30", presentCutoff:"08:00", address:"", workingDays:{0:false,1:true,2:true,3:true,4:true,5:true,6:true}
+};
+let Classes = [];
+let Batches = [];
+let Holidays = [];      // backend "YYYY-MM-DD:Reason" -> {start}/{name}
+let Overrides = [];
+let Audit = [];         // mapped from backend audit
+let AllEvents = [];     // full event history (for reports + student detail)
+let ClassSchedules = {}; // backend-persisted per-class weekly {class: {workingDays:{0..6}} or {0..6}}
+let BatchSchedules = {}; // backend-persisted per-batch { "Grade|Batch": workingDays }
+let Daily = [];         // from /api/daily
+let Kpis = null;        // from /api/kpis
+// backward compat alias for older cache key
+let ClassSchedulesUI = ClassSchedules;
+let _enrollPoll = null; let _enrollAbort = false; let _enrollCtrl = null;
+
+// ---- helpers ----
+function $(id){ return document.getElementById(id); }
+function esc(s){ if(s==null) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
+function toLocalISO(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
+function parseISO(s){ return new Date(s+"T00:00:00"); }
+function fmtDate(d){ if(!d) return ""; const dt=parseISO(d); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function inRange(d,a,b){ return d>=a && d<=b; }
+async function api(path, opts){
+  opts = opts || {};
+  // Don't set JSON content-type for FormData (browser sets multipart boundary)
+  const isFormData = typeof FormData !== 'undefined' && opts.body instanceof FormData;
+  if(!isFormData && !opts.headers?.["Content-Type"]){
+    opts.headers = Object.assign({"Content-Type":"application/json"}, opts.headers||{});
+  } else {
+    opts.headers = Object.assign({}, opts.headers||{});
+  }
+  try{
+    const pin = sessionStorage.getItem("atl_admin_pin") || "";
+    if(pin) opts.headers["X-Admin-Pin"] = pin;
+  }catch(e){}
+  opts.cache = "no-store";
+  let r = await fetch(path, opts);
+  // blob response for backup/download
+  if(opts.responseType === 'blob'){
+    if(!r.ok && r.status===401 && !opts._pinRetry && !opts._noPrompt){
+      let body = null;
+      try{ body = await r.clone().json(); }catch(e){}
+      const msg = (body&&(body.error||""))||"";
+      if(msg.toLowerCase().includes("admin pin")){
+        let pin = null;
+        try{ pin = prompt("Admin PIN required"); }catch(e){}
+        if(pin){
+          try{ sessionStorage.setItem("atl_admin_pin", pin); }catch(e){}
+          opts.headers = Object.assign({}, opts.headers, {"X-Admin-Pin": pin});
+          opts._pinRetry = true;
+          r = await fetch(path, opts);
+          if(r.ok) return r.blob();
+          try{ body = await r.json(); }catch(e){ body=null; }
+          if(r.ok) return r.blob();
+          const err = new Error((body&&(body.error||body.detail||body.reason))||("HTTP "+r.status)); err.status=r.status; err.body=body; throw err;
+        }
+      }
+    }
+    if(!r.ok){
+      let body = null;
+      try{ body = await r.json(); }catch(e){}
+      const err = new Error((body&&(body.error||body.detail||body.reason))||("HTTP "+r.status)); err.status=r.status; err.body=body; throw err;
+    }
+    return r.blob();
+  }
+  let body = null;
+  try{ body = await r.json(); }catch(e){}
+  if(!r.ok && r.status===401 && !opts._pinRetry && !opts._noPrompt){
+    const msg = (body&&(body.error||""))||"";
+    if(msg.toLowerCase().includes("admin pin")){
+      let pin = null;
+      try{ pin = prompt("Admin PIN required"); }catch(e){}
+      if(pin){
+        try{ sessionStorage.setItem("atl_admin_pin", pin); }catch(e){}
+        opts.headers = Object.assign({}, opts.headers, {"X-Admin-Pin": pin});
+        opts._pinRetry = true;
+        r = await fetch(path, opts);
+        try{ body = await r.json(); }catch(e){ body=null; }
+        if(r.ok) return body;
+      }
+    }
+  }
+  if(!r.ok){ const err = new Error((body&&(body.error||body.detail||body.reason))||("HTTP "+r.status)); err.status=r.status; err.body=body; throw err; }
+  return body;
+}
+function statusUI(backendStatus){
+  const m = {"PRESENT":"Present","LATE":"Late","ABSENT":"Absent","DUPLICATE":"Already recorded","UNKNOWN":"Unknown","NOT_SCHEDULED":"Not Scheduled"};
+  return m[backendStatus] || backendStatus || "";
+}
+// ---- persisted cache (offline fallback) ----
+function asBool(v){
+  if(v===true || v===1) return true;
+  if(v===false || v===0 || v==null) return false;
+  if(typeof v==="string") return ["1","true","yes","on"].includes(v.trim().toLowerCase());
+  return !!v;
+}
+function cacheSave(){
+  try{
+    const slim=Students.map(s=>{
+      const o={}; for(const k in s){ if(k!=="photo") o[k]=s[k]; }
+      return o;
+    });
+    localStorage.setItem(LS.students, JSON.stringify(slim));
+    localStorage.setItem(LS.settings, JSON.stringify(Settings));
+    localStorage.setItem(LS.classes, JSON.stringify(Classes));
+    localStorage.setItem(LS.batches, JSON.stringify(Batches));
+    localStorage.setItem(LS.holidays, JSON.stringify(Holidays));
+    localStorage.setItem(LS.overrides, JSON.stringify(Overrides));
+    localStorage.setItem(LS.audit, JSON.stringify(Audit));
+    localStorage.setItem(LS.attendance, JSON.stringify(Attendance));
+    localStorage.setItem(LS.classSchedules, JSON.stringify(ClassSchedules));
+    localStorage.setItem(LS.batchSchedules, JSON.stringify(BatchSchedules));
+    try{ localStorage.setItem("atl_daily", JSON.stringify(Daily)); }catch(e){}
+    try{ localStorage.setItem("atl_kpis", JSON.stringify(Kpis)); }catch(e){}
+  }catch(e){}
+}
+function cacheLoad(){
+  try{
+    const g=(k,f)=>{ const v=localStorage.getItem(k); if(v){ try{ return f(JSON.parse(v)); }catch(e){} } return null; };
+    g(LS.students, v=>Students=v);
+    g(LS.settings, v=>Settings=Object.assign(Settings,v));
+    g(LS.classes, v=>Classes=v);
+    g(LS.batches, v=>Batches=v||[]);
+    g(LS.holidays, v=>Holidays=v);
+    g(LS.overrides, v=>Overrides=v);
+    g(LS.audit, v=>Audit=v);
+    g(LS.attendance, v=>Attendance=v);
+    g(LS.classSchedules, v=>{ ClassSchedules=v||{}; ClassSchedulesUI=ClassSchedules; });
+    g(LS.batchSchedules, v=>BatchSchedules=v||{});
+    g("atl_daily", v=>Daily=v||[]);
+    g("atl_kpis", v=>Kpis=v);
+    // migrate old UI-only key if present
+    try{
+      const old = localStorage.getItem("atl_class_schedules_ui");
+      if(old && (!ClassSchedules || !Object.keys(ClassSchedules).length)){
+        const parsed = JSON.parse(old);
+        if(parsed && typeof parsed==="object"){ ClassSchedules=parsed; ClassSchedulesUI=parsed; }
+      }
+    }catch(e){}
+  }catch(e){}
+}
+
+// ---- backend -> UI mappings ----
+function mapStudent(b){
+  return {
+    id: b.id, name: b.name, roll: b.roll, class: b.grade||"", section: b.section||"",
+    parent: b.parent||b.parent_name||"", phone: b.phone||"", address: b.address||"", batch: b.batch||b.group||"",
+    photo: b.photo||"",
+    fid: (b.fingerId!==null&&b.fingerId!==undefined) ? "F-"+b.fingerId : "",
+    active: b.active!==0 && b.active!==false,
+    enroll: b.createdAt||b.enroll_date||""
+  };
+}
+function mapEvent(e){
+  return {
+    id: e.rowid||e.id||String(Math.random()), studentId: e.studentId,
+    date: e.date, time: e.time,
+    status: statusUI(e.status||e.result), isDuplicate: (e.status==="DUPLICATE"),
+    fingerId: e.fingerId
+  };
+}
+function mapHoliday(s){ return mapHolidayFromList(s); }
+
+// ---- data load from backend ----
+function mapOverride(s){
+  const m=/@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)/.exec(String(s||""));
+  const startTime=m?m[1]+":"+m[2]:"", endTime=m?m[3]+":"+m[4]:"";
+  const core=m?String(s).slice(0,m.index)+String(s).slice(m.index+m[0].length):String(s||"");
+  const parts = core.split(":"); const date = (parts[0] || "").split("@")[0].trim();
+  const working = (parts[1] === "1");
+  const note = parts.slice(2).join(":") || "";
+  return {date, isWorking: working, note, startTime, endTime};
+}
+/* Intra-day hours (user order): optional @HH:MM-HH:MM records on
+   holidays/overrides — stored, displayed, editable; resolution
+   stays day-granular. Empty = all-day (today's behavior). */
+function fmtTimes(r){ return (r&&(r.startTime||r.endTime))?(" · "+(r.startTime||"00:00")+"–"+(r.endTime||"23:59")):""; }
+function isHHMM(v){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v||"")); }
+function normTimes(st,en){ st=String(st||""); en=String(en||""); if(!st&&!en) return ["",""]; return [st||"00:00",en||"23:59"]; }
+function mapHolidayFromList(s){
+  if(s && typeof s === "object"){
+    const start=String(s.start||s.date||"").slice(0,10), end=String(s.end||start).slice(0,10);
+    return {name:String(s.name||"Holiday"), start, end, startTime:String(s.startTime||s.start_time||""), endTime:String(s.endTime||s.end_time||""), category:String(s.category||""), type:String(s.type||"holiday")};
+  }
+  s=String(s||"");
+  const tm=/@([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)/.exec(s);
+  const startTime=tm?tm[1]+":"+tm[2]:"", endTime=tm?tm[3]+":"+tm[4]:"";
+  if(tm) s=s.slice(0,tm.index)+s.slice(tm.index+tm[0].length);
+  const i=s.indexOf(":"), head=i>=0?s.slice(0,i):s, span=head.split(".."), start=span[0].slice(0,10), end=(span[1]||span[0]).slice(0,10);
+  const rest=i>=0?s.slice(i+1):"Holiday", parts=rest.split(":");
+  const typed=parts.length>1 && ["holiday","vacation","exam"].includes(parts[0].toLowerCase());
+  return {name:typed?parts.slice(1).join(":"):(rest||"Holiday"), start, end, startTime, endTime, category:"", type:typed?parts[0].toLowerCase():"holiday"};
+}
+async function loadClassesHolidaysSettings(){
+  try{
+    const st = await api("/api/settings", {method:"GET"});
+    Settings.schoolName = st.schoolName || Settings.schoolName;
+    Settings.academicYear = st.academicYear || Settings.academicYear;
+    Settings.startDate = st.attendanceStartDate || st.schoolOpeningDate || Settings.startDate;
+    Settings.endDate = st.endDate || st.academicYearEnd || Settings.endDate;
+    Settings.lateAfter = st.lateCutoff || Settings.lateAfter || "08:30";
+    Settings.presentCutoff = st.presentCutoff || Settings.presentCutoff || "08:00";
+    Settings.lateCutoff = st.lateCutoff || Settings.lateAfter || "08:30";
+    Classes = (st.classes&&st.classes.length) ? st.classes.slice() : Classes;
+    if(Array.isArray(st.batches)) Batches = st.batches.slice();
+    else if(Array.isArray(st.classes)) Batches = Batches || [];
+    if(st.classSchedules && typeof st.classSchedules==="object") {
+      Object.keys(st.classSchedules).forEach(k => {
+        ClassSchedules[k] = Object.assign({}, ClassSchedules[k] || {}, st.classSchedules[k]);
+      });
+      ClassSchedulesUI = ClassSchedules;
+    }
+    if(st.batchSchedules && typeof st.batchSchedules==="object") {
+      Object.keys(st.batchSchedules).forEach(k => {
+        BatchSchedules[k] = Object.assign({}, BatchSchedules[k] || {}, st.batchSchedules[k]);
+      });
+    }
+    if(Array.isArray(st.holidays)) Holidays = st.holidays.map(mapHolidayFromList).filter(Boolean);
+    if(st.workingDays && typeof st.workingDays==="object"){
+      const wd={}; for(let i=0;i<7;i++) wd[i]=asBool(st.workingDays[i] ?? st.workingDays[String(i)]); Settings.workingDays=wd;
+    }
+    if(Array.isArray(st.overrides)) Overrides = st.overrides.map(mapOverride).filter(o=>o.date);
+    Settings.address = st.address || Settings.address;
+    if(st.minPercent!=null) Settings.minPercent = st.minPercent;
+    // populate settings inputs from the DB (auto-fill)
+    const set=(id,v)=>{ const el=$(id); if(el&&v!=null) el.value=v; };
+    set("setSchoolName", Settings.schoolName);
+    set("setSchoolAddress", Settings.address);
+    set("setPresentCutoff", Settings.presentCutoff || "08:00");
+    set("setLateThreshold", Settings.lateAfter);
+    set("setAcademicYear", Settings.academicYear);
+    set("setAttendanceStart", Settings.startDate);
+    // ensure calendars reflect persisted per-class/batch schedules
+    cacheSave();
+  }catch(e){ /* offline -> cache */ }
+}
+async function loadStudents(){
+  try{
+    const list = await api("/api/students?active=all", {method:"GET"});
+    if(Array.isArray(list)){
+      Students = list.map(mapStudent);
+    }
+  }catch(e){ /* offline -> cache */ }
+}
+async function loadHistory(){
+  try{
+    const ev = await api("/api/attendance", {method:"GET"});
+    if(Array.isArray(ev)) AllEvents = ev.map(mapEvent);
+  }catch(e){ /* offline */ }
+}
+async function loadTodayAttendance(){
+  const t = todayISO();
+  try{
+    // reconcile today's attendance (marks ABSENT/NOT_SCHEDULED after lateCutoff; backend guards BEFORE_CUTOFF)
+    // background reconcile must not prompt — use _noPrompt so public idle does not spam PIN
+    if(!(typeof document!=="undefined" && document.hidden)){
+      try{ await api("/api/reconcile",{method:"POST",body:JSON.stringify({date:t}), _noPrompt:true}); }catch(e){}
+    }
+    const ev = await api("/api/attendance?date="+t, {method:"GET"});
+    if(Array.isArray(ev)){
+      Attendance = ev.map(mapEvent).filter(a=>a.studentId||a.status==="Unknown");
+      Unknowns = ev.filter(e=>(e.result==="UNKNOWN"||e.status==="UNKNOWN")).map(e=>({date:t, time:e.time, finger:(e.fingerId!=null?"F-"+e.fingerId:"-"), note:"Unknown fingerprint"}));
+    }
+    try{
+      const daily = await api("/api/daily?date="+t,{method:"GET"});
+      if(Array.isArray(daily)) Daily = daily;
+    }catch(e){}
+    try{
+      const k = await api("/api/kpis?date="+t,{method:"GET"});
+      if(k && typeof k==="object" && "scheduled" in k) Kpis = k;
+    }catch(e){}
+    try{
+      const au = await api("/api/audit", {method:"GET"});
+      if(Array.isArray(au)) Audit = au.map(a=>({time:a.at, action:a.action, details:a.details, by:"Admin"}));
+    }catch(e){}
+  }catch(e){ /* offline */ }
+}
+async function loadAll(){
+  await loadClassesHolidaysSettings();
+  await loadStudents();
+  await loadHistory();
+  await loadTodayAttendance();
+  cacheSave();
+  ensureFirstStudent();
+  renderAll();
+}
+/* First student is always selected — never an empty detail pane */
+function ensureFirstStudent(){
+  if(!Students.length){ selectedStudentId=null; return; }
+  if(!Students.some(s=>s.id===selectedStudentId)){
+    const sorted=[...Students].sort((a,b)=>((b.active-a.active)||String(a.name).localeCompare(String(b.name))));
+    selectedStudentId=sorted[0].id;
+  }
+  try{ renderStudentDetail(selectedStudentId); }catch(e){}
+}
+// ---- DOM ----
+const promptText=$("promptText"),
+  idleLayer=$("idleLayer"),
+  identityLayer=$("identityLayer"), unknownLayer=$("unknownLayer"),
+  photoImg=$("photoImg"), photoFallback=$("photoFallback"),
+  idName=$("idName"), idStatus=$("idStatus"), idTime=$("idTime"),
+  idDate=$("idDate"), idConfirm=$("idConfirm"), idConfirmTxt=$("idConfirm"),
+  idRoll=$("idRoll"), idClass=$("idClass"), idGroup=$("idGroup"), idSid=$("idSid"),
+  unknownTitleEl=$("unknownTitle"),
+  adminLayer=$("adminLayer"), adminNav=$("adminNav"), adminTitle=$("adminTitle"),
+  studentListEl=$("studentList"), searchInput=$("searchInput"), classFilter=$("classFilter"), batchFilter=$("batchFilter"), studentStatusFilter=$("studentStatusFilter"),
+  detailScroll=$("detailScroll"),
+  attDatePreset=$("attDatePreset"), attSingleDate=$("attSingleDate"),
+  attFromDate=$("attFromDate"), attToDate=$("attToDate"),
+  attClassFilter=$("attClassFilter"), attBatchFilter=$("attBatchFilter"), attStudentFilter=$("attStudentFilter"),
+  attStatusFilter=$("attStatusFilter"), attSort=$("attSort"),
+  attRefreshBtn=$("attRefreshBtn"), attPrintBtn=$("attPrintBtn"), attExportBtn=$("attExportBtn"),
+  attModeBadge=$("attModeBadge"), attStats=$("attStats"),
+  attTableHead=$("attTableHead"), attTableBody=$("attTableBody"),
+  attUnknownCount=$("attUnknownCount"), attUnknownBody=$("attUnknownBody"),
+  holidayBody=$("holidayBody"), overrideBody=$("overrideBody"),
+  calendarGrid=$("calendarGrid"), calendarHeadGrid=$("calendarHeadGrid"), calMonthLabel=$("calMonthLabel"),
+  classCubes=$("classCubes"), auditBody=$("auditBody"),
+  enrollModal=$("enrollModal"), holidayModal=$("holidayModal"),
+  overrideModal=$("overrideModal"), holidayViewModal=$("holidayViewModal"),
+  overrideViewModal=$("overrideViewModal"), correctionModal=$("correctionModal"),
+  daySheetModal=$("daySheetModal"), daySheetTitle=$("daySheetTitle"), daySheetBody=$("daySheetBody"),
+  schoolInfoModal=$("schoolInfoModal"),
+  schedModal=$("schedModal"), schedModalTitle=$("schedModalTitle"),
+  schedModalSub=$("schedModalSub"), schedModalBody=$("schedModalBody"),
+  enrollTitle=$("enrollTitle"), enrollSub=$("enrollSub"), enrollBody=$("enrollBody");
+
+const Timers={ _ids:{}, set(n,id){ this.clear(n); this._ids[n]=id; },
+  clear(n){ if(this._ids[n]){ clearTimeout(this._ids[n]); clearInterval(this._ids[n]); } delete this._ids[n]; },
+  clearAll(){ Object.keys(this._ids).forEach(k=>{ clearTimeout(this._ids[k]); clearInterval(this._ids[k]); }); this._ids={}; } };
+let currentTab="students", selectedStudentId=null, calendarMonth=new Date();
+/* Refresh persistence (testing convenience): remember the last admin
+   tab; after the normal PIN unlock the admin reopens there instead of
+   the default. The PIN gate itself is untouched. */
+try{ const _t=localStorage.getItem("atl_admin_tab"); if(["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(_t)>=0) currentTab=_t; }catch(e){}
+/* Academic-year override span (null = follow Settings); set by the year popup */
+let attAcadFrom=null, attAcadTo=null;
+
+function openModal(m){ m.classList.add("open"); }
+function closeModal(m){ m.classList.remove("open"); }
+[enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, daySheetModal, schoolInfoModal, schedModal].forEach(m=>{
+  if(!m) return;
+  /* Veil dismiss needs press AND release on the veil: a drag that
+     starts inside (e.g. finishing a text selection outside the card)
+     fires click targeting m but must never close the window. */
+  m.addEventListener("mousedown", (e)=>{ m._veilDown=(e.target===m); });
+  m.addEventListener("click", (e)=>{
+    if(e.target!==m || !m._veilDown) return;
+    m._veilDown=false;
+    /* Global explicit-dismiss law (user order): NO popup in the app
+       closes from a backdrop click — every window leaves only via its
+       own buttons or keys. (Notices never had veil-dismiss.) */
+    return;
+  });
+});
+
+// ---- terminal ----
+let _resultHold=false;
+function setResultVisible(on){
+  const t=$("terminal");
+  if(t) t.classList.toggle("has-result", !!on);
+}
+function hidePrompt(){
+  if(!promptText) return;
+  promptText.classList.remove("scanning","identifying","detecting");
+  promptText.classList.add("is-hidden");
+  promptText.style.opacity="";
+  promptText.style.transform="";
+}
+function groupLabel(student){
+  const parts=[];
+  if(student && student.section) parts.push(student.section);
+  if(student && student.batch) parts.push(student.batch);
+  return parts.length ? parts.join(" · ") : "—";
+}
+function setState(state){
+  if(!promptText) return;
+  promptText.classList.remove("scanning","identifying","detecting","is-hidden");
+  promptText.style.opacity="";
+  promptText.style.transform="";
+  if(state==="identifying" || state==="detecting" || state==="scanning"){
+    promptText.textContent="IDENTIFYING\u2026";
+    promptText.classList.add("identifying");
+  } else {
+    promptText.textContent="PLACE YOUR FINGER";
+  }
+}
+function showIdentity(student, status, time, dateStr){
+  hidePrompt();
+  setResultVisible(true);
+  _resultHold=true;
+  if(_scanLoopTimer){ clearTimeout(_scanLoopTimer); _scanLoopTimer=null; }
+  Timers.clear("hold");
+  if(idleLayer) idleLayer.classList.add("hidden");
+  if(unknownLayer) unknownLayer.classList.remove("visible");
+  if(student.photo){ photoImg.src=student.photo; photoImg.style.display="block"; photoFallback.style.display="none"; }
+  else { photoImg.style.display="none"; photoFallback.style.display="flex"; photoFallback.textContent=(student.name||"").trim().split(" ").map(w=>w[0]).filter(Boolean).slice(0,2).join("").toUpperCase()||"—"; }
+  if(idName) idName.textContent=student.name||"—";
+  if(idRoll) idRoll.textContent=student.roll||"—";
+  if(idClass) idClass.textContent=student.class||student.grade||"—";
+  if(idGroup) idGroup.textContent=groupLabel(student);
+  if(idSid) idSid.textContent=student.id!=null?String(student.id):"—";
+  const norm = String(status||"").trim().toLowerCase();
+  let displayStatus = status;
+  let footer = "ATTENDANCE RECORDED";
+  let muted = false;
+  let holdMs = 4000;
+  if(norm==="present"){
+    displayStatus="Present";
+    footer="ATTENDANCE RECORDED";
+  } else if(norm==="late"){
+    displayStatus="Late";
+    footer="ATTENDANCE RECORDED";
+  } else if(norm==="already recorded" || norm==="duplicate"){
+    displayStatus="Already recorded";
+    footer="ALREADY RECORDED";
+    muted=true;
+    holdMs=3200;
+  } else if(norm==="not scheduled" || norm==="not_scheduled"){
+    displayStatus="Not Scheduled";
+    footer="NOT SCHEDULED";
+    muted=true;
+    holdMs=3200;
+  } else {
+    displayStatus=status||"—";
+  }
+  if(idStatus){
+    idStatus.textContent=displayStatus;
+    idStatus.style.color = muted ? "var(--ink-2)" : "var(--ink)";
+  }
+  if(idTime) idTime.textContent=(time||"").slice(0,5)||"—";
+  if(idDate) idDate.textContent=dateStr||"";
+  if(idConfirm){
+    idConfirm.textContent=footer;
+    idConfirm.classList.toggle("is-muted", muted);
+    idConfirm.style.color="";
+    idConfirm.style.display="";
+  }
+  identityLayer.classList.add("visible");
+  Timers.set("hold", setTimeout(()=>{
+    identityLayer.classList.remove("visible");
+    if(idleLayer) idleLayer.classList.remove("hidden");
+    setResultVisible(false);
+    setState("ready");
+    _resultHold=false;
+    if(_scanLoopActive && adminLayer && !adminLayer.classList.contains("open") && enrollModal && !enrollModal.classList.contains("open")){
+      _scanLoopTimer=setTimeout(sensorScanLoop, 180);
+    }
+  }, holdMs));
+}
+function showUnknown(){
+  hidePrompt();
+  setResultVisible(true);
+  _resultHold=true;
+  if(_scanLoopTimer){ clearTimeout(_scanLoopTimer); _scanLoopTimer=null; }
+  Timers.clear("hold");
+  if(idleLayer) idleLayer.classList.add("hidden");
+  identityLayer.classList.remove("visible");
+  const _ut = unknownTitleEl || (unknownLayer && unknownLayer.querySelector(".unknown-title"));
+  if(_ut) _ut.textContent="NOT RECOGNIZED";
+  unknownLayer.classList.add("visible");
+  Timers.set("hold", setTimeout(()=>{
+    unknownLayer.classList.remove("visible");
+    if(idleLayer) idleLayer.classList.remove("hidden");
+    setResultVisible(false);
+    setState("ready");
+    _resultHold=false;
+    if(_scanLoopActive && adminLayer && !adminLayer.classList.contains("open") && enrollModal && !enrollModal.classList.contains("open")){
+      _scanLoopTimer=setTimeout(sensorScanLoop, 180);
+    }
+  }, 2800));
+}
+
+// Real scan hook (called by the sensor loop and the injected backend bridge)
+let _lastHandledScanSeq=0;
+function upsertStudent(raw){
+  if(!raw || raw.id==null) return null;
+  const mapped=mapStudent(raw);
+  const idx=Students.findIndex(x=>x.id===mapped.id);
+  if(idx>=0){
+    const merged=Object.assign({}, Students[idx]);
+    Object.keys(mapped).forEach(k=>{
+      if(mapped[k]!==undefined && mapped[k]!==null) merged[k]=mapped[k];
+    });
+    if(!merged.fid && Students[idx].fid) merged.fid=Students[idx].fid;
+    if(!merged.photo && Students[idx].photo) merged.photo=Students[idx].photo;
+    Students[idx]=merged;
+  } else Students.push(mapped);
+  return Students.find(x=>x.id===mapped.id);
+}
+function studentByFid(fid){
+  const n=String(fid||"").replace(/^F-/i,"");
+  if(!n) return null;
+  return Students.find(x=>String(x.fid||"").replace(/^F-/i,"")===n) || null;
+}
+window.handleRealScan = async function(fid, info){
+  info = info || {};
+  const seq=Number(info.seq||0);
+  if(seq && seq<=_lastHandledScanSeq) return;
+  if(seq) _lastHandledScanSeq=seq;
+  const isAdminOpen = typeof adminLayer !== "undefined" && adminLayer && adminLayer.classList.contains("open");
+  if(fid && String(fid).indexOf("__unknown__")===0){
+    if(!isAdminOpen){
+      setState("identifying");
+      await new Promise(r=>setTimeout(r, 180));
+      if(seq && seq < _lastHandledScanSeq) return;
+      showUnknown();
+    }
+    loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
+    return;
+  }
+  let s = info.student ? upsertStudent(info.student) : null;
+  if(!s) s = studentByFid(fid);
+  if(!s){
+    try{
+      if(!Students.length) await loadStudents();
+      s = studentByFid(fid);
+      if(!s && fid){
+        const last = await api("/api/scan/last",{method:"GET"}).catch(()=>null);
+        if(last && last.student) s = upsertStudent(last.student);
+      }
+    }catch(e){}
+  }
+  if(!s){
+    if(!isAdminOpen){
+      setState("identifying");
+      await new Promise(r=>setTimeout(r, 180));
+      if(seq && seq < _lastHandledScanSeq) return;
+      showUnknown();
+    }
+    loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
+    return;
+  }
+  if(!isAdminOpen){
+    setState("identifying");
+    await new Promise(r=>setTimeout(r, 180));
+    if(seq && seq < _lastHandledScanSeq) return;
+    const status = info.status ? statusUI(info.status) : "Present";
+    const time = info.time || new Date().toTimeString().slice(0,8);
+    showIdentity(s, status, time, info.date ? fmtDate(info.date) : "");
+  }
+  loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
+};
+let _scanLoopActive=true, _scanRequestInFlight=false, _scanLoopTimer=null;
+function pauseSensorScan(){ _scanLoopActive=false; if(_scanLoopTimer){ clearTimeout(_scanLoopTimer); _scanLoopTimer=null; } if(promptText){ promptText.classList.remove("scanning","identifying","detecting","is-hidden"); } }
+function resumeSensorScan(){
+  _scanLoopActive=true;
+  if(!_resultHold && (!adminLayer || !adminLayer.classList.contains("open"))) setState("ready");
+  if(_scanRequestInFlight){
+    if(!_scanLoopTimer) _scanLoopTimer=setTimeout(sensorScanLoop, 400);
+    return;
+  }
+  if(_scanLoopTimer){ clearTimeout(_scanLoopTimer); _scanLoopTimer=null; }
+  sensorScanLoop();
+}
+function finishEnrollUi(){
+  _enrollAbort=true;
+  if(_enrollPoll){ clearTimeout(_enrollPoll); _enrollPoll=null; }
+  if(enrollModal) closeModal(enrollModal);
+}
+function returnToFrontPage(rawStudent){
+  finishEnrollUi();
+  if(rawStudent) upsertStudent(rawStudent);
+  try{ cacheSave(); }catch(e){}
+  if(adminLayer) adminLayer.classList.remove("open");
+  resumeSensorScan();
+}
+async function sensorScanLoop(){
+  if(!_scanLoopActive || _scanRequestInFlight) return;
+  if(_resultHold){ _scanLoopTimer=setTimeout(sensorScanLoop, 180); return; }
+  const isEnrollOpen = (enrollModal && enrollModal.classList.contains("open"));
+  if(isEnrollOpen){ _scanLoopTimer=setTimeout(sensorScanLoop,500); return; }
+  _scanRequestInFlight=true;
+  let nextDelay=150;
+  try{
+    const res=await api("/api/scan",{method:"POST",body:JSON.stringify({waitSec:2})});
+    if(res && res.seq !== undefined && res.seq !== null){
+      if(res.student){
+        upsertStudent(res.student);
+        cacheSave();
+        const fidNum = (res.student.fingerId!=null && res.student.fingerId!==undefined) ? res.student.fingerId : res.fingerId;
+        const fid = (fidNum!=null && fidNum!==undefined) ? "F-"+fidNum : ("__stu__"+res.student.id);
+        await window.handleRealScan(fid,{status:res.status||res.reason,time:res.time,date:res.date,seq:res.seq,student:res.student});
+      } else if(res.reason==="UNKNOWN" || res.status==="UNKNOWN"){
+        await window.handleRealScan("__unknown__"+res.seq,{seq:res.seq});
+      }
+    }
+  }catch(err){
+    const reason=err.body&&err.body.reason;
+    if(reason!=="NO_FINGER") nextDelay=2000;
+    if(reason!=="NO_FINGER" && reason!=="SENSOR_BUSY" && reason!=="SENSOR_DISCONNECT") console.warn("Sensor scan:",err.message);
+  }finally{
+    _scanRequestInFlight=false;
+    if(_scanLoopActive){
+      if(_resultHold){
+        // hold active — result visible, do not overwrite prompt or schedule duplicate
+      } else {
+        if(!adminLayer || !adminLayer.classList.contains("open")) setState("ready");
+        _scanLoopTimer=setTimeout(sensorScanLoop,nextDelay);
+      }
+    }
+  }
+}
+// ---- render: Students ----
+function renderClassFilters(){
+  const opts=['<option value="">All Classes</option>'].concat(Classes.map(c=>`<option>${esc(c)}</option>`)).join("");
+  if(classFilter) classFilter.innerHTML=opts;
+  if(attClassFilter) attClassFilter.innerHTML=opts;
+  const batches=[...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
+  if(batchFilter){
+    const cur=batchFilter.value;
+    batchFilter.innerHTML='<option value="">All Batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
+    if(!batches.includes(cur)) batchFilter.value="";
+  }
+  if(attBatchFilter){
+    const cur=attBatchFilter.value;
+    attBatchFilter.innerHTML='<option value="">All Batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
+    if(!batches.includes(cur)) attBatchFilter.value="";
+  }
+  populateAttStudents();
+  // also populate schedule context selector (Global, Classes, Batches)
+  populateScheduleSelector();
+}
+function populateAttStudents(){
+  if(!attStudentFilter) return;
+  const cur = attStudentFilter.value;
+  const cf = attClassFilter ? attClassFilter.value : "";
+  const bf = attBatchFilter ? attBatchFilter.value : "";
+  const inScope = Students.filter(s => s.active && (!cf || s.class === cf) && (!bf || (s.batch || "") === bf));
+  inScope.sort((a,b) => (a.name||"").localeCompare(b.name||""));
+  let html = '<option value="">All Students</option>';
+  html += inScope.map(s => `<option value="${s.id}" ${String(s.id)===cur?'selected':''}>${esc(s.name)} (${esc(s.roll||"—")})</option>`).join("");
+  attStudentFilter.innerHTML = html;
+  if(cur && !inScope.some(s => String(s.id)===cur)) attStudentFilter.value = "";
+}
+function renderStudentList(){
+  var _rs=$("rosterSearch"); if(_rs&&document.activeElement!==_rs&&searchInput) _rs.value=searchInput.value||"";
+  const q=(searchInput.value||"").toLowerCase(), cf=classFilter?classFilter.value:"", bf=batchFilter?batchFilter.value:"", sf=studentStatusFilter?studentStatusFilter.value:"active";
+  let list=Students.filter(s=>{
+    if(sf==="active" && !s.active) return false;
+    if(sf==="inactive" && s.active) return false;
+    if(cf && s.class!==cf) return false;
+    if(bf && (s.batch||"")!==bf) return false;
+    if(!q) return true;
+    return (s.name+" "+s.roll+" "+s.class+" "+(s.batch||"")+" "+s.phone+" "+s.fid+" "+s.id+" "+(s.section||"")+" "+(s.parent||"")).toLowerCase().includes(q);
+  });
+  list.sort((a,b)=> (b.active - a.active) || a.name.localeCompare(b.name));
+  if(!list.length){ studentListEl.innerHTML=`<div class="empty"><b>No students found</b>Try different search or add a new student.</div>`; return; }
+  studentListEl.innerHTML=list.map(s=>{
+    const initials=studentInitials(s.name);
+    const thumb=s.photo?`<img src="${esc(s.photo)}" alt="">`:`<div class="student-thumb-fallback">${esc(initials)}</div>`;
+    const batchTxt=s.batch?` · ${esc(s.batch)}`:"";
+    const inactiveBadge = s.active ? "" : `<span class="badge" style="margin-left:6px">Inactive</span>`;
+    const rowStyle = s.active ? "" : ` style="opacity:0.6"`;
+    return `<div class="student-row ${selectedStudentId===s.id?"active":""}" data-id="${s.id}"${rowStyle}><div class="student-thumb">${thumb}</div><div class="student-info"><div class="student-name">${esc(s.name)}${inactiveBadge}</div><div class="student-meta"><span>${esc(s.roll)}</span><span>${esc(s.class)}${batchTxt}</span><span class="student-roll">${esc(s.fid||"no fp")}</span></div></div></div>`;
+  }).join("");
+}
+function renderStudentDetail(id){
+  const s=Students.find(x=>x.id===id);
+  if(!s){ detailScroll.innerHTML=`<div class="empty"><b>No student selected</b>Choose a student.</div>`; return; }
+  const initials=studentInitials(s.name);
+  const photo=s.photo?`<img src="${esc(s.photo)}" alt="">`:`<div class="detail-photo-fallback">${esc(initials)}</div>`;
+  const history=AllEvents.filter(a=>a.studentId===s.id).slice(-60).reverse();
+  const histRows=history.length?history.map(a=>`<tr><td>${esc(a.date)}</td><td>${esc(a.time)}</td><td><span class="badge ${a.status.toLowerCase().replace(" ","-")}">${esc(a.status)}</span></td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"")}</td><td><button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(a.date)}" data-correct-status="${esc(a.status)}">Correct</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty"><b>No records</b>Scan results will appear here from the sensor.</div></td></tr>`;
+  const _rows=Attendance.filter(a=>a.studentId===s.id);
+  const _p=_rows.filter(a=>a.status==="Present").length;
+  const _l=_rows.filter(a=>a.status==="Late").length;
+  const _a=_rows.filter(a=>a.status==="Absent").length;
+  const _t=_p+_l+_a;
+  const _rate=_t?Math.round(100*(_p+_l)/_t):null;
+  detailScroll.innerHTML=`
+    <div class="detail-card">
+      <div class="pf-head">
+        <div class="detail-photo">${photo}</div>
+        <div class="pf-id">
+          <div class="pf-title-row">
+            <div class="pf-name">${esc(s.name)}</div>
+          </div>
+          <div class="pf-sub"><span class="badge ${s.active?'present':'not-scheduled'}">${esc(s.active?"Active":"Inactive")}</span>${s.batch?`<span class="badge">${esc(s.batch)}</span>`:""}</div>
+        </div>
+      </div>
+      <div class="stat-strip" aria-label="Today's attendance summary"${_t>0?"":' style="display:none !important"'}><span class="stat-cap">Today</span>${_t>0?`<span class="stat"><span class="stat-num">${_p}</span><span class="stat-lab">Present</span></span><span class="stat"><span class="stat-num">${_l}</span><span class="stat-lab">Late</span></span><span class="stat"><span class="stat-num">${_a}</span><span class="stat-lab">Absent</span></span><span class="stat"><span class="stat-num">${_rate}%</span><span class="stat-lab">Attendance</span></span>`:`<span class="stat-note">No scans yet today</span>`}</div>
+          <div class="detail-grid">
+            <div class="detail-field"><label>Roll</label><span>${esc(s.roll)}</span></div>
+            <div class="detail-field"><label>Class</label><span>${esc(s.class)}</span></div>
+            <div class="detail-field"><label>Batch / Group</label><span>${esc(s.batch||"—")}</span></div>
+            <div class="detail-field"><label>Section</label><span>${esc(s.section||"—")}</span></div>
+            <div class="detail-field"><label>Student ID</label><span>${esc(String(s.id))}</span></div>
+            <div class="detail-field"><label>Parent</label><span>${esc(s.parent||"—")}</span></div>
+            <div class="detail-field"><label>Phone</label><span>${esc(s.phone||"—")}</span></div>
+            <div class="detail-field"><label>Address</label><span>${esc(s.address||"—")}</span></div>
+            <div class="detail-field"><label>Fingerprint</label><span><span class="stat-dot${s.fid?" live":""}"></span>${esc(s.fid||"—")} · ${s.active?"Active":"Inactive"}</span></div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn primary" data-action="edit" data-id="${s.id}">Edit information</button>
+            <button class="btn" data-action="reenroll" data-id="${s.id}">Re-enroll fingerprint</button>
+            ${s.active ? `` : `<button class="btn primary" data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
+            <button class="btn" data-action="print" data-id="${s.id}">Print profile</button>
+            <button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(todayISO())}" data-correct-status="Present" style="border-style:dashed">Correct today</button>
+            ${s.active ? `<button class="btn danger icon-del pf-del" data-action="delete" data-id="${s.id}" aria-label="Deactivate">${TRASH_ICON}</button>` : ``}
+          </div>
+      <div class="table-wrap"><div class="hist-title"><span>Attendance history — recent scans</span></div><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Fingerprint</th><th>Action</th></tr></thead><tbody>${histRows}</tbody></table></div></div>
+    </div>`;
+}
+function selectStudent(id){ selectedStudentId=id; renderStudentList(); renderStudentDetail(id); }
+// ---- render: Unified Attendance Workspace (Live Today + Historical) ----
+/* Preset → {from,to}: single truth for render/print/export.
+   Academic popup override (attAcadFrom/To) applies to the live view
+   only; print/export resolve from Settings. */
+function resolveAttRange(preset, acad){
+  const today=todayISO();
+  let from=today, to=today;
+  if(preset==="today"){ from=today; to=today; }
+  else if(preset==="yesterday"){ const d=new Date(); d.setDate(d.getDate()-1); from=toLocalISO(d); to=from; }
+  else if(preset==="custom_day"){ from=(attSingleDate&&attSingleDate.value)||today; to=from; }
+  else if(preset==="custom_range"){ from=(attFromDate&&attFromDate.value)||today; to=(attToDate&&attToDate.value)||today; }
+  else if(preset==="week"){ const d=new Date(); d.setDate(d.getDate()-6); from=toLocalISO(d); to=today; }
+  else if(preset==="month"){ const d=new Date(); d.setDate(1); from=toLocalISO(d); to=today; }
+  else if(preset==="academic"){ from=(acad&&acad.from)||Settings.startDate||Settings.schoolOpeningDate||"2026-06-15"; to=(acad&&acad.to)||Settings.endDate||today; }
+  return {from, to};
+}
+/* Inclusive day count for a YYYY-MM-DD span */
+function rangeDays(from,to){
+  try{ return Math.round((new Date(to+"T00:00:00")-new Date(from+"T00:00:00"))/(1000*60*60*24))+1; }
+  catch(e){ return 1; }
+}
+async function renderAttendance(){
+  const attPane = document.getElementById("pane-attendance");
+  if(!attPane) return;
+  const preset = (attDatePreset && attDatePreset.value) ? attDatePreset.value : "today";
+  const today = todayISO();
+
+  // Custom-date inputs: visible only for their preset; seed empty ones
+  if(attSingleDate){ attSingleDate.style.display = preset==="custom_day" ? "" : "none"; if(preset==="custom_day" && !attSingleDate.value) attSingleDate.value = today; }
+  if(attFromDate){ attFromDate.style.display = preset==="custom_range" ? "" : "none"; if(preset==="custom_range" && !attFromDate.value) attFromDate.value = today; }
+  if(attToDate){ attToDate.style.display = preset==="custom_range" ? "" : "none"; if(preset==="custom_range" && !attToDate.value) attToDate.value = today; }
+  const {from, to} = resolveAttRange(preset, {from:attAcadFrom, to:attAcadTo});
+  if(preset === "custom_range" && from > to){
+    attStats.innerHTML = `<div class="inline-error">Invalid date range — Start date must be before End date.</div>`;
+    attTableBody.innerHTML = `<tr><td colspan="7"><div class="empty"><b>Invalid range</b>Choose a valid custom date range.</div></td></tr>`;
+    return;
+  }
+
+  const isSingleDay = (from === to);
+  const isToday = (from === today);
+  const cf = attClassFilter ? attClassFilter.value : "";
+  const bf = attBatchFilter ? attBatchFilter.value : "";
+  const sf = attStatusFilter ? attStatusFilter.value : "";
+  const sort = attSort ? attSort.value : "time_desc";
+  const sid = (attStudentFilter && attStudentFilter.value) ? parseInt(attStudentFilter.value) : null;
+  const selStudent = sid ? Students.find(s => s.id === sid) : null;
+
+  // Filter active students by class & batch or single student
+  const studentsInScope = selStudent ? [selStudent] : Students.filter(s => s.active && (!cf || s.class === cf) && (!bf || (s.batch || "") === bf));
+  const totalStudents = studentsInScope.length;
+  const byId = new Map(Students.map(s => [s.id, s]));
+
+  // Update mode badge (text only — the old inline cssText never painted:
+  // stylesheet !important beats inline style, so the cascade owns the box)
+  if(attModeBadge){
+    if(selStudent){
+      attModeBadge.textContent = "STUDENT: " + selStudent.name.toUpperCase();
+    } else if(isToday){
+      attModeBadge.innerHTML = '<span class="att-live">Live</span> Today';
+    } else if(preset === "yesterday"){
+      attModeBadge.textContent = "Yesterday";
+    } else if(isSingleDay){
+      attModeBadge.textContent = `Date: ${from}`;
+    } else {
+      attModeBadge.textContent = `Range: ${from} → ${to} (${rangeDays(from,to)}d)`;
+    }
+  }
+
+  // Fetch events (Attendance cache is already mapped — map fresh fetches only;
+  // remapping mapped rows would lose isDuplicate and break Duplicate counts)
+  let ev = [];
+  if(isToday && !selStudent){
+    ev = Attendance;
+  } else {
+    try {
+      ev = (await api("/api/attendance", {method:"GET"})).map(mapEvent);
+    } catch(e){
+      ev = Attendance;
+    }
+  }
+
+  // Filter events in date range
+  let list = ev.filter(a => a.date >= from && a.date <= to);
+  if(selStudent) list = list.filter(a => a.studentId === sid);
+  else {
+    if(cf) list = list.filter(a => { const s = byId.get(a.studentId); return s && s.class === cf; });
+    if(bf) list = list.filter(a => { const s = byId.get(a.studentId); return s && (s.batch || "") === bf; });
+  }
+
+  // Fetch authoritative metrics for single-student scope
+  let rpt = null;
+  if(selStudent){
+    try {
+      rpt = await api("/api/reports?studentId=" + sid, {method: "GET"});
+    } catch(e){}
+  }
+
+  // Scheduled vs Not Scheduled calculations
+  let scheduled = 0;
+  let scheduledFiltered = [];
+  let notScheduledFiltered = [];
+
+  if(isSingleDay){
+    scheduledFiltered = studentsInScope.filter(s => isWorkingDayForStudent(from, s));
+    notScheduledFiltered = studentsInScope.filter(s => !isWorkingDayForStudent(from, s));
+    scheduled = scheduledFiltered.length;
+  } else if(selStudent && rpt && typeof rpt.eligible === "number"){
+    scheduled = rpt.eligible;
+  } else {
+    try {
+      let d = parseISO(from), endD = parseISO(to);
+      while(d <= endD){
+        const iso = toLocalISO(d);
+        for(const stu of studentsInScope){
+          if(isWorkingDayForStudent(iso, stu)) scheduled++;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+    } catch(e){
+      scheduled = list.filter(a => a.status === "Present" || a.status === "Late" || a.status === "Absent").length;
+    }
+  }
+
+  // Filtered rows display
+  let rows = [];
+  if(isSingleDay){
+    rows = list.map(a => { const s = byId.get(a.studentId); return s ? {a, s} : null; }).filter(Boolean);
+    if(sf){
+      if(sf === "Duplicate") rows = rows.filter(r => r.a.isDuplicate);
+      else if(sf === "Unknown") rows = [];
+      else if(sf === "Not Scheduled"){
+        rows = notScheduledFiltered.map(s => ({a:{status:"Not Scheduled", time:"—", isDuplicate:false, fingerId:s.fid?parseInt(String(s.fid).replace("F-","")):null, date:from}, s}));
+      } else if(sf === "Absent"){
+        const presentIds = new Set(rows.filter(r => r.a.status === "Present" || r.a.status === "Late").map(r => r.s.id));
+        const absentStudents = scheduledFiltered.filter(s => !presentIds.has(s.id));
+        rows = absentStudents.map(s => ({a:{status:"Absent", time:"—", isDuplicate:false, fingerId:null, date:from}, s}));
+      } else {
+        rows = rows.filter(r => r.a.status === sf);
+      }
+    } else if(selStudent && !rows.length){
+      if(scheduledFiltered.length){
+        rows = [{a:{status:"Absent", time:"—", isDuplicate:false, fingerId:null, date:from}, s:selStudent}];
+      } else {
+        rows = [{a:{status:"Not Scheduled", time:"—", isDuplicate:false, fingerId:selStudent.fid?parseInt(String(selStudent.fid).replace("F-","")):null, date:from}, s:selStudent}];
+      }
+    }
+  } else {
+    // Multi-day
+    rows = list.map(a => { const s = byId.get(a.studentId); return s ? {a, s} : null; }).filter(Boolean);
+    if(sf){
+      if(sf === "Duplicate") rows = rows.filter(r => r.a.isDuplicate);
+      else if(sf === "Unknown") rows = [];
+      else rows = rows.filter(r => r.a.status === sf);
+    }
+  }
+
+  // Sort rows
+  rows.sort((x, y) => {
+    if(!isSingleDay){
+      const dc = (y.a.date || "").localeCompare(x.a.date || "");
+      if(dc !== 0) return dc;
+    }
+    if(sort === "time_desc") return (y.a.time || "").localeCompare(x.a.time || "");
+    if(sort === "time_asc") return (x.a.time || "").localeCompare(y.a.time || "");
+    if(sort === "name_asc") return x.s.name.localeCompare(y.s.name);
+    if(sort === "roll_asc") return x.s.roll.localeCompare(y.s.roll);
+    if(sort === "class_asc") return x.s.class.localeCompare(y.s.class);
+    if(sort === "status_asc") return (x.a.status || "").localeCompare(y.a.status || "");
+    return 0;
+  });
+  lastAttRender = {rows, isSingleDay, from, to};
+
+  // KPI Calculations
+  let presentAll, lateAll, absentAll, pct;
+  if(selStudent && rpt && typeof rpt === "object" && "eligible" in rpt){
+    presentAll = rpt.present ?? 0;
+    lateAll = rpt.late ?? 0;
+    absentAll = rpt.absent ?? 0;
+    pct = rpt.rate ?? 0;
+  } else if(isToday && Kpis && Kpis.date === today && !cf && !bf && !selStudent && typeof Kpis.scheduled === "number"){
+    presentAll = Kpis.present ?? 0;
+    lateAll = Kpis.late ?? 0;
+    absentAll = Kpis.absent ?? Math.max(0, (Kpis.scheduled ?? scheduled) - presentAll - lateAll);
+    pct = Kpis.scheduled ? Math.round((presentAll + lateAll)/Kpis.scheduled*100) : 0;
+  } else if(isSingleDay){
+    presentAll = list.filter(a => a.status === "Present").length;
+    lateAll = list.filter(a => a.status === "Late").length;
+    absentAll = Math.max(0, scheduled - presentAll - lateAll);
+    pct = scheduled ? Math.round((presentAll + lateAll)/scheduled*100) : 0;
+  } else {
+    presentAll = list.filter(a => a.status === "Present").length;
+    lateAll = list.filter(a => a.status === "Late").length;
+    absentAll = list.filter(a => a.status === "Absent").length;
+    pct = scheduled ? Math.round((presentAll + lateAll)/scheduled*100) : 0;
+  }
+
+  const present = sf ? rows.filter(r => r.a.status === "Present").length : presentAll;
+  const late = sf ? rows.filter(r => r.a.status === "Late").length : lateAll;
+  const absent = sf ? (sf === "Absent" ? rows.length : (sf === "Not Scheduled" ? 0 : absentAll)) : absentAll;
+  const notScheduledCount = isSingleDay ? notScheduledFiltered.length : list.filter(a => a.status === "Not Scheduled").length;
+  const dup = rows.filter(r => r.a.isDuplicate).length;
+
+  // Unknown scan attempts
+  let unks = [];
+  try {
+    unks = Unknowns.filter(u => (u.date >= from && u.date <= to));
+    const evUnks = ev.filter(e => {
+      const isUnk = e.result === "UNKNOWN" || e.status === "UNKNOWN" || (!e.studentId && e.status === "Unknown");
+      return isUnk && (!e.date || (e.date >= from && e.date <= to));
+    });
+    for(const eu of evUnks){
+      if(!unks.some(u => u.time === eu.time && u.finger === (eu.fingerId ? "F-"+eu.fingerId : "—"))){
+        unks.push({time: eu.time, finger: eu.fingerId ? "F-"+eu.fingerId : "—", note: "Unknown fingerprint", date: eu.date});
+      }
+    }
+  } catch(e){
+    unks = isToday ? Unknowns : [];
+  }
+
+  // Render 9 KPI cards (date value stays concise + single-line — never wraps)
+  // Compact day fmt ("3 Jan 26") over the shared MONTHS_S table
+  const _fmtC=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1].slice(2); };
+  const _isoP=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?[m[1],m[2],+m[3]]:null; };
+  const _fP=p=>p?p[2]+" "+MONTHS_S[+p[1]-1]+" "+p[0].slice(2):"—";
+  let dateCardVal;
+  if(isSingleDay){ dateCardVal=_fmtC(from); }
+  else {
+    const a=_isoP(from), b=_isoP(to);
+    if(a&&b&&a[0]===b[0]&&a[1]===b[1]) dateCardVal=`${a[2]} | ${b[2]} ${MONTHS_S[+a[1]-1]} ${a[0].slice(2)}`;
+    else if(a&&b&&a[0]===b[0]) dateCardVal=`${a[2]} ${MONTHS_S[+a[1]-1]} | ${b[2]} ${MONTHS_S[+b[1]-1]} ${a[0].slice(2)}`;
+    else dateCardVal=`${_fmtC(from)} | ${_fmtC(to)}`;
+  }
+  const _curSf = (typeof attStatusFilter!=="undefined" && attStatusFilter) ? attStatusFilter.value : "";
+  if(selStudent && rpt && typeof rpt === "object" && "eligible" in rpt){
+    attStats.innerHTML = `
+      <div class="stat"><b>${esc(selStudent.name)}</b><label>Student</label></div>
+      <div class="stat${_curSf==="Present"?" cube-on":""}" data-f="Present"><b>${rpt.present ?? 0}</b><label>Present</label></div>
+      <div class="stat${_curSf==="Late"?" cube-on":""}" data-f="Late"><b>${rpt.late ?? 0}</b><label>Late</label></div>
+      <div class="stat${_curSf==="Absent"?" cube-on":""}" data-f="Absent"><b>${rpt.absent ?? 0}</b><label>Absent</label></div>
+      <div class="stat"><b>${rpt.eligible ?? 0}</b><label>Eligible days</label></div>
+      <div class="stat"><b>${rpt.attended ?? 0}</b><label>Attended</label></div>
+      <div class="stat"><b>${dup}</b><label>Duplicate scans</label></div>
+      <div class="stat"><b>${rpt.rate ?? 0}%</b><label>Attendance %</label></div>
+      <div class="stat"><b>${esc(dateCardVal)}</b><label>Date</label></div>`;
+  } else {
+    attStats.innerHTML = `
+      <div class="stat" data-f=""><b>${totalStudents}</b><label>Total students</label></div>
+      <div class="stat${_curSf==="Present"?" cube-on":""}" data-f="Present"><b>${present}</b><label>Present</label></div>
+      <div class="stat${_curSf==="Late"?" cube-on":""}" data-f="Late"><b>${late}</b><label>Late</label></div>
+      <div class="stat${_curSf==="Absent"?" cube-on":""}" data-f="Absent"><b>${absent}</b><label>Absent</label></div>
+      <div class="stat${_curSf==="Not Scheduled"?" cube-on":""}" data-f="Not Scheduled"><b>${notScheduledCount}</b><label>Not Scheduled</label></div>
+      <div class="stat"><b>${unks.length}</b><label>Unknown scans</label></div>
+      <div class="stat"><b>${dup}</b><label>Duplicate scans</label></div>
+      <div class="stat"><b>${pct}%</b><label>Attendance %</label></div>
+      <div class="stat"><b>${esc(dateCardVal)}</b><label>Date</label></div>`;
+  }
+
+  // Render Table Head
+  if(isSingleDay){
+    attTableHead.innerHTML = `<tr><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Fingerprint</th></tr>`;
+  } else {
+    attTableHead.innerHTML = `<tr><th>Date</th><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Working Day?</th></tr>`;
+  }
+
+  // Render Table Body
+  if(!rows.length){
+    attTableBody.innerHTML = `<tr><td colspan="${isSingleDay ? 6 : 7}"><div class="empty"><b>No attendance records</b>No scans recorded for this selection. Place a finger on the sensor or adjust the filter.</div></td></tr>`;
+  } else {
+    attTableBody.innerHTML = rows.map(r => {
+      const isDupeBadge = r.a.isDuplicate ? ' <span class="badge">Duplicate</span>' : '';
+      const correctBtn = `<button class="btn" data-correct data-correct-sid="${r.s.id}" data-correct-date="${esc(r.a.date || from)}" data-correct-status="${esc(r.a.status)}" style="height:20px;padding:0 6px;font-size:9px;margin-left:6px">Correct</button>`;
+      if(isSingleDay){
+        return `<tr data-student="${r.s.id}">
+          <td>${esc(r.a.time)}</td>
+          <td>${esc(r.s.name)}</td>
+          <td>${esc(r.s.roll)}</td>
+          <td>${esc(r.s.class)}</td>
+          <td><span class="badge ${r.a.status.toLowerCase().replace(" ","-")}">${esc(r.a.status)}</span>${isDupeBadge} ${correctBtn}</td>
+          <td>${esc(r.a.fingerId!=null ? "F-"+r.a.fingerId : "")}</td>
+        </tr>`;
+      } else {
+        let working = "—";
+        if(r.s && r.a.date){
+          working = isWorkingDayForStudent(r.a.date, r.s) ? "Scheduled" : "Not Scheduled";
+          if(r.a.status === "Not Scheduled") working = "Not Scheduled";
+          else if(r.a.status === "Absent" && !isWorkingDayForStudent(r.a.date, r.s)) working = "Not Scheduled";
+        }
+        return `<tr data-student="${r.s.id}">
+          <td>${esc(r.a.date)}</td>
+          <td>${esc(r.a.time)}</td>
+          <td>${esc(r.s.name)}</td>
+          <td>${esc(r.s.roll)}</td>
+          <td>${esc(r.s.class)}</td>
+          <td><span class="badge ${r.a.status.toLowerCase().replace(" ","-")}">${esc(r.a.status)}</span>${isDupeBadge} ${correctBtn}</td>
+          <td>${esc(working)}</td>
+        </tr>`;
+      }
+    }).join("");
+  }
+  const _arc = document.getElementById("attRecordCount");
+  if(_arc) _arc.textContent = rows.length + (rows.length === 1 ? " record" : " records");
+
+  // Render Unknown Attempts section (view toggles live in paintAttTabs)
+  if(attUnknownCount) attUnknownCount.textContent = `${unks.length} attempt${unks.length === 1 ? "" : "s"}`;
+  if(attUnknownBody){
+    if(unks.length && !selStudent){
+      attUnknownBody.innerHTML = unks.map(u => `<tr><td>${esc(u.time)}</td><td>${esc(u.finger)}</td><td>${esc(u.note)}</td></tr>`).join("");
+    } else if(!selStudent){
+      attUnknownBody.innerHTML = `<tr><td colspan="3"><div class="empty" style="padding:16px"><b>No unknown scan attempts</b></div></td></tr>`;
+    }
+  }
+}
+
+function renderToday(){
+  if(attDatePreset) attDatePreset.value = "today";
+  renderAttendance();
+}
+// ---- render: Calendar (holidays/weekly/overrides persisted in backend settings) ----
+function isHoliday(d){ return Holidays.find(h=>inRange(d,h.start,h.end))||null; }
+function getOverride(d){ return Overrides.find(o=>o.date===d)||null; }
+function isWorkingDayUI(d){
+  const ov=getOverride(d);
+  if(ov) return ov.isWorking;
+  const hol=isHoliday(d);
+  if(hol){
+    const type=String(hol.type||"holiday").toLowerCase();
+    return type==="exam";
+  }
+  const day=new Date(d+"T00:00:00").getDay();
+  return asBool(Settings.workingDays[day] ?? Settings.workingDays[String(day)]);
+}
+function getWorkingDaysForClass(grade){
+  if(grade && ClassSchedules[grade]){
+    const v=ClassSchedules[grade];
+    if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+    if(v && typeof v==="object") return v;
+  }
+  // fallback to legacy UI key for offline
+  if(grade && ClassSchedulesUI && ClassSchedulesUI[grade]){
+    const v=ClassSchedulesUI[grade];
+    if(v && v.workingDays) return v.workingDays;
+    if(v) return v;
+  }
+  return Settings.workingDays;
+}
+function getWorkingDaysForStudent(student){
+  if(!student) return Settings.workingDays;
+  const grade=(student.class||student.grade||"").trim();
+  const batch=(student.batch||student.group||"").trim();
+  if(grade && batch){
+    const key=grade+"|"+batch;
+    if(BatchSchedules[key]){
+      const v=BatchSchedules[key];
+      if(v && v.workingDays) return v.workingDays;
+      if(v) return v;
+    }
+  }
+  if(batch && BatchSchedules[batch]){
+    const v=BatchSchedules[batch];
+    if(v && v.workingDays) return v.workingDays;
+    if(v) return v;
+  }
+  if(grade && ClassSchedules[grade]){
+    const v=ClassSchedules[grade];
+    if(v && v.workingDays) return v.workingDays;
+    if(v) return v;
+  }
+  return Settings.workingDays;
+}
+function isWorkingDayForClass(d, grade){
+  const ov=getOverride(d);
+  if(ov) return ov.isWorking;
+  const hol=isHoliday(d);
+  if(hol){
+    const type=String(hol.type||"holiday").toLowerCase();
+    return type==="exam";
+  }
+  const day=new Date(d+"T00:00:00").getDay();
+  const wd=getWorkingDaysForClass(grade);
+  return asBool(wd[day] ?? wd[String(day)]);
+}
+function isWorkingDayForStudent(d, student){
+  const ov=getOverride(d);
+  if(ov) return ov.isWorking;
+  const hol=isHoliday(d);
+  if(hol){
+    const type=String(hol.type||"holiday").toLowerCase();
+    return type==="exam";
+  }
+  const day=new Date(d+"T00:00:00").getDay();
+  const wd=getWorkingDaysForStudent(student);
+  return asBool(wd[day] ?? wd[String(day)]);
+}
+function isScheduledToday(student){
+  if(!student) return true;
+  return isWorkingDayForStudent(todayISO(), student);
+}
+function holidaysToBackend(){ return Holidays.map(h=>{
+  const span=h.start===h.end?h.start:(h.start+".."+h.end);
+  const at=(h.startTime&&h.endTime)?("@"+h.startTime+"-"+h.endTime):"";
+  return span+at+":"+(h.type||"holiday")+":"+(h.name||"Holiday");
+}); }
+function overridesToBackend(){ return Overrides.map(o=>o.date+((o.startTime&&o.endTime)?("@"+o.startTime+"-"+o.endTime):"")+(o.isWorking?":1":":0")+":"+o.note); }
+function classSchedulesToBackend(){
+  // normalize to backend expected format: {class: workingDays} or {class: {workingDays}}
+  const out={};
+  Object.keys(ClassSchedules).forEach(k=>{
+    const v=ClassSchedules[k];
+    if(!v) return;
+    if(v.workingDays) {
+      out[k]={workingDays: v.workingDays};
+      if(v.presentCutoff) out[k].presentCutoff = v.presentCutoff;
+      if(v.lateCutoff) out[k].lateCutoff = v.lateCutoff;
+    } else {
+      out[k]=v;
+    }
+  });
+  return out;
+}
+function batchSchedulesToBackend(){
+  const out={};
+  Object.keys(BatchSchedules).forEach(k=>{
+    const v=BatchSchedules[k];
+    if(!v) return;
+    if(v.workingDays) {
+      out[k]={workingDays: v.workingDays};
+      if(v.presentCutoff) out[k].presentCutoff = v.presentCutoff;
+      if(v.lateCutoff) out[k].lateCutoff = v.lateCutoff;
+    } else {
+      out[k]=v;
+    }
+  });
+  return out;
+}
+function parseScheduleContext(val){
+  val = String(val||"").trim();
+  if(!val) return {type:"global", name:"", key:"", label:"Global (all classes & batches)"};
+  /* Holiday/override jump targets resolve to the global template —
+     the month navigates to their date (see the select handler). */
+  if(val.startsWith("holiday:")||val.startsWith("override:")) return {type:"global", name:"", key:"", label:"Global (all classes & batches)"};
+  if(val.startsWith("class:")) {
+    const name = val.slice(6).trim();
+    return {type:"class", name, key:name, label:`Class: ${name}`};
+  }
+  if(val.startsWith("batch:")) {
+    const name = val.slice(6).trim();
+    return {type:"batch", name, key:name, label:`Batch: ${name}`};
+  }
+  const allBatches = [...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])];
+  if(allBatches.includes(val) || val.includes("|")) {
+    return {type:"batch", name:val, key:val, label:`Batch: ${val}`};
+  }
+  return {type:"class", name:val, key:val, label:`Class: ${val}`};
+}
+function getScheduleContext(){
+  const sel = $("calClassSelect");
+  return parseScheduleContext(sel ? sel.value : "");
+}
+function populateScheduleSelector(){
+  const sel=$("calClassSelect");
+  if(!sel) return;
+  const cur = sel.value;
+  const batches = [...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
+  let html = '<option value="">Global schedule (all classes & batches)</option>';
+  if(Classes && Classes.length){
+    html += '<optgroup label="Classes">';
+    Classes.forEach(c=>{
+      const val = `class:${c}`;
+      const isSel = (cur === val || cur === c) ? 'selected' : '';
+      html += `<option value="${val}" ${isSel}>${esc(c)}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  if(batches && batches.length){
+    html += '<optgroup label="Batches">';
+    batches.forEach(b=>{
+      const val = `batch:${b}`;
+      const isSel = (cur === val || cur === b) ? 'selected' : '';
+      html += `<option value="${val}" ${isSel}>${esc(b)}</option>`;
+    });
+    /* Per-class batches ride the same group (user order): value keeps
+       the full "Class|Batch" key, label shows short + class. */
+    Object.keys(BatchSchedules||{}).filter(k=>k.includes("|")).sort((a,b)=>a.localeCompare(b)).forEach(k=>{
+      const p=splitBatchKey(k);
+      const val = `batch:${k}`;
+      const isSel = (cur === val) ? 'selected' : '';
+      html += `<option value="${val}" ${isSel}>${esc(p.short)} · ${esc(p.cls)}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  /* Jump groups (user order): holidays/overrides ride the same grid
+     dropdown — picking one navigates the month to its date on the
+     global template (see the select handler). Values date-keyed. */
+  const _MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const _dS=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?(+m[3])+" "+_MS[+m[2]-1]:"—"; };
+  if(Holidays && Holidays.length){
+    html += '<optgroup label="Holidays">';
+    [...Holidays].sort((a,b)=>String(a.start).localeCompare(String(b.start))).forEach(h=>{
+      const val = `holiday:${h.start}`;
+      const isSel = (cur === val) ? 'selected' : '';
+      const span = h.start===h.end?_dS(h.start):(_dS(h.start)+"→"+_dS(h.end));
+      html += `<option value="${val}" ${isSel}>${esc(h.name||"Holiday")} · ${esc(span)}${fmtTimes(h)?esc(fmtTimes(h)):""}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  if(Overrides && Overrides.length){
+    html += '<optgroup label="Overrides">';
+    [...Overrides].sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(o=>{
+      const val = `override:${o.date}`;
+      const isSel = (cur === val) ? 'selected' : '';
+      html += `<option value="${val}" ${isSel}>${esc(_dS(o.date)+(o.note?" — "+o.note:""))}${fmtTimes(o)?esc(fmtTimes(o)):""}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  sel.innerHTML = html;
+}
+function getWorkingDaysForBatch(batchName){
+  if(batchName && BatchSchedules[batchName]){
+    const v = BatchSchedules[batchName];
+    if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+    if(v && typeof v==="object") return v;
+  }
+  if(batchName && batchName.includes("|")){
+    const grade = batchName.split("|")[0].trim();
+    if(grade && ClassSchedules[grade]){
+      const v = ClassSchedules[grade];
+      if(v && typeof v==="object" && v.workingDays) return v.workingDays;
+      if(v && typeof v==="object") return v;
+    }
+  }
+  return Settings.workingDays;
+}
+function isWorkingDayForBatch(d, batchName){
+  const ov = getOverride(d);
+  if(ov) return ov.isWorking;
+  const hol = isHoliday(d);
+  if(hol){
+    const type = String(hol.type||"holiday").toLowerCase();
+    return type === "exam";
+  }
+  const day = new Date(d+"T00:00:00").getDay();
+  const wd = getWorkingDaysForBatch(batchName);
+  return asBool(wd[day] ?? wd[String(day)]);
+}
+function isWorkingDayForContext(d, ctx){
+  if(!ctx || ctx.type === "global") return isWorkingDayUI(d);
+  if(ctx.type === "class") return isWorkingDayForClass(d, ctx.name);
+  if(ctx.type === "batch") return isWorkingDayForBatch(d, ctx.name);
+  return isWorkingDayUI(d);
+}
+function getScheduleTiming(ctx){
+  const gPresent = Settings.presentCutoff || "08:00";
+  const gLate = Settings.lateCutoff || Settings.lateAfter || "08:30";
+  if(!ctx || ctx.type === "global"){
+    return {
+      presentCutoff: gPresent,
+      lateCutoff: gLate,
+      isInherited: false,
+      level: "global"
+    };
+  }
+  if(ctx.type === "class"){
+    const entry = ClassSchedules[ctx.name];
+    const cp = entry && entry.presentCutoff ? entry.presentCutoff : null;
+    const cl = entry && entry.lateCutoff ? entry.lateCutoff : null;
+    const hasCustom = Boolean(cp || cl);
+    return {
+      presentCutoff: cp || gPresent,
+      lateCutoff: cl || gLate,
+      isInherited: !hasCustom,
+      level: "class",
+      customPresent: cp,
+      customLate: cl
+    };
+  }
+  if(ctx.type === "batch"){
+    const entry = BatchSchedules[ctx.name];
+    const bp = entry && entry.presentCutoff ? entry.presentCutoff : null;
+    const bl = entry && entry.lateCutoff ? entry.lateCutoff : null;
+    if(bp || bl){
+      return {
+        presentCutoff: bp || gPresent,
+        lateCutoff: bl || gLate,
+        isInherited: false,
+        level: "batch",
+        customPresent: bp,
+        customLate: bl
+      };
+    }
+    if(ctx.name.includes("|")){
+      const grade = ctx.name.split("|")[0].trim();
+      const cEntry = ClassSchedules[grade];
+      if(cEntry && (cEntry.presentCutoff || cEntry.lateCutoff)){
+        return {
+          presentCutoff: cEntry.presentCutoff || gPresent,
+          lateCutoff: cEntry.lateCutoff || gLate,
+          isInherited: true,
+          level: "class"
+        };
+      }
+    }
+    return {
+      presentCutoff: gPresent,
+      lateCutoff: gLate,
+      isInherited: true,
+      level: "global"
+    };
+  }
+  return { presentCutoff: gPresent, lateCutoff: gLate, isInherited: false, level: "global" };
+}
+async function persistCalendar(){
+  try{
+    await api("/api/settings",{method:"POST",body:JSON.stringify({
+      holidays: holidaysToBackend(), overrides: overridesToBackend(), workingDays: Settings.workingDays,
+      classSchedules: classSchedulesToBackend(), batchSchedules: batchSchedulesToBackend()
+    })});
+    cacheSave();
+    return true;
+  }catch(e){ await glassAlert("Failed to save calendar: "+e.message); }
+  return false;
+}
+function renderHolidays(){
+  const hBadge = $("holidayCountBadge"); if(hBadge) hBadge.textContent = Holidays.length;
+  if(!holidayBody) return;
+  if(!Holidays.length){
+    holidayBody.innerHTML=`<tr><td colspan="5"><div class="exc-empty"><div class="exc-empty-title">No holidays or vacations configured</div><div class="exc-empty-sub">Use ADD HOLIDAY below the month to schedule school-wide breaks and exam days.</div></div></td></tr>`;
+    return;
+  }
+  holidayBody.innerHTML=Holidays.map(h=>{
+    const typeCls = h.type === "exam" ? "exc-badge exam" : "exc-badge";
+    return `<tr>
+      <td class="exc-col-name">${esc(h.name)}</td>
+      <td class="exc-col-date exc-date">${esc(h.start)}${h.startTime?esc(" "+h.startTime):""}</td>
+      <td class="exc-col-date exc-date">${esc(h.end)}${h.endTime?esc(" "+h.endTime):""}</td>
+      <td class="exc-col-type"><span class="${typeCls}">${esc(h.type)}</span></td>
+      <td class="exc-col-act">
+        <div class="exc-act-group">
+          <button type="button" class="exc-act-btn btn" data-edit-holiday="${esc(h.start)}">Edit</button>
+          <button type="button" class="exc-act-btn danger btn" data-del-holiday="${esc(h.start)}">Remove</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+  try{ renderCbTables(); }catch(e){}
+}
+function renderOverrides(){
+  const oBadge = $("overrideCountBadge"); if(oBadge) oBadge.textContent = Overrides.length;
+  if(!overrideBody) return;
+  if(!Overrides.length){
+    overrideBody.innerHTML=`<tr><td colspan="4"><div class="exc-empty"><div class="exc-empty-title">No date overrides configured</div><div class="exc-empty-sub">Use ADD OVERRIDE below the month for single-day schedule exceptions.</div></div></td></tr>`;
+    return;
+  }
+  overrideBody.innerHTML=Overrides.map(o=>{
+    const statusCls = o.isWorking ? "exc-badge working" : "exc-badge";
+    const statusText = o.isWorking ? "Working" : "Holiday";
+    return `<tr>
+      <td class="exc-col-date exc-date">${esc(o.date)}${fmtTimes(o)?esc(fmtTimes(o)):""}</td>
+      <td class="exc-col-type"><span class="${statusCls}">${statusText}</span></td>
+      <td class="exc-col-note">${esc(o.note || "—")}</td>
+      <td class="exc-col-act">
+        <div class="exc-act-group">
+          <button type="button" class="exc-act-btn btn" data-edit-override="${esc(o.date)}">Edit</button>
+          <button type="button" class="exc-act-btn danger btn" data-del-override="${esc(o.date)}">Remove</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+  try{ renderCbTables(); }catch(e){}
+}
+function renderWeekly(){
+  populateScheduleSelector();
+}
+function renderCalendarMonth(){
+  if(!calendarGrid) return;
+  const y=calendarMonth.getFullYear(), m=calendarMonth.getMonth();
+  calMonthLabel.textContent=calendarMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const ctx = getScheduleContext();
+  const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
+  /* Weekday template row owns its own frost window ABOVE the date grid
+     (see #calendarHeadGrid): display-only text from the same source as
+     renderWeekly (saved values only). Editing moved to the sidebar
+     schedule popup, so headers carry no toggle affordance and no click
+     target. Same position as before — only a 12px gap separates the two
+     windows; column widths match so headers align with the dates below. */
+  let tplWd = Settings.workingDays;
+  if(selName && (selKind==="class"||selKind==="batch")) tplWd = selKind==="batch" ? getWorkingDaysForBatch(selName) : getWorkingDaysForClass(selName);
+  else if(ctx.type === "class") tplWd = getWorkingDaysForClass(ctx.name);
+  else if(ctx.type === "batch") tplWd = getWorkingDaysForBatch(ctx.name);
+  const tplNames=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  let headHtml=tplNames.map((d,idx)=>{
+    const on = asBool(tplWd[idx] ?? tplWd[String(idx)]);
+    const cls = on ? "weekly-day-card working" : "weekly-day-card off";
+    const status = on ? "WORKING" : "OFF";
+    return `<div class="${cls}" aria-hidden="true"><div class="w-name">${d}</div><div class="w-status">${status}</div></div>`;
+  }).join("");
+  const oldTplLegend = $("calTemplateLegend");
+  if(oldTplLegend) oldTplLegend.remove();
+  let html="", workCount=0;
+  for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
+  /* Last-row tag (sharp bottoms): final grid row varies by month, so
+     mark day cells sitting in it — CSS squares their bottom corners. */
+  const _rows=Math.ceil((first+last)/7), _lastRow0=(_rows-1)*7;
+  for(let d=1;d<=last;d++){
+    const _rl=((first+(d-1))>=_lastRow0)?" row-last":"";
+    const iso=toLocalISO(new Date(y,m,d));
+    const hol=isHoliday(iso), ov=getOverride(iso), todayCls=iso===todayISO()?" today":"";
+    const working = isWorkingDayForContext(iso, ctx);
+    if(working) workCount++;
+    const typeCls = ov ? "override" : (hol ? "holiday" : (working ? "working" : "non-working"));
+    const tag = ov ? esc(ov.note)+esc(fmtTimes(ov)) : (hol ? esc(hol.name)+esc(fmtTimes(hol)) : (working ? "WORKING" : "NON-WORKING"));
+    html+=`<div class="calendar-cell ${typeCls}${todayCls}${_rl}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
+  }
+  /* Month fraction readout (reference 2/4 datum): working days in the
+     current view for the current context. Node persists (hidden truth
+     when absent); paint only. */
+  const wf=$("calWorkFracNum");
+  if(wf) wf.textContent=workCount+"/"+last;
+  const headEl=(typeof calendarHeadGrid!=="undefined"&&calendarHeadGrid)||$("calendarHeadGrid");
+  if(headEl){ headEl.innerHTML=headHtml; calendarGrid.innerHTML=html; }
+  else{ calendarGrid.innerHTML=headHtml+html; }
+}
+/* Class cubes: display regroup only — batches stay one flat global
+   list, zero data change. Batch B nests under class C iff ≥1 student
+   has class=C AND batch=B (same Students/Batches state the selector
+   uses); a batch used by two classes shows under both. Batches with
+   zero students anywhere collect in an Ungrouped cube last. */
+let selKind="class", selName=null; // master-detail selection (class or batch tile)
+let cubeView="class"; // left list shows one kind at a time (CLASSES|BATCHES tabs)
+function syncCsCtx(){ csCtx={type:selKind,name:selName}; }
+function batchesForClass(c){
+  return [...new Set(Students.filter(s=>s.class===c).map(s=>s.batch).filter(Boolean))].sort();
+}
+function allBatchesList(){
+  return [...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
+}
+/* Class↔batch linkage (user order): batches are one flat global list;
+   a batch belongs to a class via (a) a shared global name, (b) a
+   composite schedule key "Class|Batch" (per-class timing), or
+   (c) a student carrying both. Short names display; full keys target. */
+function splitBatchKey(k){
+  const m=/^([^|]+)\|(.+)$/.exec(String(k||"").trim());
+  return m?{cls:m[1].trim(),short:m[2].trim()}:{cls:"",short:String(k||"").trim()};
+}
+/* Short batch names usable by class c (enrollment dropdowns). */
+function classBatchNames(c){
+  const out=[], seen=new Set();
+  const push=n=>{ n=String(n||"").trim(); const l=n.toLowerCase(); if(n&&!seen.has(l)){ seen.add(l); out.push(n); } };
+  (Batches||[]).forEach(push);
+  Object.keys(BatchSchedules||{}).forEach(k=>{ const p=splitBatchKey(k); if(p.cls===c) push(p.short); });
+  (Students||[]).forEach(s=>{ if(s&&s.class===c&&s.batch) push(s.batch); });
+  return out.sort((a,b)=>String(a).localeCompare(String(b)));
+}
+/* Board rows for the Batches table: {key, label}. Unscoped shows
+   globals plus every composite (suffixed); scoped shows the class's
+   set under short names. */
+function batchBoardEntries(scope){
+  const rows=[];
+  const globals=[...(Batches||[])].sort((a,b)=>String(a).localeCompare(String(b)));
+  const composites=Object.keys(BatchSchedules||{}).filter(k=>k.includes("|")).sort((a,b)=>String(a).localeCompare(String(b)));
+  if(!scope){
+    globals.forEach(n=>rows.push({key:n,label:n}));
+    composites.forEach(k=>{ const p=splitBatchKey(k); rows.push({key:k,label:p.short+" · "+p.cls}); });
+    return rows;
+  }
+  const pool=[];
+  globals.forEach(n=>pool.push({key:n,label:n}));
+  composites.forEach(k=>{ const p=splitBatchKey(k); if(p.cls===scope) pool.push({key:k,label:p.short}); });
+  (Students||[]).forEach(s=>{ if(s&&s.class===scope&&s.batch) pool.push({key:s.batch,label:s.batch}); });
+  /* Composites first on ties ("9|A" overrides shared "A" for class 9 —
+     same precedence as attendance resolution), then first-wins. */
+  pool.sort((a,b)=>String(a.label).localeCompare(String(b.label))||((b.key.includes("|")?1:0)-(a.key.includes("|")?1:0)));
+  const seen=new Set(), out=[];
+  pool.forEach(r=>{ const l=splitBatchKey(r.key).short.toLowerCase(); if(!seen.has(l)){ seen.add(l); out.push(r); } });
+  return out;
+}
+function batchRowCount(key, scope){
+  const p=splitBatchKey(key);
+  const isActive=s=>s&&(s.active!==false&&s.active!==0);
+  /* Shared rows skip students whose class owns a composite for that
+     name (they resolve to the composite, not the shared timing). */
+  const compHere=new Set();
+  if(!p.cls){
+    Object.keys(BatchSchedules||{}).forEach(k=>{ const q=splitBatchKey(k); if(q.cls) compHere.add(q.cls+","+q.short.toLowerCase()); });
+  }
+  return Students.filter(s=>isActive(s)&&s.batch===p.short&&(!scope||s.class===scope)&&(p.cls ? s.class===p.cls : !compHere.has(s.class+","+p.short.toLowerCase()))).length;
+}
+/* Batches-board scope: null = all, else a class name. Follows class
+   selection; cleared by chip, toolbar retarget, or class removal. */
+let cbBatchScope=null;
+/* Tab switch: left list swaps kind; selection follows into the
+   shown kind (first item) so the right card never disagrees. */
+function setCubeView(v){
+  cubeView=(v==="batch")?"batch":"class";
+  const pool=(cubeView==="batch")?allBatchesList():Classes;
+  if(!pool.includes(selName)){ selKind=cubeView; selName=pool[0]||null; }
+  syncCsCtx();
+  const sel=$("calClassSelect");
+  if(sel&&selName){
+    sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
+    if(selKind==="class"&&!sel.value) sel.value=selName;
+    renderWeekly(); renderCalendarMonth();
+  }
+  renderClasses();
+}
+function renderClasses(){
+  if(!classCubes) return;
+  const tabC=$("cubeTabClasses"), tabB=$("cubeTabBatches");
+  if(tabC) tabC.classList.toggle("active",cubeView==="class");
+  if(tabB) tabB.classList.toggle("active",cubeView==="batch");
+  const classRow=$("classAddRow"), batchRow=$("batchAddRow");
+  if(classRow) classRow.hidden=(cubeView!=="class");
+  if(batchRow) batchRow.hidden=(cubeView!=="batch");
+  /* Static skeleton: #cubeGrid list + wall + #classDetail month.
+     Only the list refills here; selection changes clear staged
+     month edits, then the inline month editor repaints. */
+  const grid=$("cubeGrid");
+  if(!grid) return;
+  if(!Classes.length){ selKind="class"; selName=null; grid.innerHTML=`<div class="empty" style="padding:14px;font-size:10px"><b>No classes configured</b></div>`; syncMonthEditor(); return; }
+  const allBatches=allBatchesList();
+  const pool=(cubeView==="batch")?allBatches:Classes;
+  const prevKey=selName?selKind+":"+selName:null;
+  const valid=(selKind===cubeView&&pool.includes(selName));
+  if(!valid){ selKind=cubeView; selName=pool[0]||null; }
+  if((selName?selKind+":"+selName:null)!==prevKey) pendingDays={};
+  syncCsCtx();
+  const tile=(k,label,n)=>{ const bin=`<span class="cube-actions"><button class="btn danger icon-del" data-del-${k}="${esc(label)}" aria-label="Remove ${k}">${TRASH_ICON}</button></span>`; return `<div class="class-cube${selKind===k&&selName===label?" active":""}" data-kind="${k}" data-cube="${esc(label)}" role="tab"><span class="cube-name">${esc(label)}</span><span class="cube-count">${n}</span>${bin}</div>`; };
+  const rows=(cubeView==="batch"?allBatches:Classes).map(label=>tile(cubeView,label,Students.filter(s=>cubeView==="batch"?s.batch===label:s.class===label).length)).join("");
+  grid.innerHTML=rows;
+  syncMonthEditor();
+}
+/* Bottom strip tables: read-only classes/batches with active-student
+   counts (missing/legacy records count as active — only explicit
+   inactive students are excluded). Row click previews that schedule
+   in the month above (same retarget flow as the toolbar selector). */
+function renderCbTables(){
+  const cr=$("cbClassRows"), br=$("cbBatchRows");
+  if(!cr||!br) return;
+  const isActive=s=>s&&(s.active!==false&&s.active!==0);
+  if($("cbClassCount")) $("cbClassCount").textContent=Classes.length;
+  const row=(kind,key,label,n)=>{
+    const sel=(selKind===kind&&selName===key)?" active":"";
+    const dim=n===0?" dim":"";
+    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(key)}" role="button" tabindex="0"><span class="cb-dot" aria-hidden="true"></span><span class="cb-name">${esc(label)}</span><span class="cb-leader" aria-hidden="true"></span><span class="cb-num">${n}</span><button type="button" class="cb-edit" data-cb-edit-kind="${kind}" data-cb-edit-name="${esc(key)}" aria-label="Edit" title="Edit">${PENCIL_ICON}</button><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
+  };
+  cr.innerHTML=Classes.length?Classes.map(c=>row("class",c,c,Students.filter(s=>isActive(s)&&s.class===c).length)).join(""):`<div class="cb-empty">No classes yet — use ADD CLASS in the sidebar.</div>`;
+  if(cbBatchScope&&!Classes.includes(cbBatchScope)) cbBatchScope=null;
+  const bEntries=batchBoardEntries(cbBatchScope);
+  if($("cbBatchCount")) $("cbBatchCount").textContent=bEntries.length;
+  const scopeBtn=$("cbBatchScope");
+  if(scopeBtn){
+    if(cbBatchScope){ scopeBtn.hidden=false; scopeBtn.textContent="· "+cbBatchScope+" ×"; scopeBtn.title="Show all batches"; }
+    else scopeBtn.hidden=true;
+  }
+  br.innerHTML=bEntries.length?bEntries.map(e=>row("batch",e.key,e.label,batchRowCount(e.key,cbBatchScope))).join(""):(cbBatchScope?`<div class="cb-empty">No batches for ${esc(cbBatchScope)} yet — use + to add one.</div>`:`<div class="cb-empty">No batches yet — use ADD BATCH in the sidebar.</div>`);
+  /* Page 2: holidays & overrides. Past entries dim so actives read
+     instantly; headers carry the active (today-or-later) counts. */
+  const t=todayISO();
+  const MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dShort=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?(+m[3])+" "+MS[+m[2]-1]:"—"; };
+  const rangeShort=(a,b)=>{
+    if(!a) return "—"; if(!b||b===a) return dShort(a);
+    const ma=/^(\d{4})-(\d{2})-(\d{2})$/.exec(a), mb=/^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+    if(ma&&mb&&ma[1]===mb[1]&&ma[2]===mb[2]) return (+ma[3])+"→"+(+mb[3])+" "+MS[+mb[2]-1];
+    return dShort(a)+"→"+dShort(b);
+  };
+  const hr=$("cbHolidayRows"), or_=$("cbOverrideRows");
+  if(hr&&or_){
+    const hoRow=(kind,key,label,meta,past,title)=>{
+      const sel=((kind==="holiday"&&selHolidayKey===key)||(kind==="override"&&selOverrideKey===key))?" active":"";
+      return `<div class="cb-row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0"><span class="cb-dot" aria-hidden="true"></span><span class="cb-name">${esc(label)}</span><span class="cb-leader" aria-hidden="true"></span><span class="cb-num">${esc(meta)}</span><button type="button" class="cb-edit" data-ho-edit="${kind}" data-ho-key="${esc(key)}" aria-label="Edit" title="Edit">${PENCIL_ICON}</button><button type="button" class="cb-del" data-ho-del="${kind}" data-ho-key="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
+    };
+    if($("cbHolidayCount")) $("cbHolidayCount").textContent=Holidays.filter(h=>h.end>=t).length+" active";
+    if($("cbOverrideCount")) $("cbOverrideCount").textContent=Overrides.filter(o=>o.date>=t).length+" active";
+    hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end)+fmtTimes(h),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+fmtTimes(h)+" ("+(h.type||"holiday")+")")).join(""):`<div class="cb-empty">No holidays yet — use ADD HOLIDAY below.</div>`;
+    or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),(o.isWorking?"WORKING":"HOLIDAY")+fmtTimes(o),o.date<t,o.date+fmtTimes(o)+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<div class="cb-empty">No overrides yet — use ADD OVERRIDE below.</div>`;
+  }
+  paintCbPage(cbPage);
+}
+/* Single board (H single-window law): the ‹ › pager carousel is retired —
+   Classes · Batches and Holidays · Overrides always stack visible in the
+   one frost window, so paintCbPage pins both pages open. Nodes stay
+   (hidden pager + label remain logic truth for tests/wiring). */
+let cbPage=0;
+let selHolidayKey=null, selOverrideKey=null;
+function editTarget(kind){
+  if(selKind===kind&&selName) return {type:kind,name:selName};
+  const c=getScheduleContext();
+  if(c.type===kind&&c.name) return c;
+  return null;
+}
+function paintCbPage(i){
+  cbPage=0;
+  const p0=$("cbPageCb"), p1=$("cbPageHo"), lab=$("cbPageLabel");
+  if(p0) p0.hidden=false;
+  if(p1) p1.hidden=false;
+  if(lab) lab.textContent="CLASSES · BATCHES · HOLIDAYS · OVERRIDES";
+}
+function onCbStripClick(e){
+  const del=e.target.closest("[data-cb-del-kind],[data-ho-del]");
+  if(del){ onCbDel(del); return; }
+  /* Row-tap editors (user order): tapping anywhere on the row
+     (name, count, leader, dot) opens the same editor as the
+     pencil; only the remove cross keeps its own action. */
+  const ed=e.target.closest("[data-cb-edit-kind],[data-ho-edit]");
+  if(ed){
+    if(ed.dataset.hoEdit){
+      if(ed.dataset.hoEdit==="holiday"){ selHolidayKey=ed.dataset.hoKey; renderCbTables(); openHolidayEdit(selHolidayKey); }
+      else{ selOverrideKey=ed.dataset.hoKey; renderCbTables(); openOverrideEdit(selOverrideKey); }
+    }else{
+      selKind=ed.dataset.cbEditKind; selName=ed.dataset.cbEditName; syncCsCtx();
+      if(selKind==="class") cbBatchScope=selName;
+      pendingDays={};
+      cubeView=selKind;
+      renderWeekly(); renderClasses();
+      const sel=$("calClassSelect");
+      if(sel&&selName){
+        sel.value=selKind==="class"?`class:${selName}`:`batch:${selName}`;
+        if(selKind==="class"&&!sel.value) sel.value=selName;
+      }
+      renderCalendarMonth(); renderCbTables();
+      if(currentTab==="attendance") renderAttendance();
+      openSchedPopup(selKind,selName);
+    }
+    return;
+  }
+  const ho=e.target.closest("[data-ho-kind]");
+  if(ho){
+    /* Row tap opens the record's editor (user order — same as
+       the pencil). */
+    if(ho.dataset.hoKind==="holiday"){
+      selHolidayKey=ho.dataset.hoKey;
+      renderCbTables(); openHolidayEdit(selHolidayKey);
+    }else{
+      selOverrideKey=ho.dataset.hoKey;
+      renderCbTables(); openOverrideEdit(selOverrideKey);
+    }
+    return;
+  }
+  /* Class/batch row tap: preview only (no popup — the pencil opens
+     editors). Context sync + repaints stay. */
+  const r=e.target.closest("[data-cb-kind]"); if(!r) return;
+  selKind=r.dataset.cbKind; selName=r.dataset.cbName; syncCsCtx();
+  /* Class tap also scopes the Batches board (toggle); month preview
+     below is untouched (row-tap-no-popup contract holds). */
+  if(r.dataset.cbKind==="class") cbBatchScope=(cbBatchScope===r.dataset.cbName)?null:r.dataset.cbName;
+  pendingDays={};
+  cubeView=selKind;
+  renderWeekly(); renderClasses();
+  const sel=$("calClassSelect");
+  if(sel&&selName){
+    sel.value=selKind==="class"?`class:${selName}`:`batch:${selName}`;
+    if(selKind==="class"&&!sel.value) sel.value=selName;
+  }
+  renderCalendarMonth(); renderCbTables();
+  if(currentTab==="attendance") renderAttendance();
+}
+async function onCbDel(del){
+  if(del.dataset.cbDelKind){
+    const kind=del.dataset.cbDelKind, name=del.dataset.cbDelName;
+    if(kind==="class"){
+      if(!(await glassConfirm(`Remove class "${name}"?`,{title:"Remove class",okText:"Remove",danger:true}))) return;
+      try{
+        const next=Classes.filter(x=>x!==name);
+        /* Drop its schedule + per-class batches with it (user order):
+           orphans never linger server-side. */
+        delete ClassSchedules[name]; ClassSchedulesUI=ClassSchedules;
+        Object.keys(BatchSchedules).forEach(k=>{ if(splitBatchKey(k).cls===name) delete BatchSchedules[k]; });
+        if(cbBatchScope===name) cbBatchScope=null;
+        if(selKind==="class"&&selName===name){ selKind="class"; selName=null; pendingDays={}; syncCsCtx(); }
+        await api("/api/settings",{method:"POST",body:JSON.stringify({classes:next})});
+        await persistCalendar();
+        await loadClassesHolidaysSettings(); renderAll();
+      }catch(err){ await glassAlert("Failed to remove class: "+err.message); }
+    }else{
+      if(name.includes("|")){
+        const p=splitBatchKey(name);
+        if(!(await glassConfirm(`Remove batch "${p.short}" from "${p.cls}"? Students keep the batch name and fall back to shared timing.`,{title:"Remove batch",okText:"Remove",danger:true}))) return;
+        try{
+          delete BatchSchedules[name];
+          if(selKind==="batch"&&selName===name){ selName=null; }
+          if(await persistCalendar()){ await loadClassesHolidaysSettings(); renderAll(); }
+        }catch(err){ await glassAlert("Failed to remove batch: "+err.message); }
+        return;
+      }
+      if(!(await glassConfirm(`Remove batch "${name}"?`,{title:"Remove batch",okText:"Remove",danger:true}))) return;
+      try{
+        if(!(Batches||[]).some(b=>b===name)){ await glassAlert(`"${name}" is carried by student records and cannot be removed here.`); return; }
+        const next=(Batches||[]).filter(x=>x!==name);
+        delete BatchSchedules[name];
+        await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
+        await persistCalendar();
+        await loadClassesHolidaysSettings(); renderAll();
+      }catch(err){ await glassAlert("Failed to remove batch: "+err.message); }
+    }
+    return;
+  }
+  const hk=del.dataset.hoKey;
+  if(del.dataset.hoDel==="holiday"){
+    if(selHolidayKey===hk) selHolidayKey=null;
+    Holidays=Holidays.filter(h=>h.start!==hk);
+    if(await persistCalendar()){ renderHolidays(); renderCalendarMonth(); }
+  }else if(del.dataset.hoDel==="override"){
+    if(selOverrideKey===hk) selOverrideKey=null;
+    Overrides=Overrides.filter(o=>o.date!==hk);
+    if(await persistCalendar()){ renderOverrides(); renderCalendarMonth(); }
+  }
+}
+function cbEditKind(kind, singular){
+  const t=editTarget(kind);
+  if(!t){ glassAlert("Select "+singular+" in the table first."); return; }
+  openSchedPopup(t.type,t.name);
+}
+if($("cbAddClass")) $("cbAddClass").onclick=()=>openSchedPopup("class",null);
+if($("cbAddBatch")) $("cbAddBatch").onclick=()=>openSchedPopup("batch",null,cbBatchScope);
+if($("cbEditClass")) $("cbEditClass").onclick=()=>cbEditKind("class","a class");
+if($("cbEditBatch")) $("cbEditBatch").onclick=()=>cbEditKind("batch","a batch");
+if($("cbAddHoliday")) $("cbAddHoliday").onclick=()=>openHolidayCreate();
+if($("cbAddOverride")) $("cbAddOverride").onclick=()=>openOverrideCreate();
+if($("cbEditHoliday")) $("cbEditHoliday").onclick=()=>{ if(!selHolidayKey){ glassAlert("Select a holiday in the table first."); return; } openHolidayEdit(selHolidayKey); };
+if($("cbEditOverride")) $("cbEditOverride").onclick=()=>{ if(!selOverrideKey){ glassAlert("Select an override in the table first."); return; } openOverrideEdit(selOverrideKey); };
+if($("cbStrip")){
+  $("cbStrip").addEventListener("click",(e)=>{
+    if(e.target.closest("#cbBatchScope")){ cbBatchScope=null; renderCbTables(); return; }
+    if(e.target.closest("#cbPrev")){ paintCbPage(cbPage-1); return; }
+    if(e.target.closest("#cbNext")){ paintCbPage(cbPage+1); return; }
+    onCbStripClick(e);
+  });
+  /* Row Enter/Space previews like a tap (user order): pencil and
+     trash are native buttons with their own keyboard keys. */
+  $("cbStrip").addEventListener("keydown",(e)=>{
+    if(e.target.closest("button")) return;
+    if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
+  });
+}
+/* Top-left (P, user order): School Information docks first in the Setup
+   toolbar — same ID, same opener binding (bound later by ID), zero new
+   IDs, zero new wiring. Markup already places it there; this is the
+   boot guard if the node ever renders from the rail. */
+{ const tb=$("setupToolbar"), osib=$("openSchoolInfoBtn");
+  if(tb&&osib&&osib.parentElement!==tb) tb.insertBefore(osib,tb.firstChild); }
+/* Inline month editor: staged days + snapshot + strip paint. Toggles
+   stage into pendingDays (never persisted); Save composes staged days
+   into the existing ClassSchedules/BatchSchedules entry, then runs the
+   existing timing save; Cancel restores the snapshot. */
+let pendingDays={};
+let schedSnapshot=null;
+function meKey(){ return selName ? selKind+":"+selName : null; }
+function snapshotSchedule(){
+  if(!selName){ schedSnapshot=null; return; }
+  const wd = selKind==="batch" ? getWorkingDaysForBatch(selName) : getWorkingDaysForClass(selName);
+  const t = getScheduleTiming({type:selKind,name:selName});
+  schedSnapshot={kind:selKind,name:selName,wd:{...wd},present:t.presentCutoff,late:t.lateCutoff};
+}
+function paintMonthEditor(){
+  const ed=$("monthEditor"); if(!ed) return;
+  ed.style.display=schedSnapshot?"":"none";
+  if(!schedSnapshot) return;
+  if($("csPresentCutoff")) $("csPresentCutoff").value=schedSnapshot.present;
+  if($("csLateCutoff")) $("csLateCutoff").value=schedSnapshot.late;
+}
+function syncMonthEditor(){
+  const grid=$("cubeGrid");
+  if(grid) grid.querySelectorAll(".class-cube").forEach(t=>t.classList.toggle("active",t.dataset.kind===selKind&&t.dataset.cube===selName));
+  snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
+}
+function onMeDayClick(e){
+  const b=e.target.closest("[data-me-day]"); if(!b||!selName) return;
+  if(selKind!=="class"&&selKind!=="batch") return;
+  const day=String(b.dataset.meDay), key=selKind+":"+selName;
+  const map = selKind==="batch" ? BatchSchedules : ClassSchedules;
+  const entry = map[selName];
+  let wd;
+  if(pendingDays[key]) wd={...pendingDays[key]};
+  else if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
+  else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
+  else wd={...Settings.workingDays};
+  wd[day]=!asBool(wd[day] ?? wd[String(day)]);
+  wd[String(day)]=wd[day];
+  pendingDays[key]=wd;
+  renderCalendarMonth();
+}
+async function onMeSave(){
+  if(!selName) return;
+  const key=selKind+":"+selName;
+  if(pendingDays[key]){
+    if(selKind==="batch"){
+      const entry=BatchSchedules[selName]||{};
+      BatchSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
+    } else if(selKind==="class"){
+      const entry=ClassSchedules[selName]||{};
+      ClassSchedules[selName]=Object.assign({}, typeof entry==="object"?entry:{}, {workingDays: pendingDays[key]});
+      ClassSchedulesUI=ClassSchedules;
+    }
+    delete pendingDays[key];
+  }
+  await onCsSaveTiming();
+}
+function onMeCancel(){
+  const key=meKey(); if(key) delete pendingDays[key];
+  snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
+}
+/* Static strip wiring (nodes persist — wire once, not per render). */
+function wireSchedEditor(){
+  if($("csSaveTiming")) $("csSaveTiming").onclick=onMeSave;
+  if($("csCancelTiming")) $("csCancelTiming").onclick=onMeCancel;
+}
+function formatAuditDetails(raw, action){
+  if(!raw) return "—";
+  const text = String(raw).trim();
+  if(!text) return "—";
+
+  // Parse JSON objects or extract key settings if JSON was serialized
+  let obj = null;
+  if((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))){
+    try {
+      obj = JSON.parse(text);
+    } catch(e) {
+      obj = null;
+    }
+  }
+
+  if(obj && typeof obj === "object" && !Array.isArray(obj) &&
+     ("frequency" in obj || "weekdays" in obj || "intervalDays" in obj)){
+    // Backup schedule shapes read as short human words ("Daily · 18:30").
+    if(obj.enabled === false) return "Off";
+    const t = obj.time || "";
+    const f = String(obj.frequency || "daily").toLowerCase();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = Array.isArray(obj.weekdays)
+      ? obj.weekdays.map(d => dayNames[d]).filter(Boolean) : [];
+    if(f === "weekdays"){
+      if(days.length === 0 || days.length === 7) return t ? `Daily · ${t}` : "Daily";
+      return t ? `${days.join(", ")} · ${t}` : days.join(", ");
+    }
+    if(f === "interval"){
+      const n = parseInt(obj.intervalDays, 10) || 1;
+      if(n <= 1) return t ? `Daily · ${t}` : "Daily";
+      return t ? `Every ${n} days · ${t}` : `Every ${n} days`;
+    }
+    return t ? `Daily · ${t}` : "Daily";
+  }
+
+  if(obj && typeof obj === "object" && !Array.isArray(obj)){
+    const labelMap = {
+      schoolName: "School",
+      region: "Region",
+      academicYear: "Academic year",
+      schoolOpeningDate: "Opening date",
+      attendanceStartDate: "Attendance start",
+      presentCutoff: "Present cutoff",
+      lateCutoff: "Late cutoff",
+      lateThreshold: "Late cutoff",
+      minPercent: "Min attendance"
+    };
+    const parts = [];
+    const priorityKeys = [
+      "schoolName", "region", "academicYear", "schoolOpeningDate",
+      "presentCutoff", "lateCutoff"
+    ];
+    for(const k of priorityKeys){
+      if(obj[k] !== undefined && obj[k] !== null && obj[k] !== ""){
+        parts.push(`${labelMap[k]}: ${obj[k]}`);
+      }
+    }
+    // Include other simple settings
+    for(const [k, v] of Object.entries(obj)){
+      if(!priorityKeys.includes(k) && labelMap[k] && v !== undefined && v !== null && v !== "" && typeof v !== "object"){
+        const val = (k === "minPercent") ? `${v}%` : v;
+        parts.push(`${labelMap[k]}: ${val}`);
+      }
+    }
+    if(parts.length > 0){
+      return parts.join(" · ");
+    }
+  }
+
+  // Handle truncated JSON strings (e.g. [:500] from backend)
+  if(text.startsWith("{") && (text.includes('"schoolName"') || text.includes('"presentCutoff"'))){
+    const labelMap = {
+      schoolName: "School",
+      region: "Region",
+      academicYear: "Academic year",
+      schoolOpeningDate: "Opening date",
+      presentCutoff: "Present cutoff",
+      lateCutoff: "Late cutoff"
+    };
+    const parts = [];
+    for(const [k, label] of Object.entries(labelMap)){
+      const re = new RegExp(`"${k}"\\s*:\\s*"([^"\\\\]*)"`);
+      const m = text.match(re);
+      if(m && m[1]){
+        parts.push(`${label}: ${m[1]}`);
+      }
+    }
+    if(parts.length > 0){
+      return parts.join(" · ");
+    }
+  }
+
+  const cap = (s, n) => s.length > n ? s.slice(0, n).trimEnd() + "…" : s;
+
+  // Backup runs ("Uploaded atl-backup-….db (123 bytes, sha256:…, trigger:manual)")
+  // read as short human words — filename plus trigger only.
+  let m = text.match(/^(Uploaded|Saved)\s+(\S+?)\s*\(([^)]*)\)\s*$/);
+  if(m){
+    const trig = (m[3].match(/trigger\s*:\s*([A-Za-z]+)/) || [])[1] || "";
+    const verb = m[1] === "Saved" ? "Saved" : "Sent";
+    return trig ? `${verb} ${m[2]} · ${trig}` : `${verb} ${m[2]}`;
+  }
+
+  // Attendance correction ("sid 5 2026-09-11 PRESENT->LATE reason:late bus").
+  m = text.match(/^sid\s+(\S+)\s+(\S+)\s+(\S+?)\s*->\s*(\S+)\s+reason:(.*)$/);
+  if(m) return `${m[1]} · ${m[2]} · ${m[3]} → ${m[4]} · ${m[5].trim()}`;
+
+  // Absence reconciliation ("4 absent 0 not_scheduled 2026-09-11").
+  m = text.match(/^(\d+)\s+absent\s+(\d+)\s+not_scheduled\s+(\S+)\s*$/);
+  if(m) return `${m[1]} absent · ${m[2]} not scheduled · ${shortAuditDate(m[3])}`;
+
+  // Student field update ("id 3 ['name','phone']").
+  m = text.match(/^id\s+(\d+)\s*\[(.*)\]\s*$/);
+  if(m){
+    const fields = m[2].replace(/['"]/g, "").split(/\s*,\s*/).filter(Boolean).join(", ");
+    return fields ? `Student ${m[1]} · ${fields}` : `Student ${m[1]}`;
+  }
+
+  // Finger slot move ("id 5 3->7").
+  m = text.match(/^id\s+(\d+)\s+(\d+)\s*->\s*(\d+)\s*$/);
+  if(m) return `Student ${m[1]} · slot ${m[2]} → ${m[3]}`;
+
+  // Removed student ("Aarav fid 5 ok").
+  m = text.match(/^(.+?)\s+fid\s+(\d+)\s*(.*)$/);
+  if(m) return `${m[1].trim()} · slot ${m[2]}${m[3].trim() ? " · " + m[3].trim() : ""}`;
+
+  // Any other JSON-ish fragment: strip brackets/quotes, join the pairs.
+  if(/[{}\[\]"]/.test(text)){
+    const pretty = text.replace(/^[{\[]\s*|\s*[}\]]$/g, "")
+      .replace(/["']/g, "")
+      .split(/\s*,\s*/)
+      .map(p => p.replace(/\s*:\s*/g, ": ").trim())
+      .filter(Boolean)
+      .join(" · ")
+      .replace(/^[·\s]+|[·\s]+$/g, "");
+    if(pretty) return cap(pretty, 160);
+  }
+
+  return cap(text.replace(/\s+/g, " "), 160);
+}
+
+function formatAuditTime(raw){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  if(!raw) return "—";
+  const text=String(raw).trim();
+  // DD/MM/YYYY first (also matches the tail of "YYYY-MM-DD DD/MM/YYYY, HH:MM:SS" composites).
+  let m=text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})/);
+  if(m) return `${parseInt(m[1],10)} ${months[parseInt(m[2],10)-1]||""} · ${String(m[4]).padStart(2,"0")}:${m[5]}`;
+  m=text.match(/(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})/);
+  if(m) return `${parseInt(m[3],10)} ${months[parseInt(m[2],10)-1]||""} · ${String(m[4]).padStart(2,"0")}:${m[5]}`;
+  return text;
+}
+
+function shortAuditDate(iso){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return String(iso||"");
+  return `${parseInt(m[3],10)} ${months[parseInt(m[2],10)-1]||""}`;
+}
+
+function formatAuditAction(action){
+  const map = {
+    GDRIVE_BACKUP: "GDrive Backup",
+    TELEGRAM_BACKUP: "Telegram Backup",
+    USB_BACKUP: "USB Backup",
+    GDRIVE_SCHEDULE_CHANGED: "GDrive Schedule",
+    TELEGRAM_SCHEDULE_CHANGED: "Telegram Schedule",
+    USB_SCHEDULE_CHANGED: "USB Schedule",
+    GDRIVE_RESTORE: "GDrive Restore",
+    SETTINGS_CHANGED: "Settings",
+    STUDENT_ENROLLED: "Enrollment",
+    STUDENT_IMPORTED: "Import",
+    STUDENT_IMPORTED_CSV: "Import",
+    STUDENT_UPDATED: "Student Update",
+    STUDENT_DELETED: "Student Removed",
+    FINGER_REENROLLED: "Re-enroll",
+    ATTENDANCE_CORRECTED: "Correction",
+    ATTENDANCE_RECORDED: "Attendance",
+    DUPLICATE_SCAN: "Duplicate",
+    UNKNOWN_FINGERPRINT: "Unknown Finger",
+    NON_WORKING_DAY_SCAN: "Off-day Scan",
+    NOT_SCHEDULED_SCAN: "Unscheduled Scan",
+    ABSENCE_RECONCILIATION: "Reconciliation",
+    GALLERY_CLEARED: "Gallery Cleared"
+  };
+  if(!action) return "—";
+  if(map[action]) return map[action];
+  return String(action).split("_").map(w=>w.charAt(0)+w.slice(1).toLowerCase()).join(" ");
+}
+
+function renderAudit(){
+  const cc=$("auditCount"); if(cc) cc.textContent=Audit.length+(Audit.length===1?" record":" records");
+  if(!Audit.length){ auditBody.innerHTML=`<tr><td colspan="4"><div class="empty"><b>No audit history</b>Changes appear here.</div></td></tr>`; return; }
+  auditBody.innerHTML=Audit.map(a=>`<tr><td title="${esc(a.time)}">${esc(formatAuditTime(a.time))}</td><td>${esc(formatAuditAction(a.action))}</td><td>${esc(formatAuditDetails(a.details, a.action))}</td><td>${esc(a.by)}</td></tr>`).join("");
+}
+function renderAll(){
+  renderClassFilters();
+  renderStudentList();
+  renderWeekly();
+  renderHolidays();
+  renderOverrides();
+  renderCalendarMonth();
+  renderClasses();
+  renderCbTables();
+  renderAudit();
+  if(currentTab==="attendance") renderAttendance();
+}
+// ---- ENROLL: information + real fingerprint scan ----
+/* Photo picker helper: no file → cb(""); oversize → error shown, cb skipped */
+function readPhotoFile(input, errEl, cb){
+  const f=input&&input.files&&input.files[0];
+  if(!f){ cb(""); return; }
+  if(f.size>2*1024*1024){ if(errEl){ errEl.textContent="Photo max 2MB."; errEl.style.display="block"; } return; }
+  const r=new FileReader(); r.onload=e=>cb(e.target.result); r.readAsDataURL(f);
+}
+/* Initials monogram: first letters of the first two words, uppercased */
+function studentInitials(name){
+  return String(name||"").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+}
+async function pollEnrollProgress(stepEl, labelEl){
+  if(_enrollAbort) return;
+  try{
+    const p=await api("/api/sensor/progress",{method:"GET"});
+    if(p&&labelEl){
+      const st=p.state, step=p.step||0;
+      if(stepEl) stepEl.textContent=step+"/3";
+      if(st==="place") labelEl.textContent="Place your finger — press it flat on the glass";
+      else if(st==="hold") labelEl.textContent="Hold still — capturing";
+      else if(st==="capturing") labelEl.textContent="Scanning — keep still";
+      else if(st==="enroll_1") labelEl.textContent="First capture done — lift your finger";
+      else if(st==="enroll_2") labelEl.textContent="Second capture — place the same finger";
+      else if(st==="enroll_3") labelEl.textContent="Third capture — place the same finger";
+    }
+  }catch(e){}
+  if(!_enrollAbort) _enrollPoll=setTimeout(()=>pollEnrollProgress(stepEl,labelEl),700);
+}
+function fingerprintScanUI(title, subtitle, onStart, onSuccess){
+  setState("ready");
+  enrollTitle.textContent=title;
+  enrollSub.textContent=subtitle;
+  enrollBody.innerHTML=`
+    <div class="enroll-scan-box">
+      <div class="enroll-scan-count" id="scanCount">0 / 3</div>
+      <div class="enroll-scan-label" id="scanLabel">Place your finger on the sensor</div>
+      <div class="finger-visual"><div class="finger-line"></div></div>
+      <div class="lift-hint">Keep the same finger flat. The sensor light stays on.</div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center"><button class="btn primary" id="scanStartBtn">Start scan</button><button class="btn" id="scanCancelBtn">Cancel</button></div>
+      <div class="inline-error" id="scanErr" style="display:none"></div>
+    </div>`;
+  openModal(enrollModal);
+  $("scanCancelBtn").onclick=()=>{ finishEnrollUi(); resumeSensorScan(); };
+  $("scanStartBtn").onclick=async()=>{
+    $("scanStartBtn").disabled=true;
+    _enrollAbort=false;
+    const stepEl=$("scanCount"), labelEl=$("scanLabel");
+    pollEnrollProgress(stepEl,labelEl);
+    try{
+      const res=await onStart();
+      try{ onSuccess(res); }catch(e){}
+      returnToFrontPage();
+    }catch(err){
+      _enrollAbort=true;
+      if(_enrollPoll) clearTimeout(_enrollPoll);
+      const e=$("scanErr"); e.style.display="block";
+      e.textContent=err.message||"Scan failed. Check the sensor and try again.";
+      $("scanStartBtn").disabled=false;
+    }
+  };
+}
+function openNewStudent(){
+  pauseSensorScan();
+  enrollTitle.textContent="New student enrollment";
+  enrollSub.textContent="Enter the student information. Click Start scan once, then place and lift the same finger three times on the sensor.";
+  enrollBody.innerHTML=`
+    <div class="form-grid">
+      <div class="form-field"><label>Full name *</label><input id="nsName" placeholder="Aarav Sharma"></div>
+      <div class="form-field"><label>Roll number *</label><input id="nsRoll" placeholder="10A-08"></div>
+      <div class="form-field"><label>Class *</label><select id="nsGrade">${Classes.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+      <div class="form-field"><label>Batch *</label><select id="nsBatch"></select></div>
+      <div class="form-field"><label>Section</label><input id="nsSection" placeholder="A"></div>
+      <div class="form-field"><label>Parent / Guardian</label><input id="nsParent" placeholder="Parent name"></div>
+      <div class="form-field"><label>Parent phone</label><input id="nsPhone" placeholder="9876543210"></div>
+      <div class="form-field full"><label>Address</label><input id="nsAddress" placeholder="Shikrapur, Pune"></div>
+      <div class="form-field full"><label>Photo (optional, max 2MB)</label><input type="file" id="nsPhoto" accept="image/*"></div>
+      <div class="inline-error" id="nsErr" style="display:none"></div>
+      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="nsCancel">Cancel</button><button class="btn primary" id="nsSave">Continue to fingerprint scan</button></div>
+    </div>`;
+  openModal(enrollModal);
+  $("nsCancel").onclick=()=>{ if(_enrollPoll) clearTimeout(_enrollPoll); closeModal(enrollModal); resumeSensorScan(); };
+  /* Batch follows class (user order): only this class's batches list;
+     no free text, no phantom fallback class. */
+  const paintNsBatches=()=>{
+    const g=$("nsGrade")?$("nsGrade").value:"";
+    const list=classBatchNames(g);
+    if($("nsBatch")) $("nsBatch").innerHTML=list.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join("");
+  };
+  if($("nsGrade")) $("nsGrade").onchange=paintNsBatches;
+  paintNsBatches();
+  $("nsSave").onclick=()=>{
+    const name=$("nsName").value.trim(), roll=$("nsRoll").value.trim(),
+          grade=$("nsGrade").value.trim(), batch=$("nsBatch").value.trim(),
+          section=$("nsSection").value.trim(), parent=$("nsParent").value.trim(),
+          phone=$("nsPhone").value.trim(), address=$("nsAddress").value.trim();
+    const err=$("nsErr");
+    if(!name||!roll||!grade){ err.textContent="Name, roll and class are required."; err.style.display="block"; return; }
+    if(!(Classes||[]).length){ err.textContent="Create a class in Setup first."; err.style.display="block"; return; }
+    if(!batch){ err.textContent=`No batches for ${grade} yet — add them in Setup first.`; err.style.display="block"; return; }
+    err.style.display="none";
+    const finish=(photo)=>{
+      const form={name,roll,grade,batch,section,parent,phone,address,photo:photo||""};
+      closeModal(enrollModal);
+  fingerprintScanUI("Enroll fingerprint — "+name, "Click Start scan once. Then place and lift the same finger three times; do not click between captures.",
+        ()=>apiEnrollStudent(form),
+        ()=>{ loadAll(); });
+    };
+    readPhotoFile($("nsPhoto"), err, finish);
+  };
+  try{ enhancePhotoField($("nsPhoto")); }catch(e){}
+}
+function openEditStudent(id){
+  const s=Students.find(x=>x.id===id); if(!s) return;
+  enrollTitle.textContent="Edit student information";
+  enrollSub.textContent="Changes are saved to the database (SQLite).";
+  enrollBody.innerHTML=`
+    <div class="form-grid">
+      <div class="form-field"><label>Full name</label><input id="edName" value="${esc(s.name)}"></div>
+      <div class="form-field"><label>Roll</label><input id="edRoll" value="${esc(s.roll)}"></div>
+      <div class="form-field"><label>Class *</label><select id="edGrade">${Classes.map(c=>`<option ${c===s.class?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+      <div class="form-field"><label>Batch / Group</label><select id="edBatch"></select></div>
+      <div class="form-field"><label>Section</label><input id="edSection" value="${esc(s.section||'')}"></div>
+      <div class="form-field"><label>Parent / Guardian</label><input id="edParent" value="${esc(s.parent||'')}"></div>
+      <div class="form-field"><label>Phone</label><input id="edPhone" value="${esc(s.phone)}"></div>
+      <div class="form-field full"><label>Address</label><input id="edAddress" value="${esc(s.address)}"></div>
+      <div class="form-field full"><label>Photo (max 2MB)</label><input type="file" id="edPhoto" accept="image/*"></div>
+      <div class="form-field"><label>Status</label><select id="edActive"><option value="1" ${s.active?"selected":""}>Active</option><option value="0" ${!s.active?"selected":""}>Inactive</option></select></div>
+      ${s.photo ? `<div class="form-field full" id="edPhotoPreview"><img src="${esc(s.photo)}" style="width:92px;height:92px;object-fit:cover;display:block"><div style="font-size:11px;color:var(--ink-3);margin-top:6px">Current photo</div><button class="btn" id="edClearPhoto" style="margin-top:8px">Clear photo</button></div>` : ``}
+      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save changes</button></div>
+      <div class="inline-error" id="edErr" style="display:none"></div>
+    </div>`;
+  openModal(enrollModal);
+  $("edCancel").onclick=()=>closeModal(enrollModal);
+  /* Batch follows class; the stored value survives even if no class
+     owns it anymore (grandfathered legacy, user order). */
+  const paintEdBatches=()=>{
+    const g=$("edGrade")?$("edGrade").value:"";
+    const list=classBatchNames(g), lows=new Set(list.map(o=>o.toLowerCase()));
+    const cur=String(s.batch||"");
+    const legacy=!!(cur&&!lows.has(cur.toLowerCase()));
+    const opts=legacy?[cur,...list]:[...list];
+    if($("edBatch")) $("edBatch").innerHTML=opts.map(b=>`<option value="${esc(b)}"${b===cur?" selected":""}>${esc(b)}${(legacy&&b===cur)?" (legacy)":""}</option>`).join("");
+  };
+  if($("edGrade")) $("edGrade").onchange=()=>{ paintEdBatches(); };
+  paintEdBatches();
+  const edPhotoEl=$("edPhoto");
+  if(edPhotoEl) edPhotoEl.onchange=(e)=>{
+    const inp=e.target;
+    if(inp.files&&inp.files[0]&&inp.files[0].size>2*1024*1024){ const er=$("edErr"); er.textContent="Photo max 2MB."; er.style.display="block"; inp.value=""; return; }
+    readPhotoFile(inp, $("edErr"), (data)=>{
+      if(!data) return;
+      const prev=$("edPhotoPreview"); if(prev){ prev.style.display="block"; const img=prev.querySelector("img"); if(img) img.src=data; }
+    });
+  };
+  let edClearRequested=false;
+  const edClearBtn=$("edClearPhoto");
+  if(edClearBtn) edClearBtn.onclick=(e)=>{ e.preventDefault(); edClearRequested=true; const prev=$("edPhotoPreview"); if(prev){ const img=prev.querySelector("img"); if(img) img.src=""; prev.style.display="none"; } const inp=$("edPhoto"); if(inp) inp.value=""; };
+  $("edSave").onclick=async()=>{
+    const err=$("edErr");
+    const name=$("edName").value.trim(), roll=$("edRoll").value.trim(), grade=$("edGrade").value.trim(),
+          batch=$("edBatch").value.trim(), section=$("edSection").value.trim(), parentEl=$("edParent").value.trim(),
+          phone=$("edPhone").value.trim(), address=$("edAddress").value.trim(), active=$("edActive").value==="1";
+    const doSave=async(photoData)=>{
+      try{
+        const payload={name,roll,grade,batch,section,parent:parentEl,phone,address,active};
+        if(photoData!==null) payload.photo=photoData;
+        await api("/api/students/"+id,{method:"PATCH",body:JSON.stringify(payload)});
+        closeModal(enrollModal); await loadAll();
+        selectStudent(id);
+        await glassAlert("Saved.");
+      }catch(e){ err.style.display="block"; err.textContent=e.message; }
+    };
+    readPhotoFile($("edPhoto"), err, (photoData)=>{
+      doSave(photoData==="" ? (edClearRequested?"":null) : photoData);
+    });
+  };
+  try{
+    enhancePhotoField($("edPhoto"));
+    const _ec=$("edClearPhoto"); if(_ec) _ec.addEventListener('click',()=>{ const _i=$("edPhoto"); if(_i&&_i._photoRefresh) setTimeout(_i._photoRefresh,0); });
+  }catch(e){}
+}
+function openReEnroll(id){
+  const s=Students.find(x=>x.id===id); if(!s) return;
+  pauseSensorScan();
+  fingerprintScanUI("Re-enroll fingerprint — "+s.name, "Click Start scan once. Then place and lift the same finger three times; do not click between captures.",
+    ()=>api("/api/students/"+id+"/reenroll",{method:"POST",body:"{}"}),
+    ()=>{ loadAll(); });
+}
+/* Shared outline trash glyph (stroke=currentColor → ink-aware by construction) */
+const TRASH_ICON='<svg class="del-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><rect x="6" y="7" width="12" height="13" rx="1.5"/><path d="M10 11v6M14 11v6"/></svg>';
+/* Shared outline pencil glyph (feather edit-2 language, same 1.6
+   stroke as TRASH_ICON → same weight by construction) */
+const PENCIL_ICON='<svg class="edit-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
+/* Shared hand-drawn tick glyph (same path/weight as the popup
+   Save ticks → one tick language by construction) */
+const TICK_ICON='<svg class="tick-ic" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 C 8.5 15.5, 10.5 17.5, 12 19 C 15.5 13, 19 8.5, 23.5 5"/></svg>';
+async function deleteStudent(id){
+  const s=Students.find(x=>x.id===id); if(!s) return;
+  if(!(await glassConfirm("Deactivate "+s.name+"? Their fingerprint slot is freed and roll is released. History is kept.",{title:"Deactivate student",okText:"Deactivate",danger:true}))) return;
+  pauseSensorScan();
+  try{ await api("/api/students/"+id,{method:"DELETE"}); await loadAll(); }catch(e){ await glassAlert("Failed: "+e.message); }
+  finally{ resumeSensorScan(); }
+}
+async function reactivateStudent(id){
+  const s=Students.find(x=>x.id===id); if(!s) return;
+  if(!(await glassConfirm("Re-activate "+s.name+"?",{title:"Re-activate student",okText:"Re-activate"}))) return;
+  try{ await api("/api/students/"+id,{method:"PATCH",body:JSON.stringify({active:1})}); await loadAll(); selectStudent(id); }catch(e){ await glassAlert("Failed: "+e.message); }
+}
+function apiEnrollStudent(form){
+  return api("/api/enroll",{method:"POST",body:JSON.stringify(form)});
+}
+// ---- print / CSV ----
+function downloadFile(content, filename, type){
+  const blob=new Blob([content],{type:type||'text/plain'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(e){} },1500);
+}
+function exportCSV(rows, filename){
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadFile(csv, filename, 'text/csv');
+}
+function printHTML(htmlContent, docTitle){
+  const w=window.open('','_blank'); if(!w) return;
+  const t = docTitle ? esc(docTitle) : "Report";
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${t}</title><style>
+    @page {
+      size: auto;
+      margin: 12mm 15mm;
+    }
+    *, *:before, *:after {
+      box-sizing: border-box;
+    }
+    html, body {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #181A20;
+      background: #F2F3F6;
+      padding: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+      line-height: 1.4;
+    }
+    .report-header {
+      border-bottom: 2px solid #181A20;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-family: "Newsreader", Georgia, serif;
+      font-size: 20px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 6px 0;
+      color: #181A20;
+    }
+    .report-subtitle {
+      font-size: 11px;
+      letter-spacing: 0.03em;
+      color: #6B6B6B;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .report-meta-tag {
+      display: inline-block;
+      padding: 2px 7px;
+      background: #F6F4EF;
+      border: 1px solid #E9E6E0;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 500;
+      color: #181A20;
+    }
+    .stats-row {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      margin: 14px 0 20px 0 !important;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .stat {
+      border: 1px solid #E9E6E0 !important;
+      background: #FCFBF7 !important;
+      padding: 8px 12px !important;
+      min-width: 85px !important;
+      flex: 1 1 0% !important;
+      box-sizing: border-box !important;
+    }
+    .stat b {
+      display: block !important;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+      font-size: 16px !important;
+      font-weight: 600 !important;
+      color: #181A20 !important;
+      letter-spacing: -0.02em !important;
+      line-height: 1.2 !important;
+    }
+    .stat label {
+      display: block !important;
+      font-size: 8.5px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.12em !important;
+      text-transform: uppercase !important;
+      color: #6B6B6B !important;
+      margin-top: 4px !important;
+      line-height: 1.2 !important;
+    }
+    .table-wrap {
+      border: 1px solid #E9E6E0 !important;
+      background: #F2F3F6 !important;
+      margin: 14px 0 20px 0 !important;
+      overflow: visible !important;
+      contain: none !important;
+    }
+    .table-scroll {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    table {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      border-collapse: collapse !important;
+      font-size: 10.5px !important;
+      table-layout: auto !important;
+    }
+    thead {
+      display: table-header-group !important;
+    }
+    tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    th {
+      font-size: 8.5px !important;
+      font-weight: 600 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.12em !important;
+      color: #6B6B6B !important;
+      text-align: left !important;
+      padding: 8px 10px !important;
+      border-bottom: 1.5px solid #181A20 !important;
+      background: #F6F4EF !important;
+      white-space: nowrap !important;
+    }
+    td {
+      padding: 7px 10px !important;
+      border-bottom: 1px solid #E9E6E0 !important;
+      color: #181A20 !important;
+      vertical-align: middle !important;
+      font-variant-numeric: tabular-nums !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      max-width: none !important;
+    }
+    tr:nth-child(even) td {
+      background: #FAFAF7 !important;
+    }
+    .badge {
+      display: inline-block !important;
+      font-size: 8.5px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      padding: 2px 6px !important;
+      border: 1px solid #E9E6E0 !important;
+      background: #F2F3F6 !important;
+      border-radius: 2px !important;
+      white-space: nowrap !important;
+    }
+    .badge.present {
+      color: #2F5D34 !important;
+      border-color: #2F5D34 !important;
+      background: #F3F8F4 !important;
+    }
+    .badge.late {
+      color: #8A6A2A !important;
+      border-color: #C7B07A !important;
+      background: #FAF7F0 !important;
+    }
+    .badge.absent {
+      color: #8A3A3A !important;
+      border-color: #8A3A3A !important;
+      background: #FDF4F4 !important;
+    }
+    .badge.not-scheduled {
+      color: #6B6B6B !important;
+      border-color: #E9E6E0 !important;
+      background: #F6F4EF !important;
+    }
+    .badge.duplicate {
+      color: #6B6B6B !important;
+      border-color: #E9E6E0 !important;
+    }
+    .report-section {
+      margin-top: 22px !important;
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+    /* Reports are ink on paper: cloned cards/tables carry live UI
+       buttons (Correct/Edit/…) — never print them. */
+    button {
+      display: none !important;
+    }
+    .section-title {
+      font-family: "Newsreader", Georgia, serif !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.08em !important;
+      margin-bottom: 8px !important;
+      color: #181A20 !important;
+      border-bottom: 1px solid #E9E6E0 !important;
+      padding-bottom: 4px !important;
+    }
+    .detail-card {
+      border: 1px solid #E9E6E0 !important;
+      background: #F2F3F6 !important;
+      padding: 16px !important;
+      margin: 12px 0 !important;
+      display: flex !important;
+      gap: 20px !important;
+    }
+    .detail-photo {
+      width: 140px !important;
+      height: 180px !important;
+      border: 1px solid #181A20 !important;
+      background: #F6F4EF !important;
+      overflow: hidden !important;
+      flex-shrink: 0 !important;
+    }
+    .detail-photo img {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+    .detail-photo-fallback {
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-family: "Newsreader", Georgia, serif !important;
+      font-size: 54px !important;
+      color: #181A20 !important;
+    }
+    .detail-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+      flex: 1 !important;
+    }
+    .detail-field label {
+      display: block !important;
+      font-size: 8.5px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.12em !important;
+      text-transform: uppercase !important;
+      color: #6B6B6B !important;
+      margin-bottom: 2px !important;
+    }
+    .detail-field span {
+      display: block !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      color: #181A20 !important;
+    }
+    .empty {
+      padding: 16px !important;
+      text-align: center !important;
+      font-size: 10px !important;
+      color: #6B6B6B !important;
+    }
+    button, .btn {
+      display: none !important;
+    }
+    @media print {
+      body {
+        padding: 0 !important;
+        max-width: none !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style></head><body>${htmlContent}<script>window.addEventListener('DOMContentLoaded',()=>{ setTimeout(()=>{ try{ window.print(); }catch(e){} }, 100); }); if(document.readyState==='complete'){ setTimeout(()=>{ try{ window.print(); }catch(e){} }, 100); }<\/script></body></html>`);
+  w.document.close();
+}
+
+// ---- events ----
+async function openAdmin(){
+  // require admin auth when PIN configured — use safe header-only check that does not need sensor
+  try{
+    await api("/api/audit", {method:"GET"});
+  }catch(e){
+    if(e.status===401) return;
+    // for other errors (e.g., network when PIN empty), still allow open to preserve offline admin when no PIN
+    const pin = (()=>{ try{ return sessionStorage.getItem("atl_admin_pin") || ""; }catch(_e){ return ""; }})();
+    if(!pin){
+    } else {
+      return;
+    }
+  }
+  const titles={
+    students: "Students",
+    attendance: "Today — Attendance",
+    today: "Today — Attendance",
+    reports: "Attendance",
+    setup: "Setup",
+    calendar: "Setup",
+    settings: "Setup",
+    backup: "Backup — Audit"
+  };
+  if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
+  adminLayer.classList.add("open"); renderAll();
+  setTimeout(()=>{ updateTabs(); }, 80);
+}
+function updateTabs(){
+  document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
+  let tab = currentTab;
+  if(tab === "calendar" || tab === "settings") tab = "setup";
+  const pane = document.getElementById("pane-" + tab);
+  if(pane){ pane.classList.remove("hidden"); pane.style.opacity = ""; }
+  /* Nav highlight follows the tab too, so a refresh-restored tab does
+     not show the wrong active button (clicks set it directly). */
+  try{
+    const navBtns=document.querySelectorAll("#adminNav button[data-tab]");
+    const setupAlias=(currentTab==="calendar"||currentTab==="settings")?"setup":null;
+    navBtns.forEach(b=>b.classList.toggle("active", b.dataset.tab===currentTab||b.dataset.tab===setupAlias));
+  }catch(e){}
+  /* Sidebar context follows the tab: only the active page's secondary
+     controls stay visible (Phase 2: students, Phase 3: attendance).
+     Nodes are pre-moved in markup; this just toggles the section.
+     Uses [hidden] + CSS display:none !important — plain inline
+     display:none loses to the .side-ctx display:flex !important shell.
+     The opened section starts at top (nav stays fixed above it; the
+     section scrolls internally, never the rail or the workspace). */
+  try{ document.querySelectorAll('#adminSide [data-side]').forEach(s=>{ const on=(s.dataset.side===tab); s.hidden=!on; if(on){ try{ s.scrollTop=0; }catch(_){} } }); }catch(e){}
+  const titles = {
+    students: "Students",
+    attendance: "Today — Attendance",
+    today: "Today — Attendance",
+    reports: "Attendance",
+    setup: "Setup",
+    calendar: "Setup",
+    settings: "Setup",
+    backup: "Backup — Audit"
+  };
+  if(adminTitle) adminTitle.textContent = titles[currentTab] || "Admin";
+  if(tab === "attendance"){
+    if(currentTab === "attendance" && attDatePreset && !attDatePreset.value) attDatePreset.value = "today";
+    renderAttendance();
+  }
+  if(tab === "setup"){
+    populateScheduleSelector();
+    renderClasses();
+    renderWeekly();
+    renderHolidays();
+    renderOverrides();
+    renderCalendarMonth();
+  }
+  if(tab === "backup"){ renderAudit(); loadBackupManagerStatus(); }
+  else { try{ if(typeof stopGDrivePolling==="function") stopGDrivePolling(); }catch(e){} }
+}
+document.getElementById("openAdminBtn").onclick=openAdmin;
+const _frontEnrollBtn=document.getElementById("openEnrollBtn"); if(_frontEnrollBtn) _frontEnrollBtn.onclick=openNewStudent;
+const _newToolbarBtn=document.getElementById("newStudentToolbarBtn"); if(_newToolbarBtn) _newToolbarBtn.onclick=openNewStudent;
+document.getElementById("adminClose").onclick=()=>{
+  finishEnrollUi();
+  try{ if(typeof stopGDrivePolling==="function") stopGDrivePolling(); }catch(e){}
+  adminLayer.classList.remove("open");
+  resumeSensorScan();
+};
+adminNav.onclick=(e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  [...adminNav.children].forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  currentTab = btn.dataset.tab;
+  try{ localStorage.setItem("atl_admin_tab", currentTab); }catch(e){}
+  if(currentTab === "calendar" || currentTab === "settings"){
+    const setupBtn = adminNav.querySelector("button[data-tab='setup']");
+    if(setupBtn) setupBtn.classList.add("active");
+  }
+  if(currentTab === "attendance"){
+    if(attDatePreset) attDatePreset.value = "today";
+  }
+  updateTabs();
+};
+// CSV import (backend) — posts the file to /api/import/csv (field "file")
+(function(){
+  const toolbar = document.querySelector('#pane-students .tab-toolbar');
+  if(!toolbar) return;
+  const impBtn = $("importStudentsBtn");
+  if(!impBtn) return;
+  let fileInput = $("importStudentsFile");
+  if(!fileInput){
+    fileInput = document.createElement('input');
+    fileInput.type='file'; fileInput.accept='.csv,text/csv'; fileInput.style.display='none'; fileInput.id='importStudentsFile';
+    toolbar.appendChild(fileInput);
+  }
+  if(impBtn._csvWired) return;
+  impBtn._csvWired = true;
+  impBtn.onclick=()=>fileInput.click();
+  fileInput.onchange=async(e)=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    fileInput.value='';
+    const prev=impBtn.textContent; impBtn.textContent='Importing…'; impBtn.disabled=true;
+    try{
+      const fd=new FormData(); fd.append('file',file);
+      const r=await api('/api/import/csv',{method:'POST',body:fd});
+      await glassAlert(`Import complete: ${r.added||0} added, ${r.skipped||0} skipped${r.errors?.length?` (${r.errors.length} errors)`:''}`);
+      await loadAll();
+    }catch(err){ await glassAlert('Import failed: '+(err.message||err)); }
+    finally{ impBtn.textContent=prev; impBtn.disabled=false; }
+  };
+})();
+ // Students Export CSV (client-side) — columns per docs/ADMIN.md; rate over full history
+(function(){
+  const expBtn = $("exportStudentsBtn");
+  if(!expBtn || expBtn._csvWired) return;
+  expBtn._csvWired = true;
+  expBtn.onclick=()=>{
+    const head=["Name","Roll","Class","Batch","Section","Parent","Phone","Address","Fingerprint","Status","Attendance rate %"];
+    const rows=Students.map(s=>{
+      const ev=AllEvents.filter(a=>a.studentId===s.id);
+      const p=ev.filter(a=>a.status==="Present").length, l=ev.filter(a=>a.status==="Late").length, ab=ev.filter(a=>a.status==="Absent").length;
+      const t=p+l+ab, rate=t?Math.round(100*(p+l)/t):"";
+      return [s.name,s.roll,s.class,s.batch||"",s.section||"",s.parent||"",s.phone||"",s.address||"",s.fid||"",s.active?"Active":"Inactive",rate];
+    });
+    exportCSV([head,...rows],"students_"+todayISO()+".csv");
+  };
+})();
+// Unified Attendance toolbar actions & event listeners
+const handleAttendancePrint = () => {
+  const school = Settings.schoolName || "ATL Model School";
+  const preset = attDatePreset ? attDatePreset.value : "today";
+  const today = todayISO();
+  const {from, to} = resolveAttRange(preset, null);
+
+  const isSingleDay = (from === to);
+  const cf = attClassFilter ? attClassFilter.value : "";
+  const bf = attBatchFilter ? attBatchFilter.value : "";
+  const sid = (attStudentFilter && attStudentFilter.value) ? parseInt(attStudentFilter.value) : null;
+  const stu = sid ? Students.find(s => s.id === sid) : null;
+
+  let scopeLabel = "Entire School";
+  if(stu) scopeLabel = `Student: ${stu.name} (Roll: ${stu.roll||"—"}, Class: ${stu.class||"—"}${stu.batch ? " · Batch: " + stu.batch : ""})`;
+  else if(cf && bf) scopeLabel = `Class: ${cf} · Batch: ${bf}`;
+  else if(cf) scopeLabel = `Class: ${cf}`;
+  else if(bf) scopeLabel = `Batch: ${bf}`;
+
+  let dateDesc = "";
+  if(isSingleDay){
+    dateDesc = (from === today) ? `Today — ${fmtDate(from)} (${from})` : `Date: ${fmtDate(from)} (${from})`;
+  } else {
+    dateDesc = `Date Range: ${fmtDate(from)} to ${fmtDate(to)} (${from} → ${to}, ${rangeDays(from,to)} days)`;
+  }
+
+  const generated = new Date().toLocaleString();
+  const titleText = stu ? `${school} — Student Attendance (${stu.name})` : (isSingleDay ? `${school} — Attendance (${from})` : `${school} — Attendance Report`);
+
+  const hdr = `
+    <div class="report-header">
+      <h1>${esc(titleText)}</h1>
+      <div class="report-subtitle">
+        <div><strong>${esc(dateDesc)}</strong> &nbsp;·&nbsp; <span>${esc(scopeLabel)}</span></div>
+        <div><span class="report-meta-tag">Generated: ${esc(generated)}</span></div>
+      </div>
+    </div>`;
+
+  const stats = (attStats && attStats.children.length) ? `<div class="stats-row">${attStats.innerHTML}</div>` : "";
+  const mainTbl = document.querySelector('#pane-attendance .table-wrap:first-of-type');
+  const tblHtml = mainTbl ? mainTbl.outerHTML : "";
+
+  let unknownsHtml = "";
+  const unkRows = attUnknownBody ? attUnknownBody.querySelectorAll("tr") : [];
+  const hasUnks = unkRows.length && !attUnknownBody.querySelector(".empty") && !stu;
+  if(hasUnks){
+    unknownsHtml = `
+      <div class="report-section">
+        <div class="section-title">Unknown Scan Attempts (${unkRows.length})</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Fingerprint</th><th>Note</th></tr></thead>
+            <tbody>
+              ${attUnknownBody.innerHTML}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  printHTML(hdr + stats + tblHtml + unknownsHtml, `${school} — Attendance (${from}${from!==to?" to "+to:""})`);
+};
+
+const handleAttendanceExport = async () => {
+  const preset = attDatePreset ? attDatePreset.value : "today";
+  const {from, to} = resolveAttRange(preset, null);
+
+  const isSingleDay = (from === to);
+  const cf = attClassFilter ? attClassFilter.value : "";
+  const bf = attBatchFilter ? attBatchFilter.value : "";
+  const sf = attStatusFilter ? attStatusFilter.value : "";
+  const sid = (attStudentFilter && attStudentFilter.value) ? parseInt(attStudentFilter.value) : null;
+  const stu = sid ? Students.find(s => s.id === sid) : null;
+
+  // Prefer backend CSV streaming export for all date ranges
+  try {
+    let url = "/api/export/csv?type=attendance";
+    if(isSingleDay){
+      url += "&date=" + encodeURIComponent(from);
+    } else {
+      url += "&start=" + encodeURIComponent(from) + "&end=" + encodeURIComponent(to);
+    }
+    if(cf) url += "&class=" + encodeURIComponent(cf);
+    if(bf) url += "&batch=" + encodeURIComponent(bf);
+    if(sid) url += "&studentId=" + encodeURIComponent(sid);
+    if(sf && sf !== "All" && sf !== "Unknown"){
+      url += "&status=" + encodeURIComponent(sf.toUpperCase().replace(" ","_"));
+    }
+
+    const pinHeaders = {};
+    try { const p = sessionStorage.getItem("atl_admin_pin"); if(p) pinHeaders["X-Admin-Pin"] = p; }catch(_e){}
+
+    const r = await fetch(url, {cache: "no-store", headers: pinHeaders});
+    if(r.ok){
+      const blob = await r.blob();
+      const url2 = URL.createObjectURL(blob), a = document.createElement('a');
+      let baseName = stu ? `attendance_${stu.roll || stu.name}` : `attendance_${from}${from!==to ? "_to_"+to : ""}${cf ? "_"+cf : ""}${bf ? "_"+bf : ""}`;
+      if(stu && from !== to) baseName += `_${from}_to_${to}`;
+      a.href = url2;
+      a.download = (baseName + ".csv").replace(/[\s\/\\:]+/g, "_");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url2), 1500);
+      return;
+    }
+  } catch(e){}
+
+  // Fallback / offline frontend CSV export (from last render data, never DOM)
+  const lr = (lastAttRender && lastAttRender.rows && lastAttRender.rows.length) ? lastAttRender : {rows:[], isSingleDay, from, to};
+  const rows = [["Date", "Time", "Student", "Roll", "Class", "Batch", "Status", "Fingerprint"]];
+  for(const r of lr.rows){
+    if(!r || !r.s) continue;
+    const status = r.a.status + (r.a.isDuplicate ? " Duplicate" : "");
+    const finger = r.a.fingerId!=null ? "F-"+r.a.fingerId : "";
+    if(lr.isSingleDay) rows.push([lr.from, r.a.time||"", r.s.name, r.s.roll, r.s.class, r.s.batch||"", status, finger]);
+    else rows.push([r.a.date||lr.from, r.a.time||"", r.s.name, r.s.roll, r.s.class, r.s.batch||"", status, finger]);
+  }
+  const filename = `attendance-${from}${from!==to ? "-to-"+to : ""}${cf?"-"+cf:""}.csv`;
+  exportCSV(rows, filename);
+};
+
+const handleAttendanceRefresh = async () => {
+  const btn = attRefreshBtn;
+  if(btn){ btn.disabled = true; }
+  try {
+    await loadTodayAttendance();
+    await renderAttendance();
+  } finally {
+    if(btn){ btn.disabled = false; }
+  }
+};
+
+if(attRefreshBtn) attRefreshBtn.onclick = handleAttendanceRefresh;
+if(attPrintBtn) attPrintBtn.onclick = handleAttendancePrint;
+if(attExportBtn) attExportBtn.onclick = handleAttendanceExport;
+
+if(attDatePreset) attDatePreset.addEventListener("change", () => {
+  const v = attDatePreset.value;
+  if(attSingleDate) attSingleDate.style.display = (v === "custom_day") ? "" : "none";
+  if(attFromDate) attFromDate.style.display = (v === "custom_range") ? "" : "none";
+  if(attToDate) attToDate.style.display = (v === "custom_range") ? "" : "none";
+  renderAttendance();
+});
+if(attSingleDate) attSingleDate.addEventListener("change", renderAttendance);
+if(attFromDate) attFromDate.addEventListener("change", renderAttendance);
+if(attToDate) attToDate.addEventListener("change", renderAttendance);
+if(attClassFilter) attClassFilter.addEventListener("change", () => {
+  populateAttStudents();
+  renderAttendance();
+});
+if(attBatchFilter) attBatchFilter.addEventListener("change", () => {
+  populateAttStudents();
+  renderAttendance();
+});
+if(attStudentFilter) attStudentFilter.addEventListener("change", renderAttendance);
+if(attStatusFilter) attStatusFilter.addEventListener("change", renderAttendance);
+if(attSort) attSort.addEventListener("change", renderAttendance);
+/* Board tabs (user order): records / unknown share one fixed board.
+   Static nodes (only tbody refills), so one binding holds. Instant
+   channel swap, no motion. */
+let attBoardTab = "records";
+/* Last rendered attendance rows (data, not DOM) — feeds the offline CSV fallback */
+let lastAttRender = {rows:[], isSingleDay:true, from:"", to:""};
+function paintAttTabs(){
+  const unk = attBoardTab === "unknown";
+  document.querySelectorAll('#attRecordsBoard .att-tab').forEach(b=>{
+    const on = (b.dataset.attab || "records") === attBoardTab;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  const rv = $("attRecordsView"), uv = $("attUnknownView");
+  if(rv) rv.hidden = unk;
+  if(uv) uv.hidden = !unk;
+  const rc = $("attRecordCount"), uc = $("attUnknownCount");
+  if(rc) rc.hidden = unk;
+  if(uc) uc.hidden = !unk;
+}
+document.querySelectorAll('#attRecordsBoard .att-tab').forEach(b=>{
+  b.addEventListener("click", ()=>{ attBoardTab = b.dataset.attab || "records"; paintAttTabs(); });
+});
+/* KPI filter cubes (user order): taps drive the existing attStatusFilter
+   (no new mechanism) — set value, fire change, renderAttendance runs.
+   Delegated on #attStats (persists; cubes regenerate every render).
+   Tap a status filters; tap Total or the active cube clears. */
+if(attStats && !attStats.dataset.cubes){
+  attStats.dataset.cubes = "1";
+  attStats.addEventListener("click", (e)=>{
+    const c = (e.target && e.target.closest) ? e.target.closest(".stat[data-f]") : null;
+    if(!c || !attStats.contains(c) || !attStatusFilter) return;
+    const v = c.getAttribute("data-f") || "";
+    const next = (v && v === attStatusFilter.value) ? "" : v;
+    if(attStatusFilter.value !== next){
+      attStatusFilter.value = next;
+      try{ attStatusFilter.dispatchEvent(new Event("change", {bubbles:true})); }catch(_){}
+    }
+    try{ renderAttendance(); }catch(err){ console.error(err); }
+  });
+}
+/* Section Clear: full attendance reset — preset Today, dates emptied,
+   year override dropped, all filters to All, shell shut, table reloaded */
+function clearAttendanceSection(){
+  try{ closeDtPops(); }catch(e){ console.error(e); }
+  try{ attAcadFrom=attAcadTo=null; }catch(e){ console.error(e); }
+  try{ if(attSingleDate) attSingleDate.value=""; }catch(e){ console.error(e); }
+  try{ if(attFromDate) attFromDate.value=""; }catch(e){ console.error(e); }
+  try{ if(attToDate) attToDate.value=""; }catch(e){ console.error(e); }
+  ["attClassFilter","attBatchFilter","attStudentFilter","attStatusFilter"].forEach(id=>{
+    try{ const el=$(id); if(el) el.value=""; }catch(e){ console.error(e); }
+  });
+  try{ if(attSort) attSort.value="time_desc"; }catch(e){ console.error(e); }
+  try{ populateAttStudents(); }catch(e){ console.error(e); }
+  try{ _dtCommitPreset("today"); }catch(e){ console.error(e); }
+  try{ renderAttendance(); }catch(e){ console.error(e); }
+}
+
+$("calPrevBtn").onclick=()=>{ calendarMonth.setMonth(calendarMonth.getMonth()-1); renderCalendarMonth(); };
+$("calNextBtn").onclick=()=>{ calendarMonth.setMonth(calendarMonth.getMonth()+1); renderCalendarMonth(); };
+if($("calTodayBtn")) $("calTodayBtn").onclick=()=>{ calendarMonth=new Date(); renderCalendarMonth(); };
+/* Legend emphasis: sticky single-select over the existing resolved
+   day states (working / non-working + holidays / override). No
+   navigation, no data change — pressing a status selects it and it
+   stays selected (re-pressing or double-clicking never clears it).
+   Grid classes survive re-render (set on the container, cells repaint
+   inside). */
+let calEmphasis=null;
+if($("setupToolbar")) $("setupToolbar").addEventListener("click",(e)=>{
+  const b=e.target.closest("[data-calview]"); if(!b) return;
+  calEmphasis = b.dataset.calview;
+  document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+  const g=$("calendarGrid"); if(!g) return;
+  g.classList.toggle("cal-dim-working", calEmphasis==="working");
+  g.classList.toggle("cal-dim-nonworking", calEmphasis==="non-working");
+  g.classList.toggle("cal-dim-override", calEmphasis==="override");
+});
+/* Month View reset: clears the sticky legend emphasis back to the full
+   month (the only way back — re-pressing a filter keeps it). */
+if($("monthViewResetBtn")) $("monthViewResetBtn").onclick=()=>{
+  calEmphasis=null;
+  document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed","false"));
+  const g=$("calendarGrid"); if(!g) return;
+  g.classList.remove("cal-dim-working","cal-dim-nonworking","cal-dim-override");
+};
+/* Day window is read-only resolved display — tables own all holiday /
+   override editing. Resolution read ONLY from the shared truth
+   functions: override → holiday (exam = working) → active-context
+   template. Headers keep editing the template. */
+function daySheetSource(iso, ctx){
+  const ov=getOverride(iso);
+  if(ov) return {badge:ov.isWorking?"WORKING":"NON-WORKING",
+    text:"Date override (global) — "+(ov.isWorking?"working":"non-working")+(ov.note?": "+ov.note:"")+fmtTimes(ov)};
+  const hol=isHoliday(iso);
+  if(hol){
+    const type=String(hol.type||"holiday").toLowerCase();
+    const exam=type==="exam";
+    return {badge:exam?"WORKING":"NON-WORKING",
+      text:"Holiday range (global) — "+hol.name+" ("+hol.type+")"+fmtTimes(hol)+(exam?", counts as working":"")};
+  }
+  const w=isWorkingDayForContext(iso, ctx);
+  const ctxName=(!ctx||ctx.type==="global")?"Global":(ctx.type==="class"?"Class: "+ctx.name:"Batch: "+ctx.name);
+  return {badge:w?"WORKING":"NON-WORKING",
+    text:"Weekly template ("+ctxName+") — "+(w?"working":"non-working")};
+}
+/* Day-sheet thought bubble (user order): anchored popover, not a
+   modal. Anchor = clicked date cell; bubble flips below/above +
+   clamps horizontally, tail tracks the cell center; the cell is never
+   covered (below/above always clears it). */
+let _dsAnchor=null;
+let _undoTimer=null, _undoData=null;
+function _undoOutside(e){ try{ if(e.target&&e.target.closest&&e.target.closest("#setupUndoBar")) return; hideSetupUndo(); }catch(_){} }
+function hideSetupUndo(){ try{ if(_undoTimer){ clearTimeout(_undoTimer); _undoTimer=null; } }catch(e){} _undoData=null; try{ const b=$("setupUndoBar"); if(b) b.hidden=true; }catch(e){} try{ document.removeEventListener("pointerdown",_undoOutside,true); }catch(e){} }
+function showSetupUndo(kind, rec){
+  hideSetupUndo();
+  _undoData={kind:kind, rec:rec};
+  try{
+    const bar=$("setupUndoBar"), msg=$("setupUndoMsg"), btn=$("setupUndoBtn");
+    if(msg) msg.textContent=(kind==="holiday"?"Holiday removed":"Override removed")+" · ";
+    if(btn) btn.onclick=()=>undoSetupRemove();
+    if(bar) bar.hidden=false;
+    document.removeEventListener("pointerdown",_undoOutside,true);
+    document.addEventListener("pointerdown",_undoOutside,true);
+    _undoTimer=setTimeout(()=>hideSetupUndo(),5000);
+  }catch(e){}
+}
+async function undoSetupRemove(){
+  const d=_undoData; hideSetupUndo(); if(!d) return;
+  try{
+    if(d.kind==="holiday"){ Holidays.push(d.rec); Holidays.sort((a,b)=>String(a.start).localeCompare(String(b.start))||String(a.end).localeCompare(String(b.end))); }
+    else{ Overrides.push(d.rec); Overrides.sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+    if(await persistCalendar()){ renderHolidays(); renderOverrides(); renderCbTables(); renderCalendarMonth(); }
+  }catch(e){}
+}
+function _dsOutside(e){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")&&!(e.target&&e.target.closest&&e.target.closest("#daySheetModal .modal-card"))) closeDaySheet(); }catch(_){} }
+function _dsScrollShut(){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")) closeDaySheet(); }catch(_){} }
+function _dsReposition(){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")) positionDaySheet(); }catch(_){} }
+function closeDaySheet(){ try{ document.removeEventListener("pointerdown",_dsOutside,true); document.removeEventListener("scroll",_dsScrollShut,true); window.removeEventListener("resize",_dsReposition); }catch(e){} _dsAnchor=null; closeModal(daySheetModal); }
+function positionDaySheet(){
+  const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
+  if(!card||!_dsAnchor||!_dsAnchor.getBoundingClientRect) return;
+  const GAP=10, M=8, vw=window.innerWidth, vh=window.innerHeight;
+  const r=_dsAnchor.getBoundingClientRect();
+  const bw=card.offsetWidth||320, bh=card.offsetHeight||200;
+  /* Half-based flip (user order): cell in the lower half opens the
+     bubble above it (tail down); upper half opens below (tail up).
+     M-pin stays as last-resort safety only. */
+  let top, tail;
+  if((r.top+r.height/2)>vh/2){ top=r.top-GAP-bh; tail="bottom"; }
+  else{ top=r.bottom+GAP; tail="top"; }
+  if(top+bh+M>vh) top=Math.max(M,vh-bh-M);
+  if(top<M) top=M;
+  let left=Math.round(r.left+r.width/2-bw/2);
+  left=Math.max(M,Math.min(left,Math.max(M,vw-bw-M)));
+  let tx=Math.round(r.left+r.width/2-left);
+  tx=Math.max(22,Math.min(tx,bw-22));
+  card.style.left=left+"px"; card.style.top=top+"px";
+  try{ card.dataset.tail=tail; }catch(e){}
+  try{ card.style.setProperty("--tail-x",tx+"px"); }catch(e){}
+  dsSilhouette();
+}
+/* Single-silhouette outline (user order): one SVG path = sharp
+   rect grown into its tail, one 3px stroke, no seam. Square 90°
+   corners (R=0) with miter joins; tail apex already straight
+   segments. Redrawn from the measured box on every position. */
+function dsSilhouette(){
+  try{
+    const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
+    if(!card||!card.offsetWidth) return;
+    const W=card.offsetWidth, H=card.offsetHeight;
+    const tail=card.dataset.tail||"top";
+    let tx=parseFloat((card.style.getPropertyValue("--tail-x")||"").replace("px",""));
+    if(!isFinite(tx)) tx=W/2;
+    const R=0, B=17, T=21, o=1.5;
+    const f=n=>Math.round(n*10)/10;
+    let d;
+    if(tail==="bottom"){
+      d=`M ${f(o+R)} ${f(o)} L ${f(W-o-R)} ${f(o)} Q ${f(W-o)} ${f(o)} ${f(W-o)} ${f(o+R)} L ${f(W-o)} ${f(H-o-R)} Q ${f(W-o)} ${f(H-o)} ${f(W-o-R)} ${f(H-o)} L ${f(tx+B)} ${f(H-o)} L ${f(tx)} ${f(H-o+T)} L ${f(tx-B)} ${f(H-o)} L ${f(o+R)} ${f(H-o)} Q ${f(o)} ${f(H-o)} ${f(o)} ${f(H-o-R)} L ${f(o)} ${f(o+R)} Q ${f(o)} ${f(o)} ${f(o+R)} ${f(o)} Z`;
+    }else{
+      d=`M ${f(o+R)} ${f(o)} L ${f(tx-B)} ${f(o)} L ${f(tx)} ${f(o-T)} L ${f(tx+B)} ${f(o)} L ${f(W-o-R)} ${f(o)} Q ${f(W-o)} ${f(o)} ${f(W-o)} ${f(o+R)} L ${f(W-o)} ${f(H-o-R)} Q ${f(W-o)} ${f(H-o)} ${f(W-o-R)} ${f(H-o)} L ${f(o+R)} ${f(H-o)} Q ${f(o)} ${f(H-o)} ${f(o)} ${f(H-o-R)} L ${f(o)} ${f(o+R)} Q ${f(o)} ${f(o)} ${f(o+R)} ${f(o)} Z`;
+    }
+    const NS="http://www.w3.org/2000/svg";
+    let svg=card.querySelector(":scope > svg.ds-sil");
+    if(!svg){ svg=document.createElementNS(NS,"svg"); svg.setAttribute("class","ds-sil"); svg.setAttribute("aria-hidden","true"); card.insertBefore(svg,card.firstChild); }
+    svg.setAttribute("width",W); svg.setAttribute("height",H);
+    svg.style.cssText="position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:-1;pointer-events:none;";
+    let p=svg.querySelector("path");
+    if(!p){ p=document.createElementNS(NS,"path"); svg.appendChild(p); }
+    p.setAttribute("d",d);
+    p.setAttribute("fill","#F4EEE1"); p.setAttribute("stroke","#141414");
+    p.setAttribute("stroke-width","3"); p.setAttribute("stroke-linejoin","miter");
+  }catch(e){}
+}
+function openDaySheet(iso, cell){
+  const ctx=getScheduleContext();
+  const src=daySheetSource(iso, ctx);
+  const dt=new Date(iso+"T00:00:00");
+  const ov=getOverride(iso), hol=isHoliday(iso);
+  daySheetTitle.textContent=dt.toLocaleDateString("en-GB",{weekday:"long"})+", "+_fmtShort(iso);
+  daySheetBody.innerHTML=
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="setup-legend-context">${esc(src.badge)}</span></div>`+
+    `<div style="font-size:11px;color:var(--ink-2);line-height:1.5;">${esc(src.text)}</div>`+
+    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button>${ov?`<button class="btn icon-del" id="dsDelOv" aria-label="Remove override">${TRASH_ICON}</button>`:""}${(!ov&&hol)?`<button class="btn icon-del" id="dsDelHol" aria-label="Remove holiday">${TRASH_ICON}</button>`:""}<button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
+  openModal(daySheetModal);
+  _dsAnchor=(typeof cell!=="undefined"&&cell)||null;
+  try{
+    document.removeEventListener("pointerdown",_dsOutside,true);
+    document.removeEventListener("scroll",_dsScrollShut,true);
+    window.removeEventListener("resize",_dsReposition);
+    document.addEventListener("pointerdown",_dsOutside,true);
+    document.addEventListener("scroll",_dsScrollShut,true);
+    window.addEventListener("resize",_dsReposition);
+  }catch(e){}
+  positionDaySheet();
+  $("dsClose").onclick=()=>closeDaySheet();
+  const rmOvBtn=$("dsDelOv");
+  if(rmOvBtn) rmOvBtn.onclick=async()=>{
+    const o=Overrides.find(x=>x.date===iso); if(!o) return;
+    Overrides=Overrides.filter(x=>x.date!==iso);
+    closeDaySheet();
+    if(await persistCalendar()){ renderOverrides(); renderCbTables(); renderCalendarMonth(); showSetupUndo("override",o); }
+    else{ Overrides.push(o); Overrides.sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+  };
+  const rmHolBtn=$("dsDelHol");
+  if(rmHolBtn) rmHolBtn.onclick=async()=>{
+    const h=isHoliday(iso); if(!h) return;
+    Holidays=Holidays.filter(x=>x.start!==h.start);
+    closeDaySheet();
+    if(await persistCalendar()){ renderHolidays(); renderCbTables(); renderCalendarMonth(); showSetupUndo("holiday",h); }
+    else{ Holidays.push(h); Holidays.sort((a,b)=>String(a.start).localeCompare(String(b.start))||String(a.end).localeCompare(String(b.end))); }
+  };
+  $("dsAddOv").onclick=()=>{
+    closeDaySheet();
+    $("overrideModalBody").innerHTML=`<div class="form-grid">
+      <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(iso)}"></div>
+      <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
+      <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
+      <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
+      <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
+      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
+      <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
+    openModal(overrideModal);
+    $("overrideCancel").onclick=()=>closeModal(overrideModal);
+    $("overrideSave").onclick=async()=>{
+      const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
+      if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
+      if(note.includes("@")){ err.textContent="Notes cannot contain the @ symbol."; err.style.display="block"; return; }
+      let stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+      if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+      [stm,etm]=normTimes(stm,etm);
+      Overrides=Overrides.filter(o=>o.date!==date);
+      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
+      if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
+    };
+    $("overrideNote").focus();
+  };
+}
+/* Day cells open the read-only window; headers are display-only.
+   Weekday toggling lives in the class/batch solid schedule editor —
+   branch bodies lifted verbatim from the retired header path, with
+   the editor context plus an editor refresh. Single persist path. */
+async function onDayToggleClick(e){
+  const cell=e.target.closest("[data-date]");
+  if(cell){ openDaySheet(cell.dataset.date, cell); return; }
+}
+let csCtx=null;
+function openClassSchedule(ctx){
+  if(ctx.type==="class"){ selKind="class"; selName=ctx.name; }
+  else if(ctx.type==="batch"){ selKind="batch"; selName=ctx.name; }
+  renderClasses();
+  syncCsCtx();
+}
+/* Editor nodes are per-render (wired by wireSchedEditor). */
+if($("calendarGrid")){
+  $("calendarGrid").addEventListener("click", onDayToggleClick);
+}
+/* Context dropdown drives the same single selection as the tiles:
+   retarget the editor to the chosen class/batch (or hide it for
+   global) so toolbar, month, roster, and editor never disagree.
+   Same flow as tile select: clear staged edits, sync, re-render. */
+if($("calClassSelect")) $("calClassSelect").onchange=()=>{
+  const raw=$("calClassSelect").value;
+  /* Jump targets (user order): holiday/override picks navigate the
+     month to that date on the global template — same renders as a
+     context retarget, zero popups. */
+  const jm=/^(holiday|override):(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if(jm){
+    const iso=jm[2]+"-"+jm[3]+"-"+jm[4];
+    if(jm[1]==="holiday"){ const h=Holidays.find(x=>x.start===iso); if(h) selHolidayKey=h.start; }
+    else selOverrideKey=iso;
+    selName=null; pendingDays={}; syncCsCtx();
+    cbBatchScope=null;
+    calendarMonth=new Date(+jm[2],+jm[3]-1,1);
+    renderWeekly(); renderClasses(); renderCbTables(); renderCalendarMonth();
+    if(currentTab==="attendance") renderAttendance();
+    return;
+  }
+  const ctx=getScheduleContext();
+  pendingDays={};
+  if(ctx.type==="global"){ selName=null; }
+  else{
+    selKind=ctx.type; selName=ctx.name;
+    if(cubeView!==ctx.type) cubeView=ctx.type;
+  }
+  syncCsCtx();
+  cbBatchScope=(ctx.type==="class")?ctx.name:null;
+  renderWeekly(); renderClasses(); renderCbTables();
+  const sel=$("calClassSelect");
+  if(sel&&selName){
+    sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
+    if(selKind==="class"&&!sel.value) sel.value=selName;
+  }
+  if(currentTab==="attendance") renderAttendance();
+};
+/* Reset-week retired: template editing lives in the solid schedule editor. */
+function openHolidayCreate(){
+  $("holidayModalBody").innerHTML=`<div class="form-grid">
+    <div class="form-field full"><label>Name</label><input id="holidayName" placeholder="Diwali vacation"></div>
+    <div class="form-field"><label>Start date</label><input type="date" id="holidayStart"></div>
+    <div class="form-field"><label>End date</label><input type="date" id="holidayEnd"></div>
+    <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime"></div>
+    <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime"></div>
+    <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday">Holiday</option><option value="vacation">Vacation</option><option value="exam">Exam day (working)</option></select></div>
+    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></span></div>
+    <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
+  openModal(holidayModal);
+  $("holidayCancel").onclick=()=>closeModal(holidayModal);
+  $("holidaySave").onclick=async()=>{
+    const name=$("holidayName").value.trim(), start=$("holidayStart").value, end=$("holidayEnd").value||start, err=$("holidayErr");
+    if(!name||!start||!end||start>end){ err.textContent="Name and a valid date range are required."; err.style.display="block"; return; }
+    if(name.includes("@")){ err.textContent="Names cannot contain the @ symbol."; err.style.display="block"; return; }
+    let stm=$("holidayStartTime").value, etm=$("holidayEndTime").value;
+    if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+    [stm,etm]=normTimes(stm,etm);
+    Holidays.push({name,start,end,startTime:stm,endTime:etm,category:"",type:$("holidayType").value});
+    if(await persistCalendar()){ closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); }
+  };
+}
+function openOverrideCreate(){
+  $("overrideModalBody").innerHTML=`<div class="form-grid">
+    <div class="form-field"><label>Date</label><input type="date" id="overrideDate"></div>
+    <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
+    <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
+    <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
+    <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
+    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
+    <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
+  openModal(overrideModal);
+  $("overrideCancel").onclick=()=>closeModal(overrideModal);
+  $("overrideSave").onclick=async()=>{
+    const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
+    if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
+    if(note.includes("@")){ err.textContent="Notes cannot contain the @ symbol."; err.style.display="block"; return; }
+    let stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+    if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+    [stm,etm]=normTimes(stm,etm);
+    Overrides=Overrides.filter(o=>o.date!==date);
+    Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
+    if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
+  };
+};
+/* Sidebar schedule popup: ADD CLASS / ADD BATCH create with the full
+   schedule inline (name + working days + cutoffs). Same .modal
+   species as the holiday / override forms; same persist paths as
+   the retired inline editor. */
+let _pbDays={};
+function paintPbDays(){
+  if(!schedModalBody) return;
+  schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
+    const on=!!_pbDays[b.dataset.pbDay];
+    b.classList.toggle("working",on);
+    b.classList.toggle("off",!on);
+    const st=b.querySelector(".w-status"); if(st) st.textContent=on?"WORKING":"OFF";
+    b.setAttribute("aria-pressed",on?"true":"false");
+  });
+}
+function openSchedPopup(kind, name, forClass){
+  forClass=(forClass&&kind==="batch"&&!name)?String(forClass):null;
+  const isEdit=!!name||kind==="global";
+  const ctx=isEdit?(kind==="global"?{type:"global",name:"",label:"Global (all classes & batches)"}:{type:kind,name:name,label:(kind==="class"?"Class: ":"Batch: ")+name}):{type:kind,name:"",label:""};
+  const timing=getScheduleTiming(isEdit?ctx:{type:"global",name:""});
+  _pbDays={};
+  const srcWd=isEdit?(ctx.type==="global"?Settings.workingDays:(ctx.type==="class"?getWorkingDaysForClass(ctx.name):getWorkingDaysForBatch(ctx.name))):Settings.workingDays;
+  for(let i=0;i<7;i++) _pbDays[i]=asBool(srcWd[i]??srcWd[String(i)]);
+  const kindWord=kind==="global"?"Schedule":(kind==="class"?"Class":"Batch");
+  schedModalTitle.textContent=isEdit?("Edit schedule"+(ctx.type==="global"?" — Global":" — "+ctx.name)):("Add "+kindWord.toLowerCase());
+  /* Sub explains what the screen controls (user order): no names
+     (title + SCHEDULE FOR already carry them), no dev words. */
+  schedModalSub.textContent=!isEdit?(kind==="class"?"Name the class and set its weekly schedule. The calendar switches to it on save.":"Name the batch and set its weekly schedule. The calendar switches to it on save."):(ctx.type==="batch"?"Set which days this batch meets, and when scans count as on-time or late.":ctx.type==="global"?"Set which days the school meets, and when scans count as on-time or late.":"Set which days this class meets, and when scans count as on-time or late.");
+  const names=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  schedModalBody.innerHTML=`<div class="form-grid">
+    <div class="form-field full sched-name"><label>${isEdit?"Schedule for":kindWord+" name"}</label><input id="pbName" placeholder="${kind==="batch"?"Batch Morning":"Grade 11-A"}" value="${isEdit?esc(ctx.type==="global"?"Global":ctx.name):""}" ${(isEdit&&ctx.type==="global")?"disabled":""}></div>
+    ${forClass?`<div class="form-field full"><div style="font-size:11px;opacity:.75">New batch will belong to ${esc(forClass)} — other classes are unaffected.</div></div>`:""}
+    <div class="form-field full sched-days"><label>Working days</label><div class="pb-days">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-pb-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;}).join("")}</div></div>
+    <div class="form-field sched-cut"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
+    <div class="form-field sched-cut"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
+    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end">${name?`<button type="button" class="btn" id="pbDel" aria-label="Delete this schedule">${TRASH_ICON}</button>`:""}<span class="form-pair"><button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></span></div>
+    <div class="inline-error" id="pbErr" style="display:none"></div></div>`;
+  openModal(schedModal);
+  schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
+    b.onclick=()=>{ _pbDays[b.dataset.pbDay]=!_pbDays[b.dataset.pbDay]; paintPbDays(); };
+  });
+  $("pbCancel").onclick=()=>closeModal(schedModal);
+  /* Edit-mode trash (user order): the board × flow, reused verbatim
+     (confirm + API + batch guard live in onCbDel — nothing new). */
+  const pbDel=$("pbDel");
+  if(pbDel) pbDel.onclick=()=>{ closeModal(schedModal); onCbDel({dataset:{cbDelKind:kind,cbDelName:name}}); };
+  if(!isEdit){ try{ $("pbName").focus(); }catch(e){} }
+  /* Rename (user order): names are keys (lists, schedules, composites,
+     student records) — editing one renames across all of them before
+     the timing save below runs. Student PATCHes go first so a failure
+     aborts before any list moves (retry-safe: renamed records no
+     longer match the filter). */
+  async function renameScheduleTarget(ctx, newName){
+    const oldName=ctx.name;
+    const fail=m=>{ throw new Error(m); };
+    if(ctx.type==="class"){
+      if(newName.includes("|")) fail('Class names cannot contain "|".');
+      if(newName.length>80) fail("That class name is too long (max 80).");
+      if(Classes.some(c=>c!==oldName&&c.toLowerCase()===newName.toLowerCase())) fail("That class already exists.");
+      for(const s of Students.filter(s=>s.class===oldName)){
+        await api("/api/students/"+s.id,{method:"PATCH",body:JSON.stringify({grade:newName})});
+      }
+      Classes=Classes.map(c=>c===oldName?newName:c);
+      if(ClassSchedules[oldName]!==undefined){ ClassSchedules[newName]=ClassSchedules[oldName]; delete ClassSchedules[oldName]; }
+      Object.keys(BatchSchedules).forEach(k=>{ const p=splitBatchKey(k); if(p.cls===oldName){ BatchSchedules[newName+"|"+p.short]=BatchSchedules[k]; delete BatchSchedules[k]; } });
+      await api("/api/settings",{method:"POST",body:JSON.stringify({classes:Classes})});
+      ClassSchedulesUI=ClassSchedules;
+      ctx.name=newName;
+    }else{
+      const op=splitBatchKey(oldName);
+      if(op.cls){
+        let nc=op.cls, ns=newName;
+        if(newName.includes("|")){ const np=splitBatchKey(newName); nc=np.cls; ns=np.short; if(!nc||!ns) fail("Use Class|Batch form."); }
+        if(!ns) fail("A name is required.");
+        if(ns.length>40) fail("That batch name is too long (max 40).");
+        if((nc+"|"+ns).length>80) fail("That name is too long for this class.");
+        if(!Classes.includes(nc)) fail(`Class "${nc}" does not exist.`);
+        const nk=nc+"|"+ns;
+        if(nk!==oldName&&BatchSchedules[nk]!==undefined) fail("That batch already exists for this class.");
+        for(const s of Students.filter(s=>s.class===nc&&s.batch===op.short)){
+          await api("/api/students/"+s.id,{method:"PATCH",body:JSON.stringify({batch:ns})});
+        }
+        if(BatchSchedules[oldName]!==undefined){ BatchSchedules[nk]=BatchSchedules[oldName]; delete BatchSchedules[oldName]; }
+        ctx.name=nk;
+      }else{
+        if(newName.includes("|")) fail('Batch names cannot contain "|".');
+        if(newName.length>40) fail("That batch name is too long (max 40).");
+        if((Batches||[]).some(b=>b!==oldName&&b.toLowerCase()===newName.toLowerCase())) fail("That batch already exists.");
+        for(const s of Students.filter(s=>s.batch===oldName)){
+          await api("/api/students/"+s.id,{method:"PATCH",body:JSON.stringify({batch:newName})});
+        }
+        Batches=(Batches||[]).map(b=>b===oldName?newName:b);
+        if(BatchSchedules[oldName]!==undefined){ BatchSchedules[newName]=BatchSchedules[oldName]; delete BatchSchedules[oldName]; }
+        await api("/api/settings",{method:"POST",body:JSON.stringify({batches:Batches})});
+        ctx.name=newName;
+      }
+    }
+  }
+  $("pbSave").onclick=async()=>{
+    const err=$("pbErr");
+    const pVal=$("pbPresent").value, lVal=$("pbLate").value;
+    if(!pVal||!lVal){ err.textContent="Both Present and Late cutoffs are required."; err.style.display="block"; return; }
+    if(pVal>lVal){ err.textContent="Present cutoff must be before or equal to Late cutoff."; err.style.display="block"; return; }
+    const wd={}; for(let i=0;i<7;i++) wd[i]=!!_pbDays[i];
+    if(!isEdit){
+      const raw=(($("pbName")||{}).value||"").trim();
+      if(!raw){ err.textContent="A name is required."; err.style.display="block"; return; }
+      if(kind==="class"){
+        if(Classes.some(c=>c.toLowerCase()===raw.toLowerCase())){ err.textContent="That class already exists."; err.style.display="block"; return; }
+        if(raw.includes("|")){ err.textContent='Class names cannot contain "|".'; err.style.display="block"; return; }
+        try{
+          await api("/api/settings",{method:"POST",body:JSON.stringify({classes:Classes.concat(raw)})});
+          ClassSchedules[raw]={workingDays:wd,presentCutoff:pVal,lateCutoff:lVal};
+          ClassSchedulesUI=ClassSchedules;
+          if(await persistCalendar()){
+            cubeView="class"; selKind="class"; selName=raw; syncCsCtx();
+            cbBatchScope=raw;
+            closeModal(schedModal);
+            await loadClassesHolidaysSettings(); renderAll();
+            const sel=$("calClassSelect");
+            if(sel){ sel.value=`class:${raw}`; if(!sel.value) sel.value=raw; }
+            renderWeekly(); renderCalendarMonth();
+          }
+        }catch(e){ err.textContent="Failed to add class: "+e.message; err.style.display="block"; }
+      }else{
+        if(raw.includes("|")){ err.textContent='Batch names cannot contain "|".'; err.style.display="block"; return; }
+        if((Batches||[]).some(b=>b.toLowerCase()===raw.toLowerCase())){
+          if(forClass){ err.textContent=`"${raw}" is a shared batch — it already applies to ${forClass}.`; err.style.display="block"; return; }
+          err.textContent="That batch already exists."; err.style.display="block"; return;
+        }
+        if(raw.length>40){ err.textContent="That batch name is too long (max 40)."; err.style.display="block"; return; }
+        try{
+          if(forClass){
+            /* Scoped add (user order): a "Class|Batch" schedule with the
+               modal's days + cutoffs — other classes unaffected, no
+               global name created. */
+            const key=forClass+"|"+raw;
+            if(key.length>80){ err.textContent="That name is too long for this class."; err.style.display="block"; return; }
+            BatchSchedules[key]={workingDays:wd,presentCutoff:pVal,lateCutoff:lVal};
+            if(await persistCalendar()){
+              cubeView="batch"; selKind="batch"; selName=key; syncCsCtx();
+              closeModal(schedModal);
+              await loadClassesHolidaysSettings(); renderAll();
+              const sel=$("calClassSelect");
+              if(sel) sel.value=`batch:${key}`;
+              renderWeekly(); renderCalendarMonth();
+            }
+            return;
+          }
+          await api("/api/settings",{method:"POST",body:JSON.stringify({batches:(Batches||[]).concat(raw)})});
+          BatchSchedules[raw]={workingDays:wd,presentCutoff:pVal,lateCutoff:lVal};
+          if(await persistCalendar()){
+            cubeView="batch"; selKind="batch"; selName=raw; syncCsCtx();
+            closeModal(schedModal);
+            await loadClassesHolidaysSettings(); renderAll();
+            const sel=$("calClassSelect");
+            if(sel) sel.value=`batch:${raw}`;
+            renderWeekly(); renderCalendarMonth();
+          }
+        }catch(e){ err.textContent="Failed to add batch: "+e.message; err.style.display="block"; }
+      }
+      return;
+    }
+    /* Name edit on a record editor renames first (user order); the
+       timing branches below then run against the new name. */
+    if(isEdit&&(ctx.type==="class"||ctx.type==="batch")){
+      const newName=(($("pbName")||{}).value||"").trim();
+      if(!newName){ err.textContent="A name is required."; err.style.display="block"; return; }
+      if(newName!==ctx.name){
+        const oldName=ctx.name;
+        try{ await renameScheduleTarget(ctx, newName); }
+        catch(e){ err.textContent=e.message; err.style.display="block"; return; }
+        if(selName===oldName) selName=ctx.name;
+        if(ctx.type==="class"&&cbBatchScope===oldName) cbBatchScope=ctx.name;
+        syncCsCtx();
+        schedModalTitle.textContent="Edit schedule — "+ctx.name;
+      }
+    }
+    if(ctx.type==="global"){
+      Settings.workingDays=wd;
+      Settings.presentCutoff=pVal; Settings.lateCutoff=lVal; Settings.lateAfter=lVal;
+      if($("setLateThreshold")) $("setLateThreshold").value=lVal;
+      if($("setPresentCutoff")) $("setPresentCutoff").value=pVal;
+      try{
+        await api("/api/settings",{method:"POST",body:JSON.stringify({presentCutoff:pVal,lateCutoff:lVal})});
+        if(await persistCalendar()){ closeModal(schedModal); await loadClassesHolidaysSettings(); renderAll(); }
+      }catch(e){ err.textContent="Failed to save timings: "+e.message; err.style.display="block"; }
+    }else if(ctx.type==="class"){
+      const entry=ClassSchedules[ctx.name]||{};
+      ClassSchedules[ctx.name]=Object.assign({},typeof entry==="object"?entry:{},{workingDays:wd,presentCutoff:pVal,lateCutoff:lVal});
+      ClassSchedulesUI=ClassSchedules;
+      if(await persistCalendar()){ closeModal(schedModal); await loadClassesHolidaysSettings(); renderAll(); }
+    }else{
+      const entry=BatchSchedules[ctx.name]||{};
+      BatchSchedules[ctx.name]=Object.assign({},typeof entry==="object"?entry:{},{workingDays:wd,presentCutoff:pVal,lateCutoff:lVal});
+      if(await persistCalendar()){ closeModal(schedModal); await loadClassesHolidaysSettings(); renderAll(); }
+    }
+  };
+}
+if($("sideAddClassBtn")) $("sideAddClassBtn").onclick=()=>openSchedPopup("class",null);
+if($("sideAddBatchBtn")) $("sideAddBatchBtn").onclick=()=>openSchedPopup("batch",null);
+/* Sidebar eyes open the record popups (same .modal species as the
+   creation forms); Close buttons dismiss them. */
+(function(){
+  const osib=$("openSchoolInfoBtn"); if(osib) osib.onclick=()=>openModal(schoolInfoModal);
+  const sic=$("schoolInfoCancel"); if(sic) sic.onclick=()=>closeModal(schoolInfoModal);
+  const eh=$("eyeHolidaysBtn"); if(eh) eh.onclick=()=>openModal($("holidayViewModal"));
+  const eo=$("eyeOverrideBtn"); if(eo) eo.onclick=()=>openModal($("overrideViewModal"));
+  const hc=$("holidayViewClose"); if(hc) hc.onclick=()=>closeModal($("holidayViewModal"));
+  const oc=$("overrideViewClose"); if(oc) oc.onclick=()=>closeModal($("overrideViewModal"));
+  const hct=$("holidayViewCloseTop"); if(hct) hct.onclick=()=>closeModal($("holidayViewModal"));
+  const oct=$("overrideViewCloseTop"); if(oct) oct.onclick=()=>closeModal($("overrideViewModal"));
+})();
+
+/* Solid timing save: lifted verbatim from the popup — same
+   validators, same 3 branches, same global double-POST, same mirror
+   sync, same confirmations. Only the tail changed: refresh the
+   snapshot/strip, then re-render month + editor. */
+async function onCsSaveTiming(){
+  const ctx = csCtx || getScheduleContext();
+  const pVal = $("csPresentCutoff") ? $("csPresentCutoff").value : "08:00";
+  const lVal = $("csLateCutoff") ? $("csLateCutoff").value : "08:30";
+  if(!pVal || !lVal){ await glassAlert("Both Present and Late cutoffs are required."); return; }
+  if(pVal > lVal){ await glassAlert("Present cutoff must be before or equal to Late cutoff."); return; }
+
+  if(ctx.type === "global"){
+    Settings.presentCutoff = pVal;
+    Settings.lateCutoff = lVal;
+    Settings.lateAfter = lVal;
+    if($("setLateThreshold")) $("setLateThreshold").value = lVal;
+    if($("setPresentCutoff")) $("setPresentCutoff").value = pVal;
+    try {
+      await api("/api/settings", {method: "POST", body: JSON.stringify({
+        presentCutoff: pVal, lateCutoff: lVal
+      })});
+      await persistCalendar();
+      await glassAlert("Global timings saved.");
+    } catch(e){ await glassAlert("Failed to save timings: "+e.message); }
+  } else if(ctx.type === "class"){
+    let entry = ClassSchedules[ctx.name] || {};
+    ClassSchedules[ctx.name] = Object.assign({}, typeof entry==="object"?entry:{}, {
+      workingDays: entry.workingDays || getWorkingDaysForClass(ctx.name),
+      presentCutoff: pVal,
+      lateCutoff: lVal
+    });
+    ClassSchedulesUI = ClassSchedules;
+    cacheSave();
+    if(await persistCalendar()){
+      await glassAlert(`Timings saved for class ${ctx.name}.`);
+    }
+  } else if(ctx.type === "batch"){
+    let entry = BatchSchedules[ctx.name] || {};
+    BatchSchedules[ctx.name] = Object.assign({}, typeof entry==="object"?entry:{}, {
+      workingDays: entry.workingDays || getWorkingDaysForBatch(ctx.name),
+      presentCutoff: pVal,
+      lateCutoff: lVal
+    });
+    cacheSave();
+    if(await persistCalendar()){
+      await glassAlert(`Timings saved for batch ${ctx.name}.`);
+    }
+  }
+  snapshotSchedule(); paintMonthEditor();
+  renderWeekly(); renderCalendarMonth(); renderToday();
+}
+/* Inherit-revert retired with the Setup bar: the popup is Save + Close.
+   (Custom timings now stand until overwritten — flagged regression.) */
+$("holidayBody").addEventListener("click",async(e)=>{
+  const edit=e.target.closest("[data-edit-holiday]");
+  if(edit){ openHolidayEdit(edit.dataset.editHoliday); return; }
+  const btn=e.target.closest("[data-del-holiday]"); if(!btn) return;
+  Holidays=Holidays.filter(h=>h.start!==btn.dataset.delHoliday);
+  if(await persistCalendar()){ renderHolidays(); renderCalendarMonth(); }
+});
+function openHolidayEdit(startKey){
+  const h=Holidays.find(x=>x.start===startKey); if(!h) return;
+    try{ closeModal($("holidayViewModal")); }catch(e){}
+    $("holidayModalBody").innerHTML=`<div class="form-grid">
+      <div class="form-field full"><label>Name</label><input id="holidayName" value="${esc(h.name)}"></div>
+      <div class="form-field"><label>Start date</label><input type="date" id="holidayStart" value="${esc(h.start)}"></div>
+      <div class="form-field"><label>End date</label><input type="date" id="holidayEnd" value="${esc(h.end)}"></div>
+      <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime" value="${esc(h.startTime||"")}"></div>
+      <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime" value="${esc(h.endTime||"")}"></div>
+      <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday" ${h.type==="holiday"?"selected":""}>Holiday</option><option value="vacation" ${h.type==="vacation"?"selected":""}>Vacation</option><option value="exam" ${h.type==="exam"?"selected":""}>Exam day (working)</option></select></div>
+      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="holidayDel" aria-label="Delete this holiday">${TRASH_ICON}</button><span class="form-pair"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></span></div>
+      <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
+    const origStart=h.start;
+    Holidays=Holidays.filter(x=>x.start!==origStart);
+    openModal(holidayModal);
+    $("holidayCancel").onclick=()=>{ Holidays.push(h); closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); };
+    /* Edit-mode trash (user order): the record is already staged out —
+       delete just commits that (board-× parity: direct, no confirm). */
+    $("holidayDel").onclick=async()=>{ closeModal(holidayModal); if(await persistCalendar()){ renderHolidays(); renderCbTables(); renderCalendarMonth(); } };
+    $("holidaySave").onclick=async()=>{
+      const name=$("holidayName").value.trim(), start=$("holidayStart").value, end=$("holidayEnd").value||start, err=$("holidayErr");
+      if(!name||!start||!end||start>end){ err.textContent="Name and a valid date range are required."; err.style.display="block"; return; }
+      if(name.includes("@")){ err.textContent="Names cannot contain the @ symbol."; err.style.display="block"; return; }
+      let stm=$("holidayStartTime").value, etm=$("holidayEndTime").value;
+      if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+      [stm,etm]=normTimes(stm,etm);
+      Holidays.push({name,start,end,startTime:stm,endTime:etm,category:"",type:$("holidayType").value});
+      if(await persistCalendar()){ closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); } else Holidays.push(h);
+    };
+}
+$("overrideBody").addEventListener("click",async(e)=>{
+  const edit=e.target.closest("[data-edit-override]");
+  if(edit){ openOverrideEdit(edit.dataset.editOverride); return; }
+  const btn=e.target.closest("[data-del-override]"); if(!btn) return;
+  Overrides=Overrides.filter(o=>o.date!==btn.dataset.delOverride);
+  if(await persistCalendar()){ renderOverrides(); renderCalendarMonth(); }
+});
+function openOverrideEdit(dateKey){
+  const o=Overrides.find(x=>x.date===dateKey); if(!o) return;
+    try{ closeModal($("overrideViewModal")); }catch(e){}
+    $("overrideModalBody").innerHTML=`<div class="form-grid">
+      <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(o.date)}"></div>
+      <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1" ${o.isWorking?"selected":""}>Working day</option><option value="0" ${!o.isWorking?"selected":""}>Holiday</option></select></div>
+      <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime" value="${esc(o.startTime||"")}"></div>
+      <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime" value="${esc(o.endTime||"")}"></div>
+      <div class="form-field full"><label>Note</label><input id="overrideNote" value="${esc(o.note)}"></div>
+      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="overrideDel" aria-label="Delete this override">${TRASH_ICON}</button><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
+      <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
+    const orig=o.date;
+    Overrides=Overrides.filter(x=>x.date!==orig);
+    openModal(overrideModal);
+    $("overrideCancel").onclick=()=>{ Overrides.push(o); closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); };
+    /* Edit-mode trash (user order): staged-out record commits deleted. */
+    $("overrideDel").onclick=async()=>{ closeModal(overrideModal); if(await persistCalendar()){ renderOverrides(); renderCbTables(); renderCalendarMonth(); } };
+    $("overrideSave").onclick=async()=>{
+      const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
+      if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
+      if(note.includes("@")){ err.textContent="Notes cannot contain the @ symbol."; err.style.display="block"; return; }
+      let stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+      if((stm&&!isHHMM(stm))||(etm&&!isHHMM(etm))){ err.textContent="Times must be HH:MM (or left empty for all day)."; err.style.display="block"; return; }
+      [stm,etm]=normTimes(stm,etm);
+      Overrides=Overrides.filter(x=>x.date!==date);
+      Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
+      if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); } else Overrides.push(o);
+    };
+}
+/* Class tiles + inline month editor: tiles live in #cubeGrid, day
+   toggles in the month headers, cutoffs in the strip below the grid.
+   Tile select clears staged edits and repaints for the new item. */
+async function onCubesClick(e){
+  const delBtn = e.target.closest("[data-del-class]");
+  if(delBtn){
+    const c = delBtn.dataset.delClass;
+    if(!(await glassConfirm(`Remove class "${c}"?`,{title:"Remove class",okText:"Remove",danger:true}))) return;
+    try{
+      const next = Classes.filter(x=>x!==c);
+      await api("/api/settings",{method:"POST",body:JSON.stringify({classes:next})});
+      await loadClassesHolidaysSettings();
+      renderAll();
+    }catch(err){ await glassAlert("Failed to remove class: "+err.message); }
+    return;
+  }
+  /* Batch remove mirrors class remove exactly: same confirm, same
+     settings POST ({batches}), same refresh. Names carried only by
+     student records live outside the Batches list and cannot be
+     removed here — say so instead of silently no-opping. */
+  const delBatch = e.target.closest("[data-del-batch]");
+  if(delBatch){
+    const bName = delBatch.dataset.delBatch;
+    if(!(await glassConfirm(`Remove batch "${bName}"?`,{title:"Remove batch",okText:"Remove",danger:true}))) return;
+    try{
+      if(!(Batches||[]).some(b=>b===bName)){ await glassAlert(`"${bName}" is carried by student records and cannot be removed here.`); return; }
+      const next = (Batches||[]).filter(x=>x!==bName);
+      await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
+      await loadClassesHolidaysSettings();
+      renderAll();
+    }catch(err){ await glassAlert("Failed to remove batch: "+err.message); }
+    return;
+  }
+  /* Tile select: same context sync as the row jumps — staged edits
+     clear, then the inline month editor repaints for the new item. */
+  const tile = e.target.closest("#cubeGrid .class-cube");
+  if(tile){
+    selKind=tile.dataset.kind||"class"; selName=tile.dataset.cube; syncCsCtx();
+    pendingDays={};
+    const sel=$("calClassSelect");
+    if(sel){
+      sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
+      if(selKind==="class"&&!sel.value) sel.value=selName;
+      renderWeekly();
+    }
+    syncMonthEditor(); return;
+  }
+}
+if(classCubes) classCubes.addEventListener("click", onCubesClick);
+if($("calendarGrid")) $("calendarGrid").addEventListener("click", onMeDayClick);
+wireSchedEditor();
+/* Batch rows retired from the class pane (batches live in their
+   own left stack) — selection travels through the tiles only. */
+$("addClassBtn").onclick=async()=>{
+  const input=$("newClassName"), name=input.value.trim();
+  if(!name) return;
+  if(Classes.some(c=>c.toLowerCase()===name.toLowerCase())){ await glassAlert("That class already exists."); return; }
+  try{ await api("/api/settings",{method:"POST",body:JSON.stringify({classes:Classes.concat(name)})}); input.value=""; await loadClassesHolidaysSettings(); renderAll(); }
+  catch(e){ await glassAlert("Failed to add class: "+e.message); }
+};
+/* Left-list view tabs + left-bar batch add. Static nodes â€” wire once. */
+if($("cubeTabClasses")) $("cubeTabClasses").onclick=()=>setCubeView("class");
+if($("cubeTabBatches")) $("cubeTabBatches").onclick=()=>setCubeView("batch");
+if($("addBatchBtn")) $("addBatchBtn").onclick=()=>submitBatchName($("newBatchName")?$("newBatchName").value:"", $("newBatchName"));
+/* Left-bar batch add: single persist path â€” same validators,
+   same POST, same refresh. New names surface in the BATCHES tab
+   until a student carries them into a class. */
+async function submitBatchName(name, inputEl){
+  name = (name||"").trim();
+  if(!name) return;
+  if((Batches||[]).some(b=>b.toLowerCase()===name.toLowerCase())){ await glassAlert("That batch already exists."); return; }
+  try{
+    const next = (Batches||[]).concat(name);
+    await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
+    if(inputEl) inputEl.value="";
+    await loadClassesHolidaysSettings();
+    renderAll();
+  }catch(e){ await glassAlert("Failed to add batch: "+e.message); }
+}
+$("settingsSaveBtn").onclick=async()=>{
+  try{
+    const start=$("setAttendanceStart")?$("setAttendanceStart").value:"";
+    const pVal=$("setPresentCutoff")?$("setPresentCutoff").value:"08:00";
+    const lVal=$("setLateThreshold")?$("setLateThreshold").value:"08:30";
+    await api("/api/settings",{method:"POST",body:JSON.stringify({
+      schoolName:$("setSchoolName").value.trim(),
+      address:$("setSchoolAddress").value.trim(),
+      presentCutoff: pVal,
+      lateCutoff: lVal,
+      academicYear:$("setAcademicYear").value,
+      attendanceStartDate: start || undefined,
+      schoolOpeningDate: start || undefined
+    })});
+    Settings.presentCutoff = pVal;
+    Settings.lateCutoff = lVal;
+    Settings.lateAfter = lVal;
+    await glassAlert("Settings saved to database.");
+    closeModal(schoolInfoModal);
+    await loadClassesHolidaysSettings(); renderAll();
+  }catch(e){ await glassAlert("Failed: "+e.message); }
+};
+$("settingsExportBtn").onclick=()=>exportCSV([["Field","Value"],["School name",$("setSchoolName").value],["Address",$("setSchoolAddress").value],["Late threshold",$("setLateThreshold").value],["Academic year",$("setAcademicYear").value]],"school-settings.csv");
+if($("backupDownloadBtn")) $("backupDownloadBtn").onclick=async()=>{
+  try{
+    const b = await api("/api/backup", {method:"GET", responseType:"blob"});
+    const url=URL.createObjectURL(b), a=document.createElement('a'); a.href=url; a.download="atl-backup-"+todayISO()+".db"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){
+    await glassAlert("Backup failed: "+(e.message||(e.body&&e.body.error)||e.status));
+  }
+};
+if($("backupFileInput")) $("backupFileInput").onchange=async(e)=>{
+  const file=e.target.files&&e.target.files[0]; if(!file) return;
+  const status=$("backupStatus"); status.textContent="Restoring...";
+  pauseSensorScan();
+  try{
+    const form=new FormData(); form.append("file",file);
+    const body = await api("/api/restore", {method:"POST", body:form});
+    status.textContent="Restore complete. Reloading data..."; await loadAll();
+  }catch(err){
+    const msg = err.message || (err.body && err.body.error) || err.status;
+    status.textContent="Restore failed: "+msg;
+    try{ await glassAlert("Restore failed: "+msg); }catch(_e){}
+  }finally{
+    resumeSensorScan();
+  }
+  e.target.value="";
+};
+if($("auditExportBtn")) $("auditExportBtn").onclick=()=>{
+  const rows=[["Time","Action","Details","By"]].concat(Audit.map(a=>[a.time,a.action,a.details,a.by||"Admin"]));
+  exportCSV(rows,"audit_"+todayISO()+".csv");
+};
+if($("auditClearBtn")) $("auditClearBtn").onclick=()=>{ try{ glassAlert("Clear audit is managed on the backend."); }catch(e){} };
+
+// --- Unified Backup Manager Controller ---
+let _gdrivePollTimer = null;
+let _unifiedActiveWeekdays = [0, 1, 2, 3, 4, 5, 6];
+let _destStates = {
+  gdrive: null,
+  telegram: null,
+  usb: null
+};
+
+function stopGDrivePolling(){
+  if(_gdrivePollTimer){
+    clearInterval(_gdrivePollTimer);
+    _gdrivePollTimer = null;
+  }
+}
+
+/* Pair action lives in its own left-aligned Row-3 (same left edge as
+   the Send/Check rows) so pill text widths can never drag it.
+   paintGdrivePair toggles the row on real state changes only. */
+function paintGdrivePair(show){
+  const row = $("gdrivePairRow");
+  if(row) row.style.display = show ? "flex" : "none";
+}
+function renderDeviceCodeBox(df){
+  const codeBox = $("gdriveDeviceCodeBox");
+  const authBox = $("gdriveAuthBox");
+  if(!codeBox) return;
+  if(df && df.userCode){
+    if(authBox) authBox.style.display = "block";
+    codeBox.style.display = "block";
+    paintGdrivePair(false);
+    if($("gdriveUserCodeDisplay")) $("gdriveUserCodeDisplay").textContent = df.userCode;
+    const link = $("gdriveDeviceUrlLink");
+    if(link){
+      link.href = df.verificationUrlComplete || df.verificationUrl || "https://www.google.com/device";
+    }
+    if($("gdriveDevicePollStatus")) $("gdriveDevicePollStatus").textContent = "Waiting for approval…";
+  } else {
+    codeBox.style.display = "none";
+  }
+}
+
+/* Uniform 3-row service rows (user order): Row-1 head, Row-2 optional
+   detail, Row-3 primary/secondary actions. Wiring/IDs untouched — this
+   only swaps the black primary pill onto the state-correct button and
+   collapses an empty optional detail line. */
+function setPrimary(btn, on){
+  if(!btn) return;
+  try{ btn.classList.toggle("primary", !!on); }catch(e){}
+}
+function applyDestRowState(){
+  try{
+    const gd = _destStates.gdrive || {};
+    const usb = _destStates.usb || {};
+    const gdReady = !!gd.authenticated;
+    const usbReady = !!(usb.connected && usb.enabled && usb.lastStatus !== "ERROR");
+    // Drive: not-ready -> Pair is the primary; ready -> send is primary.
+    setPrimary($("gdriveDeviceStartBtn"), !gdReady);
+    setPrimary($("gdriveBackupRowBtn"), gdReady);
+    // Telegram: primary is always the send action (user: actions always visible).
+    setPrimary($("telegramBackupNowBtn"), true);
+    // USB: not-ready -> Check USB is the primary; ready -> backup is primary.
+    setPrimary($("usbRefreshBtn"), !usbReady);
+    setPrimary($("usbBackupNowBtn"), usbReady);
+    // USB Row-2 collapses when the drive is not ready — the status pill
+    // + Check USB are the one message (the line always carries static
+    // Mount/Space text, so an emptiness check could never fire).
+    const usbLine = $("usbDetailLine");
+    if(usbLine){
+      usbLine.style.display = usbReady ? "" : "none";
+    }
+  }catch(e){}
+}
+
+function startGDrivePolling(intervalSec){
+  stopGDrivePolling();
+  const pollInterval = Math.max((intervalSec || 5) * 1000, 3000);
+  _gdrivePollTimer = setInterval(async () => {
+    try {
+      const res = await api("/api/backup/gdrive/device-poll", { method: "POST" });
+      if(res && res.status === "success"){
+        stopGDrivePolling();
+        renderDeviceCodeBox(null);
+        await glassAlert("Connected to Google Drive successfully!");
+        await loadBackupManagerStatus();
+      } else if(res && (res.status === "pending" || res.status === "slow_down")){
+        if($("gdriveDevicePollStatus")) $("gdriveDevicePollStatus").textContent = "Waiting for approval…";
+      } else if(res && res.status === "expired"){
+        stopGDrivePolling();
+        renderDeviceCodeBox(null);
+        if($("gdriveDevicePollStatus")) $("gdriveDevicePollStatus").textContent = "Session expired.";
+        await loadBackupManagerStatus();
+      }
+    } catch(e){
+      stopGDrivePolling();
+      const m = (e.body && e.body.error) || e.message || "Polling stopped";
+      if($("gdriveDevicePollStatus")) $("gdriveDevicePollStatus").textContent = m;
+    }
+  }, pollInterval);
+}
+
+async function startDeviceFlow(){
+  const btn = $("gdriveDeviceStartBtn");
+  try {
+    if(btn){ btn.disabled = true; }
+    // Pair is reachable while unchecked — enable first so one click
+    // goes from dead to pairing (failure aborts before device-start).
+    const gdSt = (typeof _destStates === "object" && _destStates) ? _destStates.gdrive : null;
+    if(gdSt && gdSt.enabled === false){
+      await api("/api/backup/gdrive/toggle", {method: "POST", body: JSON.stringify({enabled: true})});
+      paintDestToggles();
+    }
+    const res = await api("/api/backup/gdrive/device-start", { method: "POST" });
+    if(res && res.ok){
+      renderDeviceCodeBox(res);
+      startGDrivePolling(res.interval || 5);
+      if(res.verificationUrlComplete){
+        window.open(res.verificationUrlComplete, "_blank");
+      }
+    } else {
+      await glassAlert((res && res.error) || "Failed to start Google authorization");
+    }
+  } catch(err){
+    const m = (err.body && err.body.error) || err.message || "Failed to start Google authorization";
+    await glassAlert("Google Drive: " + m);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = "Connect Drive"; }
+  }
+}
+
+async function cancelDeviceFlow(){
+  stopGDrivePolling();
+  renderDeviceCodeBox(null);
+  try {
+    await api("/api/backup/gdrive/device-cancel", { method: "POST" });
+  } catch(_){}
+  await loadBackupManagerStatus();
+}
+
+function updateUnifiedLastBackupInfo(dests){
+  const infoEl = $("backupLastInfo");
+  if(!infoEl) return;
+  let newestStr = null;
+  let newestDest = null;
+  let newestName = null;
+  const labels = ["Google Drive", "Telegram", "USB Drive"];
+
+  dests.forEach((d, idx) => {
+    if(d && d.lastBackup){
+      if(!newestStr || d.lastBackup > newestStr){
+        newestStr = d.lastBackup;
+        newestName = d.lastBackupName || "";
+        newestDest = labels[idx];
+      }
+    }
+  });
+
+  if(newestStr){
+    infoEl.textContent = `Last backup: ${newestStr}${newestName ? ` (${newestName})` : ""} · ${newestDest}`;
+  } else {
+    infoEl.textContent = "Last backup: Never";
+  }
+}
+
+/* Scheduler on/off lives in a text toggle button (no tick box).
+   _schedEnabledState is the single truth for paint + payload. */
+let _schedEnabledState = true;
+function paintSchedToggle(){
+  const b = $("backupSchedToggleBtn");
+  if(b) b.textContent = _schedEnabledState ? "ON" : "OFF";
+}
+function renderUnifiedSchedule(sched){
+  _schedEnabledState = sched.enabled !== false;
+  paintSchedToggle();
+  if($("backupSchedTime")) $("backupSchedTime").value = sched.time || "18:30";
+  if($("backupSchedFreq")) $("backupSchedFreq").value = sched.frequency || "daily";
+  try{ if($("backupSchedFreq")) $("backupSchedFreq").dispatchEvent(new Event("change")); }catch(e){}
+  if($("backupSchedInterval")) $("backupSchedInterval").value = sched.intervalDays || 1;
+
+  _unifiedActiveWeekdays = Array.isArray(sched.weekdays) ? [...sched.weekdays] : [0, 1, 2, 3, 4, 5, 6];
+  updateUnifiedScheduleVisibility();
+  updateUnifiedWeekdayButtons();
+}
+
+function updateUnifiedScheduleVisibility(){
+  const freq = $("backupSchedFreq") ? $("backupSchedFreq").value : "daily";
+  const intervalWrap = $("backupSchedIntervalWrap");
+  const daysWrap = $("backupSchedDaysWrap");
+  /* Interval slot reserves like the days strip (user order): switching
+     Frequency never moves the buttons below. */
+  if(intervalWrap) intervalWrap.style.visibility = (freq === "interval") ? "visible" : "hidden";
+  /* Days strip reserves its slot (user order): visibility only, so
+     switching Frequency never moves the buttons below. */
+  if(daysWrap){
+    const on = (freq === "weekdays");
+    daysWrap.style.visibility = on ? "visible" : "hidden";
+    try{ daysWrap.setAttribute("aria-hidden", on ? "false" : "true"); }catch(e){}
+  }
+}
+
+function updateUnifiedWeekdayButtons(){
+  const container = $("backupSchedDays");
+  if(!container) return;
+  const btns = container.querySelectorAll("button[data-day]");
+  btns.forEach(btn => {
+    const day = parseInt(btn.dataset.day, 10);
+    if(_unifiedActiveWeekdays.includes(day)){
+      btn.classList.add("primary");
+    } else {
+      btn.classList.remove("primary");
+    }
+  });
+}
+
+async function loadBackupManagerStatus(){
+  if(!$("backupManagerCard")) return;
+  try{ if(window.__ensureGsel) window.__ensureGsel($("backupSchedFreq")); }catch(e){}
+  try{
+    const [gdRes, tgRes, usbRes] = await Promise.allSettled([
+      api("/api/backup/gdrive/status"),
+      api("/api/backup/telegram/status"),
+      api("/api/backup/usb/status")
+    ]);
+
+    const gd = gdRes.status === "fulfilled" ? gdRes.value : null;
+    const tg = tgRes.status === "fulfilled" ? tgRes.value : null;
+    const usb = usbRes.status === "fulfilled" ? usbRes.value : null;
+
+    _destStates.gdrive = gd;
+    _destStates.telegram = tg;
+    _destStates.usb = usb;
+
+    // 1. Google Drive Row
+    const gdStatus = $("destStatusGdrive");
+    const gdAuthBox = $("gdriveAuthBox");
+    const gdActionBox = $("gdriveActionBox");
+    if(gdStatus){
+      if(!gd){
+        gdStatus.textContent = "Offline"; gdStatus.className = "pill";
+        if(gdActionBox) gdActionBox.style.display = "none";
+      } else if(!gd.enabled){
+        gdStatus.textContent = "Disabled"; gdStatus.className = "pill";
+        if(gdAuthBox) gdAuthBox.style.display = "none";
+        if(gdActionBox) gdActionBox.style.display = "none";
+      } else if(!gd.configured){
+        gdStatus.textContent = "Setup needed"; gdStatus.className = "pill";
+        if(gdActionBox) gdActionBox.style.display = "none";
+        // Unconfigured: pairing is the only way forward — the Pair
+        // row visibility resolves in the shared paint line below.
+        if(gd.deviceFlow && gdAuthBox) gdAuthBox.style.display = "block";
+        else if(gdAuthBox) gdAuthBox.style.display = "none";
+        renderDeviceCodeBox(gd.deviceFlow || null);
+        if(gd.deviceFlow && !_gdrivePollTimer) startGDrivePolling(gd.deviceFlow.interval || 5);
+      } else if(!gd.authenticated){
+        gdStatus.textContent = "Not connected"; gdStatus.className = "pill danger";
+        if(gdActionBox) gdActionBox.style.display = "none";
+        if(gd.deviceFlow){
+          if(gdAuthBox) gdAuthBox.style.display = "block";
+          renderDeviceCodeBox(gd.deviceFlow);
+          if(!_gdrivePollTimer) startGDrivePolling(gd.deviceFlow.interval || 5);
+        } else {
+          if(gdAuthBox) gdAuthBox.style.display = "none";
+          renderDeviceCodeBox(null);
+        }
+      } else {
+        gdStatus.textContent = "Ready"; gdStatus.className = "pill active";
+        if(gdAuthBox) gdAuthBox.style.display = "none";
+        if(gdActionBox){
+          gdActionBox.style.display = "block";
+          loadGDriveList();
+        }
+      }
+      // Pair stays reachable whenever pairing is still possible — even
+      // unchecked (the click enables Drive first). Hidden only when a
+      // code is showing, backend is offline, or already paired.
+      paintGdrivePair(!!(gd && !gd.authenticated && !gd.deviceFlow));
+      if($("gdriveStatusMsg")){
+        $("gdriveStatusMsg").textContent = (gd && gd.lastError) ? gd.lastError : "";
+      }
+    }
+
+    // 2. Telegram Row
+    const tgStatus = $("destStatusTelegram");
+    if(tgStatus){
+      if(!tg){
+        tgStatus.textContent = "Offline"; tgStatus.className = "pill";
+      } else if(!tg.enabled){
+        tgStatus.textContent = "Disabled"; tgStatus.className = "pill";
+      } else if(!tg.configured){
+        tgStatus.textContent = "Not configured"; tgStatus.className = "pill";
+      } else if(tg.lastStatus === "ERROR"){
+        tgStatus.textContent = "Error"; tgStatus.className = "pill danger";
+      } else {
+        tgStatus.textContent = "Ready"; tgStatus.className = "pill active";
+      }
+    }
+    if($("telegramChatId")){
+      $("telegramChatId").textContent = (tg && tg.chatId) ? tg.chatId : "Not configured";
+    }
+    if($("telegramLastError")){
+      $("telegramLastError").textContent = (tg && tg.lastError) ? tg.lastError : "";
+    }
+
+    // 3. USB Row
+    const usbStatus = $("destStatusUsb");
+    if(usbStatus){
+      if(!usb){
+        usbStatus.textContent = "Offline"; usbStatus.className = "pill";
+      } else if(!usb.connected){
+        usbStatus.textContent = "Not connected"; usbStatus.className = "pill danger";
+      } else if(!usb.enabled){
+        usbStatus.textContent = "Disabled"; usbStatus.className = "pill";
+      } else if(usb.lastStatus === "ERROR"){
+        usbStatus.textContent = "Error"; usbStatus.className = "pill danger";
+      } else {
+        usbStatus.textContent = "Ready"; usbStatus.className = "pill active";
+      }
+    }
+    if($("usbMountPath")){
+      $("usbMountPath").textContent = (usb && usb.mountPath) ? usb.mountPath : "Not detected";
+    }
+    if($("usbFreeSpace")){
+      $("usbFreeSpace").textContent = (usb && usb.freeBytes) ? (usb.freeBytes / (1024*1024*1024)).toFixed(1) + " GB free" : "--";
+    }
+    if($("usbLastError")){
+      $("usbLastError").textContent = (usb && usb.lastError) ? usb.lastError : "";
+    }
+
+    // 4. Shared Schedule
+    const activeSched = (gd && gd.schedule) || (tg && tg.schedule) || (usb && usb.schedule);
+    if(activeSched) renderUnifiedSchedule(activeSched);
+
+    // 5. Last Backup Info
+    updateUnifiedLastBackupInfo([gd, tg, usb]);
+
+    // 6. Uniform row rhythm: state-correct primaries, collapsed Row-2s.
+    applyDestRowState();
+    // 7. ON/OFF toggle texts follow backend truth.
+    try{ paintDestToggles(); }catch(e){}
+
+  }catch(err){
+    console.warn("loadBackupManagerStatus error:", err);
+  }
+}
+
+// Backward-compatibility aliases
+function loadGDriveStatus(){ return loadBackupManagerStatus(); }
+function loadTelegramStatus(){ return loadBackupManagerStatus(); }
+function loadUsbStatus(){ return loadBackupManagerStatus(); }
+
+// Schedule Event Listeners
+if($("backupSchedFreq")) $("backupSchedFreq").onchange = updateUnifiedScheduleVisibility;
+
+if($("backupSchedToggleBtn")) $("backupSchedToggleBtn").onclick = function(){
+  _schedEnabledState = !_schedEnabledState;
+  paintSchedToggle();
+};
+
+if($("backupSchedDays")) $("backupSchedDays").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-day]");
+  if(!btn) return;
+  const day = parseInt(btn.dataset.day, 10);
+  if(_unifiedActiveWeekdays.includes(day)){
+    if(_unifiedActiveWeekdays.length > 1){
+      _unifiedActiveWeekdays = _unifiedActiveWeekdays.filter(d => d !== day);
+    }
+  } else {
+    _unifiedActiveWeekdays.push(day);
+  }
+  updateUnifiedWeekdayButtons();
+});
+
+if($("backupSchedSaveBtn")) $("backupSchedSaveBtn").onclick = async () => {
+  const btn = $("backupSchedSaveBtn");
+  const statusEl = $("backupSchedStatus");
+  try {
+    btn.disabled = true;
+    if(statusEl) statusEl.textContent = "";
+
+    const payload = {
+      enabled: (typeof _schedEnabledState === "boolean") ? _schedEnabledState : true,
+      time: $("backupSchedTime") ? $("backupSchedTime").value : "18:30",
+      frequency: $("backupSchedFreq") ? $("backupSchedFreq").value : "daily",
+      intervalDays: $("backupSchedInterval") ? parseInt($("backupSchedInterval").value, 10) || 1 : 1,
+      weekdays: _unifiedActiveWeekdays
+    };
+
+    const saves = [
+      api("/api/backup/gdrive/schedule", { method: "POST", body: JSON.stringify(payload) }),
+      api("/api/backup/telegram/schedule", { method: "POST", body: JSON.stringify(payload) }),
+      api("/api/backup/usb/schedule", { method: "POST", body: JSON.stringify(payload) })
+    ];
+
+    const names=["Google Drive","Telegram","USB"];
+    const results=await Promise.allSettled(saves);
+    const bad=[];
+    results.forEach((r,i)=>{ if(r.status==="rejected") bad.push(names[i]+(r.reason&&r.reason.message?" ("+r.reason.message+")":"")); });
+
+    if(bad.length){
+      if(statusEl) statusEl.textContent="Schedule failed: "+bad.join(", ")+".";
+      await glassAlert("Schedule save failed for: "+bad.join(", ")+". Destinations that saved are already applied.");
+    }else{
+      if(statusEl) statusEl.textContent = "Schedule saved.";
+      setTimeout(() => { if(statusEl) statusEl.textContent = ""; }, 3000);
+    }
+    await loadBackupManagerStatus();
+  } catch(e){
+    await glassAlert("Save schedule failed: " + (e.message || (e.body && e.body.error) || "error"));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save";
+  }
+};
+
+/* (Destination tick boxes retired — Back Up Now runs every enabled
+   destination; scheduler toggle is a text button. Handlers removed.) */
+/* Destination ON/OFF text toggles (no tick boxes): flip the backend
+   flag, repaint the text immediately, then reload truth. */
+const _DEST_TOGGLE_URL = {gdrive:"/api/backup/gdrive/toggle", telegram:"/api/backup/telegram/toggle", usb:"/api/backup/usb/toggle"};
+function paintDestToggles(){
+  document.querySelectorAll('#pane-backup .dest-toggle[data-dest]').forEach(b=>{
+    const st = (typeof _destStates === "object" && _destStates) ? _destStates[b.dataset.dest] : null;
+    const on = !st || st.enabled !== false;
+    b.textContent = on ? "ON" : "OFF";
+  });
+}
+document.querySelectorAll('#pane-backup .dest-toggle[data-dest]').forEach(b=>{
+  b.addEventListener("click", async ()=>{
+    const dest = b.dataset.dest;
+    const st = (typeof _destStates === "object" && _destStates) ? _destStates[dest] : null;
+    const want = st ? st.enabled === false : false;
+    try{
+      await api(_DEST_TOGGLE_URL[dest], {method: "POST", body: JSON.stringify({enabled: want})});
+      b.textContent = want ? "ON" : "OFF";
+    }catch(e){
+      await glassAlert("Failed to toggle: " + (e.message || "error"));
+    }
+    await loadBackupManagerStatus();
+  });
+});
+
+// Back Up Now Button — no tick boxes: runs every enabled destination
+// (readiness errors land per-destination in the summary, as before).
+if($("backupNowBtn")) $("backupNowBtn").onclick = async () => {
+  const btn = $("backupNowBtn");
+  const statusEl = $("backupNowStatus");
+  const st = (typeof _destStates === "object" && _destStates) ? _destStates : {};
+  const isGd = !st.gdrive || st.gdrive.enabled !== false;
+  const isTg = !st.telegram || st.telegram.enabled !== false;
+  const isUsb = !st.usb || st.usb.enabled !== false;
+
+  if(!isGd && !isTg && !isUsb){
+    await glassAlert("All backup destinations are disabled.");
+    return;
+  }
+
+  btn.disabled = true;
+  if(statusEl) statusEl.textContent = "Starting backups…";
+
+  const tasks = [];
+  const taskNames = [];
+
+  if(isGd){
+    taskNames.push("Google Drive");
+    tasks.push(api("/api/backup/gdrive/backup", { method: "POST" }));
+  }
+  if(isTg){
+    taskNames.push("Telegram");
+    tasks.push(api("/api/backup/telegram/backup", { method: "POST" }));
+  }
+  if(isUsb){
+    taskNames.push("USB");
+    tasks.push(api("/api/backup/usb/backup", { method: "POST" }));
+  }
+
+  const results = await Promise.allSettled(tasks);
+  const summaries = [];
+
+  results.forEach((r, idx) => {
+    const name = taskNames[idx];
+    if(r.status === "fulfilled" && r.value && r.value.ok !== false){
+      summaries.push(`${name}: OK`);
+    } else {
+      const err = (r.reason && ((r.reason.body && r.reason.body.error) || r.reason.message)) || (r.value && r.value.error) || "Failed";
+      summaries.push(`${name}: ${err}`);
+    }
+  });
+
+  const summaryText = summaries.join("; ");
+  if(statusEl) statusEl.textContent = summaryText;
+  await glassAlert(summaryText);
+
+  await loadBackupManagerStatus();
+  btn.disabled = false;
+  btn.textContent = "Back Up Now";
+};
+
+// Refresh Button
+if($("backupRefreshBtn")) $("backupRefreshBtn").onclick = async () => {
+  const btn = $("backupRefreshBtn");
+  try{
+    btn.disabled = true;
+    await loadBackupManagerStatus();
+  }finally{
+    btn.disabled = false;
+  }
+};
+
+// Row-tap toggles retired (user order): only the checkbox square itself
+// toggles — taps on rows, labels, or text must not flip state.
+
+// Google Device Flow Event Listeners
+if($("gdriveDeviceStartBtn")) $("gdriveDeviceStartBtn").onclick = startDeviceFlow;if($("gdriveDeviceCancelBtn")) $("gdriveDeviceCancelBtn").onclick = cancelDeviceFlow;
+
+// Google Drive Management
+if($("gdriveDisconnectBtn")) {
+  $("gdriveDisconnectBtn").onclick = async () => {
+    if(!(await glassConfirm("Disconnect Google Drive cloud backup?",{title:"Disconnect Drive",okText:"Disconnect",danger:true}))) return;
+    try {
+      await api("/api/backup/gdrive/disconnect", {method: "POST"});
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("Disconnect failed: " + (e.message || "error"));
+    }
+  };
+}
+
+if($("gdriveRefreshListBtn")) {
+  $("gdriveRefreshListBtn").onclick = () => loadGDriveList();
+}
+
+async function loadGDriveList() {
+  const tbody = $("gdriveFilesBody");
+  if(!tbody) return;
+  try {
+    const res = await api("/api/backup/gdrive/list");
+    const files = (res && res.files) || [];
+    if(!files.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--ink-3);padding:6px;font-size:10px">No cloud snapshots found</td></tr>';
+      return;
+    }
+    tbody.innerHTML = files.map(f => {
+      const sz = f.size ? `${(f.size / 1024).toFixed(1)} KB` : "";
+      return `<tr>
+        <td style="font-size:10px;padding:3px 6px">${esc(f.name)}</td>
+        <td style="font-size:10px;color:var(--ink-2);padding:3px 6px">${sz}</td>
+        <td style="padding:3px 6px"><button class="btn" style="padding:1px 6px;font-size:9px" data-gdrive-restore="${esc(f.id)}" data-gdrive-name="${esc(f.name)}">Restore</button></td>
+      </tr>`;
+    }).join("");
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--danger);padding:6px;font-size:10px">Failed to list: ${esc(e.message || "error")}</td></tr>`;
+  }
+}
+
+if($("gdriveFilesBody")) {
+  $("gdriveFilesBody").onclick = async (e) => {
+    const btn = e.target.closest("button[data-gdrive-restore]");
+    if(!btn) return;
+    const fileId = btn.dataset.gdriveRestore;
+    const name = btn.dataset.gdriveName || "cloud backup";
+    if(!(await glassConfirm(`Restore database from cloud backup "${name}"?\n\nWARNING: Current database will be safely backed up to .pre_restore.bak before replacement.`,{title:"Restore from cloud",okText:"Restore",danger:true}))) return;
+    pauseSensorScan();
+    try {
+      btn.disabled = true;
+      btn.textContent = "Restoring…";
+      await api("/api/backup/gdrive/restore", {method: "POST", body: JSON.stringify({fileId: fileId})});
+      await glassAlert(`Database restored successfully from "${name}". Page will now reload.`);
+      window.location.reload();
+    } catch(err) {
+      resumeSensorScan();
+      await glassAlert("Restore failed: " + (err.message || "error"));
+      btn.disabled = false;
+      btn.textContent = "Restore";
+    }
+  };
+}
+
+// Google Drive Row Management (per-row send: same endpoint as Back Up Now)
+if($("gdriveBackupRowBtn")) {
+  $("gdriveBackupRowBtn").onclick = async () => {
+    const btn = $("gdriveBackupRowBtn");
+    try {
+      btn.disabled = true;
+      const res = await api("/api/backup/gdrive/backup", {method: "POST"});
+      await glassAlert("Backup sent to Google Drive successfully: " + (res.name || "complete"));
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("Google Drive backup failed: " + (e.message || "error"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Back up now";
+    }
+  };
+}
+
+// Telegram Management
+if($("telegramBackupNowBtn")) {
+  $("telegramBackupNowBtn").onclick = async () => {
+    const btn = $("telegramBackupNowBtn");
+    try {
+      btn.disabled = true;
+      const res = await api("/api/backup/telegram/backup", {method: "POST"});
+      await glassAlert("Backup sent to Telegram successfully: " + (res.name || "complete"));
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("Telegram backup failed: " + (e.message || "error"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Back up now";
+    }
+  };
+}
+
+if($("telegramClearStatusBtn")) {
+  $("telegramClearStatusBtn").onclick = async () => {
+    try {
+      await api("/api/backup/telegram/clear-status", {method: "POST"});
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("Failed to clear status: " + (e.message || "error"));
+    }
+  };
+}
+
+// USB Management
+if($("usbBackupNowBtn")) {
+  $("usbBackupNowBtn").onclick = async () => {
+    const btn = $("usbBackupNowBtn");
+    try {
+      btn.disabled = true;
+      const res = await api("/api/backup/usb/backup", {method: "POST"});
+      await glassAlert("Backup written to USB drive successfully: " + (res.name || "complete"));
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("USB backup failed: " + (e.message || "error"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Back up to USB";
+    }
+  };
+}
+
+if($("usbRefreshBtn")) {
+  $("usbRefreshBtn").onclick = async () => {
+    const btn = $("usbRefreshBtn");
+    try {
+      btn.disabled = true;
+      await loadBackupManagerStatus();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Detect USB";
+    }
+  };
+}
+
+if($("usbClearStatusBtn")) {
+  $("usbClearStatusBtn").onclick = async () => {
+    try {
+      await api("/api/backup/usb/clear-status", {method: "POST"});
+      await loadBackupManagerStatus();
+    } catch(e) {
+      await glassAlert("Failed to clear status: " + (e.message || "error"));
+    }
+  };
+}
+
+// Window Focus & Routing
+function checkAdminRoute(){
+  const h = window.location.hash || "";
+  const s = window.location.search || "";
+  if(h.includes("admin=backup") || s.includes("admin=backup")){
+    openAdmin();
+    const btn = document.querySelector('nav.admin-nav button[data-tab="backup"]');
+    if(btn){
+      [...adminNav.children].forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      currentTab="backup";
+      updateTabs();
+    }
+  }
+}
+window.addEventListener("load", checkAdminRoute);
+window.addEventListener("hashchange", checkAdminRoute);
+window.addEventListener("focus", ()=>{
+  if(currentTab==="backup" && adminLayer && adminLayer.classList.contains("open")){
+    loadBackupManagerStatus();
+  }
+});
+if($("calSaveBtn")) $("calSaveBtn").onclick=async()=>{
+  try{
+    const el=(id)=>$(id);
+    await api("/api/settings",{method:"POST",body:JSON.stringify({
+      schoolName:el("calSchoolName")?el("calSchoolName").value.trim():Settings.schoolName,
+      academicYear:el("calAcademicYear")?el("calAcademicYear").value:Settings.academicYear,
+      schoolOpeningDate:el("calStart")?el("calStart").value:Settings.startDate,
+      attendanceStartDate:el("calStart")?el("calStart").value:Settings.startDate,
+      lateCutoff:el("calLateAfter")?(el("calLateAfter").value||"08:30"):Settings.lateAfter
+    })});
+    await loadClassesHolidaysSettings(); renderAll(); await glassAlert("Saved.");
+  }catch(e){ await glassAlert("Failed: "+e.message); }
+};
+detailScroll.addEventListener("click",(e)=>{
+  const btn=e.target.closest("button"); if(!btn) return;
+  const action=btn.dataset.action, id=parseInt(btn.dataset.id||selectedStudentId);
+  if(action==="edit") openEditStudent(id);
+  else if(action==="reenroll") openReEnroll(id);
+  else if(action==="delete") deleteStudent(id);
+  else if(action==="reactivate") reactivateStudent(id);
+  else if(action==="print"){
+    const s=Students.find(x=>x.id===id); if(!s) return;
+    const card=document.querySelector('#detailScroll .detail-card');
+    const hist=document.querySelector('#detailScroll .table-wrap');
+    const hdr=`<h1>${esc(s.name)} — ${esc(s.roll)} — ${esc(s.class)}${s.batch?` — ${esc(s.batch)}`:""}</h1><p style="font-size:11px;color:#6B6B6B">${esc(s.phone||"")} — ${esc(s.address||"")}</p>`;
+    printHTML(hdr+(card?card.outerHTML:"")+(hist?hist.outerHTML:""));
+  }
+});
+studentListEl.addEventListener("click",(e)=>{ const row=e.target.closest(".student-row"); if(!row) return; const id=parseInt(row.dataset.id); if(id) selectStudent(id); });
+searchInput.addEventListener("input",()=>{ Timers.clear("search"); Timers.set("search", setTimeout(renderStudentList,260)); });
+/* Roster-local search writes through the shared input (no input event,
+   so the command palette stays shut) and re-renders the list. */
+if($("rosterSearch")) $("rosterSearch").addEventListener("input",()=>{ const rs=$("rosterSearch"); if(searchInput&&rs) searchInput.value=rs.value; renderStudentList(); });
+/* Rail command palette: same input, second job. Roster filtering is
+   untouched (same id, same debounce above); the palette matches
+   actions + students and runs on Enter/click. */
+function gotoTab(name){ const b=adminNav&&adminNav.querySelector(`button[data-tab="${name}"]`); if(b) b.click(); }
+const CMD_ACTIONS=[
+  {t:"Add Class",k:"add class new create",run:()=>{ gotoTab("setup"); openSchedPopup("class",null); }},
+  {t:"Add Batch",k:"add batch new create",run:()=>{ gotoTab("setup"); openSchedPopup("batch",null); }},
+  {t:"Add Holiday",k:"add holiday vacation exam break",run:()=>{ gotoTab("setup"); paintCbPage(1); openHolidayCreate(); }},
+  {t:"Add Override",k:"add override special date exception",run:()=>{ gotoTab("setup"); paintCbPage(1); openOverrideCreate(); }},
+  {t:"School Information",k:"school info settings name address year cutoff",run:()=>{ openModal(schoolInfoModal); }},
+  {t:"New Enrollment",k:"new enroll admit student",run:()=>{ gotoTab("students"); openNewStudent(); }},
+  {t:"Import CSV",k:"import csv upload students",run:()=>{ gotoTab("students"); const b=$("importStudentsBtn"); if(b) b.click(); }},
+  {t:"Export CSV",k:"export csv download students",run:()=>{ gotoTab("students"); const b=$("exportStudentsBtn"); if(b) b.click(); }},
+  {t:"Refresh attendance",k:"refresh reload attendance update",run:()=>{ gotoTab("attendance"); const b=$("attRefreshBtn"); if(b) b.click(); }},
+  {t:"Print attendance",k:"print attendance report paper",run:()=>{ gotoTab("attendance"); const b=$("attPrintBtn"); if(b) b.click(); }},
+  {t:"Export attendance CSV",k:"export attendance csv download report",run:()=>{ gotoTab("attendance"); const b=$("attExportBtn"); if(b) b.click(); }},
+  {t:"Back Up Now",k:"backup save database drive",run:()=>{ gotoTab("backup"); const b=$("backupNowBtn"); if(b) b.click(); }},
+  {t:"Holidays",k:"holidays list view vacations board",run:()=>{ gotoTab("setup"); paintCbPage(1); }},
+  {t:"Overrides",k:"overrides list view dates board",run:()=>{ gotoTab("setup"); paintCbPage(1); }},
+  {t:"Attendance",k:"attendance today present late absent",run:()=>gotoTab("attendance")},
+  {t:"Students",k:"students roster list",run:()=>gotoTab("students")},
+  {t:"Setup",k:"setup schedule school configuration",run:()=>gotoTab("setup")},
+  {t:"Backup",k:"backup manager",run:()=>gotoTab("backup")},
+];
+let _cmdItems=[], _cmdHi=0;
+function cmdMatches(){
+  const q=(searchInput.value||"").trim().toLowerCase();
+  if(!q) return null;
+  const acts=CMD_ACTIONS.filter(a=>(a.t+" "+a.k).toLowerCase().includes(q)).slice(0,5);
+  const stus=Students.filter(s=>(s.name+" "+s.roll+" "+s.class+" "+(s.batch||"")+" "+s.phone+" "+s.fid+" "+s.id+" "+(s.section||"")+" "+(s.parent||"")).toLowerCase().includes(q)).slice(0,6);
+  return {acts,stus};
+}
+function paintCmdPal(){
+  const box=$("cmdPal"); if(!box) return;
+  const m=cmdMatches();
+  if(!m||(!m.acts.length&&!m.stus.length)){ box.hidden=true; searchInput.setAttribute("aria-expanded","false"); searchInput.removeAttribute("aria-activedescendant"); return; }
+  let html=""; _cmdItems=[]; let idx=0;
+  if(m.acts.length){
+    html+=`<div class="cmd-grp">Actions</div>`;
+    m.acts.forEach(a=>{ _cmdItems.push({kind:"act",ref:a}); html+=`<div class="cmd-opt" id="cmdOpt-${idx}" data-cmd="${idx++}" role="option" aria-selected="false"><span>${esc(a.t)}</span><span class="k">action</span></div>`; });
+  }
+  if(m.stus.length){
+    html+=`<div class="cmd-grp">Students</div>`;
+    m.stus.forEach(s=>{ _cmdItems.push({kind:"stu",ref:s}); html+=`<div class="cmd-opt" id="cmdOpt-${idx}" data-cmd="${idx++}" role="option" aria-selected="false"><span>${esc(s.name)}</span><span class="k">${esc(s.roll||"")}</span></div>`; });
+  }
+  box.innerHTML=html; box.hidden=false; searchInput.setAttribute("aria-expanded","true");
+  _cmdHi=0; markCmdHi();
+}
+function markCmdHi(){
+  const box=$("cmdPal"); if(!box||box.hidden) return;
+  box.querySelectorAll(".cmd-opt").forEach((el,i)=>{
+    const on=(i===_cmdHi);
+    el.classList.toggle("hi",on);
+    el.setAttribute("aria-selected",on?"true":"false");
+    if(on) searchInput.setAttribute("aria-activedescendant",el.id||("cmdOpt-"+i));
+  });
+  const cur=box.querySelector(".cmd-opt.hi");
+  if(cur){ try{ cur.scrollIntoView({block:"nearest"}); }catch(e){} }
+}
+function runCmd(i){
+  const it=_cmdItems[i]; closeCmdPal(false); if(!it) return;
+  if(it.kind==="act"){ try{ it.ref.run(); }catch(e){} }
+  else { gotoTab("students"); selectStudent(it.ref.id); }
+}
+function closeCmdPal(clear){
+  const box=$("cmdPal"); if(box) box.hidden=true;
+  searchInput.setAttribute("aria-expanded","false");
+  searchInput.removeAttribute("aria-activedescendant");
+  if(clear){ searchInput.value=""; renderStudentList(); }
+}
+searchInput.addEventListener("input",paintCmdPal);
+searchInput.addEventListener("keydown",(e)=>{
+  const box=$("cmdPal"), open=box&&!box.hidden;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    if(!open) return;
+    e.preventDefault();
+    _cmdHi=((_cmdHi+(e.key==="ArrowDown"?1:-1))%_cmdItems.length+_cmdItems.length)%_cmdItems.length;
+    markCmdHi();
+  }else if(e.key==="Enter"){
+    if(!open) return;
+    e.preventDefault(); runCmd(_cmdHi);
+  }else if(e.key==="Escape"){
+    if(!open) return;
+    e.preventDefault(); e.stopPropagation(); closeCmdPal(false);
+  }
+});
+if($("cmdPal")) $("cmdPal").addEventListener("click",(e)=>{
+  const o=e.target.closest("[data-cmd]"); if(!o) return;
+  runCmd(parseInt(o.dataset.cmd,10));
+});
+document.addEventListener("pointerdown",(e)=>{
+  const box=$("cmdPal");
+  if(box&&!box.hidden&&!(e.target.closest&&e.target.closest(".rail-search"))) closeCmdPal(false);
+},true);
+classFilter.addEventListener("change",renderStudentList);
+if(batchFilter) batchFilter.addEventListener("change",renderStudentList);
+if(studentStatusFilter) studentStatusFilter.addEventListener("change",renderStudentList);
+const handleTableClick = (e)=>{
+  const corr = e.target.closest("[data-correct]");
+  if(corr){
+    e.stopPropagation();
+    const sid=parseInt(corr.dataset.correctSid), date=corr.dataset.correctDate, old=corr.dataset.correctStatus;
+    openCorrection(sid, date, old);
+    return;
+  }
+  const tr=e.target.closest("tr"); if(!tr) return; const sid=parseInt(tr.dataset.student);
+  if(sid){ adminNav.querySelector('[data-tab="students"]').click(); setTimeout(()=>selectStudent(sid),120); }
+};
+if(attTableBody) attTableBody.addEventListener("click", handleTableClick);
+// ---- correction (POST /api/correction) ----
+function openCorrection(studentId, date, oldStatus){
+  const s=Students.find(x=>x.id===studentId);
+  if(!s) return;
+  const body=$("correctionModalBody");
+  if(!body) return;
+  body.innerHTML=`
+    <div class="form-grid">
+      <div class="form-field"><label>Student</label><input value="${esc(s.name)} — ${esc(s.roll)} — ${esc(s.class)}" disabled></div>
+      <div class="form-field"><label>Date</label><input value="${esc(date)}" disabled></div>
+      <div class="form-field"><label>Current status</label><input value="${esc(oldStatus||"—")}" disabled></div>
+      <div class="form-field"><label>New status *</label><select id="corrStatus"><option value="PRESENT">Present</option><option value="LATE">Late</option><option value="ABSENT">Absent</option><option value="NOT_SCHEDULED">Not Scheduled</option></select></div>
+      <div class="form-field full"><label>Reason * (3-300 chars)</label><textarea id="corrReason" placeholder="e.g., Late arrival verified, fingerprint misread"></textarea></div>
+      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="corrCancel">Cancel</button><button class="btn primary" id="corrSave">Save correction</button></div>
+      <div class="inline-error" id="corrErr" style="display:none"></div>
+    </div>`;
+  // preselect oldStatus if matches
+  try{ const sel=$("corrStatus"); if(sel && oldStatus) { const up=String(oldStatus).toUpperCase(); for(let o of sel.options){ if(o.value===up) sel.value=o.value; } } }catch(e){}
+  openModal(correctionModal);
+  $("corrCancel").onclick=()=>closeModal(correctionModal);
+  $("corrSave").onclick=async()=>{
+    const newStatus=$("corrStatus").value, reason=$("corrReason").value.trim(), err=$("corrErr");
+    if(!newStatus || !reason || reason.length<3 || reason.length>300){ err.textContent="Status and reason (3-300 chars) required."; err.style.display="block"; return; }
+    err.style.display="none";
+    const btn=$("corrSave"); const prev=btn.textContent; btn.textContent="Saving…"; btn.disabled=true;
+    try{
+      await api("/api/correction",{method:"POST",body:JSON.stringify({date, studentId, status:newStatus, reason})});
+      closeModal(correctionModal);
+      // reload authoritative data
+      await loadTodayAttendance();
+      await loadHistory();
+      // reload student detail daily for single student
+      try{
+        const det=await api("/api/students/"+studentId,{method:"GET"});
+        if(det && det.daily){ /* update Daily cache for that student if needed */ }
+      }catch(e){}
+      renderAll();
+      if(selectedStudentId) renderStudentDetail(selectedStudentId);
+      await glassAlert("Correction saved. Audit preserved.");
+    }catch(ex){
+      err.textContent=ex.message||"Failed to save correction"; err.style.display="block";
+    }finally{ btn.textContent=prev; btn.disabled=false; }
+  };
+}
+// allow correction from student history (detailScroll)
+detailScroll.addEventListener("click",(e)=>{
+  const c=e.target.closest("[data-correct]");
+  if(!c) return;
+  e.stopPropagation();
+  openCorrection(parseInt(c.dataset.correctSid), c.dataset.correctDate, c.dataset.correctStatus);
+});
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape"){
+    if(daySheetModal && daySheetModal.classList.contains("open")){ closeDaySheet(); }
+    else if(enrollModal && enrollModal.classList.contains("open")){
+      finishEnrollUi();
+      if(adminLayer && adminLayer.classList.contains("open")) return;
+      resumeSensorScan();
+    }
+    else if(holidayViewModal && holidayViewModal.classList.contains("open")) closeModal(holidayViewModal);
+    else if(overrideViewModal && overrideViewModal.classList.contains("open")) closeModal(overrideViewModal);
+    else if(holidayModal && holidayModal.classList.contains("open")) closeModal(holidayModal);
+    else if(overrideModal && overrideModal.classList.contains("open")) closeModal(overrideModal);
+    else if(schedModal && schedModal.classList.contains("open")) closeModal(schedModal);
+    else if(schoolInfoModal && schoolInfoModal.classList.contains("open")) closeModal(schoolInfoModal);
+    else if(correctionModal && correctionModal.classList.contains("open")) closeModal(correctionModal);
+    else if(adminLayer && adminLayer.classList.contains("open")){
+      finishEnrollUi();
+      adminLayer.classList.remove("open");
+      resumeSensorScan();
+    }
+  }
+});
+// ---- init ----
+function bootFail(e){ console.error(e); document.body.insertAdjacentHTML("afterbegin",'<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#8A3A3A;color:#fff;font:12px sans-serif;padding:8px 12px">Boot failed: '+String((e&&e.message)||e)+'</div>'); }
+cacheLoad();
+try{ renderAll(); }catch(e){ bootFail(e); }
+setState("ready");
+loadAll().then(()=>{
+  setTimeout(sensorScanLoop,300);
+  /* UI-testing shortcut (user order): ?tab=<name> reopens the admin
+     straight on that tab after a refresh — no Admin click, no tab
+     hunting. Normal PIN/session rules still apply to API calls. */
+  try{
+    const q=new URLSearchParams(location.search);
+    const t=q.get("tab");
+    if(t&&["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(t)>=0){
+      currentTab=t;
+      try{localStorage.setItem("atl_admin_tab",t);}catch(_){}
+      openAdmin();
+    }
+  }catch(e){}
+}, bootFail);
+setInterval(()=>{
+  if(typeof document!=="undefined" && document.hidden) return;
+  loadTodayAttendance().then(()=>{ if(currentTab==="attendance") renderAttendance(); });
+}, 15000);
+// alias used by the injected backend bridge
+function saveStorage(){ return cacheSave(); }
+/* Glass confirm/alert — frosted replacement for native confirm()/alert() (Promise-based) */
+function glassDialog(opts){
+  opts=opts||{};
+  return new Promise((resolve)=>{
+    const prevFocus=(typeof document!=='undefined'&&document.activeElement)||null;
+    const ov=document.createElement('div'); ov.className='gconfirm-ov';
+    const card=document.createElement('div'); card.className='gconfirm'; card.setAttribute('role','alertdialog'); card.setAttribute('aria-modal','true');
+    const h=document.createElement('h3'); h.textContent=opts.title||'Confirm'; card.appendChild(h);
+    const p=document.createElement('p'); p.textContent=opts.message||''; card.appendChild(p);
+    const row=document.createElement('div'); row.className='gconfirm-row';
+    let done=false;
+    const cleanup=()=>{ ov.remove(); document.removeEventListener('keydown',onKey,true); if(prevFocus&&prevFocus.focus){ try{ prevFocus.focus(); }catch(e){} } };
+    const finish=(v)=>{ if(done) return; done=true; cleanup(); resolve(v); };
+    if(opts.cancelText!==null&&opts.cancelText!==undefined){
+      const c=document.createElement('button'); c.type='button'; c.className='gconfirm-cancel'; c.textContent=opts.cancelText||'Cancel';
+      c.addEventListener('click',()=>finish(false)); row.appendChild(c);
+    }
+    const ok=document.createElement('button'); ok.type='button'; ok.className='gconfirm-ok'+(opts.danger?' danger':''); ok.textContent=opts.okText||'Confirm';
+    ok.addEventListener('click',()=>finish(true)); row.appendChild(ok);
+    card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+    const btns=Array.from(row.querySelectorAll('button'));
+    const onKey=(e)=>{
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); finish(false); }
+      else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); finish(true); }
+      else if(e.key==='Tab'){ e.preventDefault(); e.stopPropagation(); const i=btns.indexOf(document.activeElement); const n=e.shiftKey?(i<=0?btns.length-1:i-1):(i===btns.length-1?0:i+1); btns[n].focus(); }
+    };
+    document.addEventListener('keydown',onKey,true);
+    try{ ok.focus(); }catch(e){}
+  });
+}
+function glassConfirm(message,opts){ opts=opts||{}; opts.message=message; if(opts.cancelText===undefined) opts.cancelText='Cancel'; if(!opts.okText) opts.okText='Confirm'; return glassDialog(opts); }
+function glassAlert(message,okText){ return glassDialog({title:'Notice',message:message,okText:okText||'OK',cancelText:null}); }
+function glassPrompt(message,defaultValue,opts){
+  opts=opts||{};
+  return new Promise((resolve)=>{
+    const prevFocus=(typeof document!=='undefined'&&document.activeElement)||null;
+    const ov=document.createElement('div'); ov.className='gconfirm-ov';
+    const card=document.createElement('div'); card.className='gconfirm'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+    const h=document.createElement('h3'); h.textContent=opts.title||'Enter Value'; card.appendChild(h);
+    if(message){ const p=document.createElement('p'); p.textContent=message; card.appendChild(p); }
+    const inp=document.createElement('input'); inp.type='text'; inp.className='setup-input-compact';
+    inp.style.cssText='width:100%;margin:12px 0 16px;background:rgba(242,243,246,0.06);border:1px solid var(--frost-line);color:inherit;padding:8px 10px;border-radius:6px;font-size:13px;outline:none;box-sizing:border-box;';
+    inp.value=defaultValue||'';
+    if(opts.placeholder) inp.placeholder=opts.placeholder;
+    card.appendChild(inp);
+    const row=document.createElement('div'); row.className='gconfirm-row';
+    let done=false;
+    const cleanup=()=>{ ov.remove(); document.removeEventListener('keydown',onKey,true); if(prevFocus&&prevFocus.focus){ try{ prevFocus.focus(); }catch(e){} } };
+    const finish=(v)=>{ if(done) return; done=true; cleanup(); resolve(v); };
+    const c=document.createElement('button'); c.type='button'; c.className='gconfirm-cancel'; c.textContent=opts.cancelText||'Cancel';
+    c.addEventListener('click',()=>finish(null)); row.appendChild(c);
+    const ok=document.createElement('button'); ok.type='button'; ok.className='gconfirm-ok'; ok.textContent=opts.okText||'Confirm';
+    ok.addEventListener('click',()=>finish(inp.value.trim())); row.appendChild(ok);
+    card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+    const onKey=(e)=>{
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); finish(null); }
+      else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); finish(inp.value.trim()); }
+    };
+    document.addEventListener('keydown',onKey,true);
+    setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 40);
+  });
+}
+/* Human-readable byte size for the photo readout */
+function fmtPhotoSize(bytes){
+  const n=Number(bytes)||0;
+  if(n<1024) return n+' B';
+  if(n<1048576){ const s=(n/1024).toFixed(1); return (s.slice(-2)==='.0'?s.slice(0,-2):s)+' KB'; }
+  return (n/1048576).toFixed(2)+' MB';
+}
+/* Photo dropzone — re-skins native file input, preserves files[0] read path + validation */
+function enhancePhotoField(input){
+  if(!input||input.tagName!=='INPUT'||input.type!=='file'||input.dataset.ph) return;
+  input.dataset.ph='1';
+  const drop=document.createElement('div'); drop.className='photo-drop';
+  input.parentNode.insertBefore(drop,input); drop.appendChild(input);
+  try{ input.tabIndex=-1; }catch(e){}
+  const thumb=document.createElement('div'); thumb.className='photo-thumb'; thumb.innerHTML='<span>Photo</span>';
+  const meta=document.createElement('div'); meta.className='photo-meta';
+  const nm=document.createElement('div'); nm.className='photo-name'; nm.textContent='No photo yet';
+  const sz=document.createElement('div'); sz.className='photo-sub'; sz.textContent='Optional · max 2MB · drag & drop';
+  meta.appendChild(nm); meta.appendChild(sz);
+  const acts=document.createElement('div'); acts.className='photo-acts';
+  const choose=document.createElement('button'); choose.type='button'; choose.className='photo-choose'; choose.textContent='Choose';
+  const rm=document.createElement('button'); rm.type='button'; rm.className='photo-remove'; rm.textContent='Remove'; rm.style.display='none';
+  acts.appendChild(choose); acts.appendChild(rm);
+  drop.appendChild(thumb); drop.appendChild(meta); drop.appendChild(acts);
+  let objUrl=null;
+  const refresh=()=>{
+    const f=input.files&&input.files[0];
+    if(objUrl){ try{ URL.revokeObjectURL(objUrl); }catch(e){} objUrl=null; }
+    if(f){
+      try{ objUrl=URL.createObjectURL(f); thumb.innerHTML=''; const im=document.createElement('img'); im.alt=''; im.src=objUrl; thumb.appendChild(im); }catch(e){}
+      nm.textContent=f.name; sz.textContent=fmtPhotoSize(f.size)+' · kept on save'; rm.style.display='';
+    }else{
+      thumb.innerHTML='<span>Photo</span>'; nm.textContent='No photo yet'; sz.textContent='Optional · max 2MB · drag & drop'; rm.style.display='none';
+    }
+  };
+  const changed=()=>refresh();
+  input.addEventListener('change',changed);
+  input._photoRefresh=refresh;
+  choose.addEventListener('click',()=>{ try{ input.click(); }catch(e){} });
+  rm.addEventListener('click',(e)=>{
+    e.preventDefault();
+    if(input.id==='edPhoto'){ const clr=document.getElementById('edClearPhoto'); if(clr){ clr.click(); } }
+    else{ try{ input.value=''; }catch(_e){} }
+    refresh();
+  });
+  drop.addEventListener('dragover',(e)=>{ e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',(e)=>{
+    e.preventDefault(); drop.classList.remove('over');
+    const fs=e.dataTransfer&&e.dataTransfer.files;
+    if(fs&&fs.length){ try{ input.files=fs; }catch(_e){} refresh(); try{ input.dispatchEvent(new Event('change',{bubbles:true})); }catch(_e2){} }
+  });
+  refresh();
+}
+/* Rail Reveal — the popup emerges from the sidebar edge toward the
+   left, fades in over the same window, then settles. Inline
+   transition keeps the change self-contained (no CSS edit). The rAF
+   split forces the start state to commit before the end state runs;
+   otherwise the browser collapses the two into one frame and the
+   popup pops in instead of sliding. `dx` is a fixed small distance
+   toward the rail (the popup right edge is already 8px from the rail
+   left; starting at +12px reads as "emerge from the rail"). */
+const RAIL_REVEAL_DX=12;
+const RAIL_REVEAL_MS=160;
+function _revealFromRail(el){
+  if(!el) return;
+  try{
+    el.style.transition="none";
+    el.style.opacity="0";
+    el.style.transform="translateX("+RAIL_REVEAL_DX+"px)";
+    void el.offsetWidth;
+    el.style.transition="transform "+RAIL_REVEAL_MS+"ms cubic-bezier(0.16,1,0.3,1), opacity 140ms ease";
+    el.style.opacity="1";
+    el.style.transform="translateX(0px)";
+    _railBridge(el);
+  }catch(e){
+    try{ el.style.opacity="1"; el.style.transform=""; }catch(_){}
+  }
+}
+/* 1px hairline stub bridging the 8px rail gap at trigger height, so the
+   popup reads as emerging from the owning row. Child of the popup, so
+   it travels with the reveal and dies with the surface (reuse path
+   clears it via innerHTML; _bridge ref is re-created each reveal).
+   pointer-events:none: hover/leave math uses the popup border box,
+   which excludes this overflow stub. Color is the global hairline
+   token (ink-aware via the existing D10 flip); no new paint. */
+function _railBridge(popEl){
+  if(!popEl) return;
+  try{
+    if(popEl._bridge){ try{popEl._bridge.remove();}catch(e){} popEl._bridge=null; }
+    const top=parseFloat(popEl.style.top)||0;
+    const h=popEl.offsetHeight||0;
+    const ty=(typeof popEl._triggerY==="number")?popEl._triggerY:top+h/2;
+    let y=Math.round(ty-top);
+    y=Math.max(5,Math.min(Math.max(5,h-5),y));
+    const b=document.createElement("div");
+    b.setAttribute("aria-hidden","true");
+    b.style.cssText="position:absolute;right:-8px;top:"+y+"px;width:8px;height:1px;background:var(--hairline);pointer-events:none;";
+    popEl.appendChild(b);
+    popEl._bridge=b;
+  }catch(e){}
+}
+/* Glass dropdowns — custom translucent popups for native <select> (native stays truth, fires change) */
+(function(){
+  if(window.__glassSelectInit) return; window.__glassSelectInit=true;
+  let openWrap=null, popEl=null, hiIdx=-1;
+  /* Lifecycle: single rAF-deferred close gated on real pointer state.
+     Old :hover polling raced the 1-2px gap between sibling controls and
+     could close the *next* popup just as it opened (the "stuck hover"
+     bug). Pointermove/mouseleave on document tell us when the cursor
+     has truly left BOTH the trigger and the list. */
+  const CLOSE_DELAY=160;
+  let closeTimer=null, lastPointerX=-1, lastPointerY=-1;
+  function cancelClose(){ if(closeTimer){ clearTimeout(closeTimer); closeTimer=null; } }
+  function inWrapOrPop(x,y){
+    if(!openWrap || !popEl) return false;
+    const wr=openWrap.getBoundingClientRect();
+    if(x>=wr.left-1 && x<=wr.right+1 && y>=wr.top-1 && y<=wr.bottom+1) return true;
+    const pr=popEl.getBoundingClientRect();
+    if(x>=pr.left-1 && x<=pr.right+1 && y>=pr.top-1 && y<=pr.bottom+1) return true;
+    return false;
+  }
+  function maybeCloseSoon(){
+    cancelClose();
+    if(!openWrap || !popEl) return;
+    closeTimer=setTimeout(()=>{
+      closeTimer=null;
+      if(inWrapOrPop(lastPointerX,lastPointerY)) return;
+      closePop(false);
+    },CLOSE_DELAY);
+  }
+  function onDocMove(e){ lastPointerX=e.clientX; lastPointerY=e.clientY; }
+  function onDocLeave(e){ if(e && e.relatedTarget===null){ lastPointerX=lastPointerY=-1; } }
+  function rows(){ return popEl ? Array.from(popEl.querySelectorAll('.gsel-opt:not([aria-disabled="true"])')) : []; }
+  function setHi(i){
+    const rs=rows(); if(!rs.length) return;
+    hiIdx=(i+rs.length)%rs.length;
+    rs.forEach((r,j)=>r.classList.toggle('hi', j===hiIdx));
+    try{ rs[hiIdx].scrollIntoView({block:'nearest'}); }catch(e){}
+  }
+  function closePop(refocus){
+    cancelClose();
+    if(popEl){ popEl.remove(); popEl=null; }
+    const w=openWrap; openWrap=null; hiIdx=-1;
+    if(w){ w.classList.remove('open'); const b=w.querySelector('.gsel-btn'); if(b){ b.setAttribute('aria-expanded','false'); if(refocus) b.focus(); } }
+    document.removeEventListener('pointerdown',onDocDown,true);
+    document.removeEventListener('keydown',onKeyDown,true);
+    window.removeEventListener('resize',onCloseOnly,true);
+    window.removeEventListener('scroll',onScrollClose,true);
+    document.removeEventListener('pointermove',onDocMove,true);
+    document.removeEventListener('mouseleave',onDocLeave,true);
+  }
+  function onCloseOnly(){ closePop(false); }
+  /* Inner list scrolls bubble to window: only an OUTER scroll closes */
+  function onScrollClose(e){ if(popEl && e.target && !popEl.contains(e.target)) closePop(false); }
+  /* Hover closes only once the cursor has truly left BOTH the control
+     and the list (pointermove-based check, with a small grace period).
+     Replaces the old :hover polling that raced sibling-control gaps. */
+  function schedHoverClose(){ maybeCloseSoon(); }
+  function onDocDown(e){
+    if(!openWrap) return;
+    if(openWrap.contains(e.target)) return;
+    if(popEl && popEl.contains(e.target)) return;
+    closePop(false);
+  }
+  function onKeyDown(e){
+    if(!openWrap || !popEl) return;
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); closePop(true); }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); e.stopPropagation(); setHi(hiIdx+1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); e.stopPropagation(); setHi(hiIdx-1); }
+    else if(e.key==='Enter'||e.key===' '){ const rs=rows(); if(rs.length && hiIdx>=0){ e.preventDefault(); e.stopPropagation(); rs[hiIdx].click(); } }
+    else if(e.key==='Tab'){ closePop(false); }
+  }
+  function labelOf(sel){
+    const o=sel.options[sel.selectedIndex];
+    const t=o ? o.textContent : '';
+    /* Setup context display (user order): short names on the bar —
+       "Global" for the empty value, bare name for class/batch
+       ("1212", never "Class: 1212"). Options keep full labels. */
+    if(sel&&sel.id==="calClassSelect"){
+      if(!o||!sel.value) return "Global";
+      return String(t).replace(/^(Class|Batch):\s*/,"").trim()||t;
+    }
+    return t;
+  }
+  function pick(sel,btn,v){
+    if(sel.value!==v){ sel.value=v; try{ sel.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){ const ev=document.createEvent('HTMLEvents'); ev.initEvent('change',true,false); sel.dispatchEvent(ev); } }
+    syncBtn(sel,btn); closePop(false); try{ btn.focus(); }catch(e){}
+  }
+  function syncBtn(sel,btn){
+    const lab=btn.querySelector('.gsel-lab'); if(lab) lab.textContent=labelOf(sel);
+    btn.disabled=!!sel.disabled;
+  }
+  function openPop(wrap,sel,btn){
+    /* Sibling-switch reuse: if a sidebar gsel popup is already open
+       and the new control is also in the sidebar, reuse the same
+       surface (no destroy/recreate) so the rail-reveal animation can
+       run a fresh transition without a flicker. Falls back to a
+       full close+reopen otherwise. */
+    const newInRail=!!(wrap.closest&&wrap.closest('#adminSide'));
+    const oldInRail=!!(openWrap&&openWrap.closest&&openWrap.closest('#adminSide'));
+    if(popEl && openWrap && newInRail && oldInRail && popEl.parentNode===document.body){
+      /* Tear down the old open state without removing popEl, rebuild
+         options, re-place, re-reveal. */
+      openWrap.classList.remove('open');
+      const oldBtn=openWrap.querySelector('.gsel-btn');
+      if(oldBtn) oldBtn.setAttribute('aria-expanded','false');
+      openWrap=wrap; wrap.classList.add('open'); btn.setAttribute('aria-expanded','true');
+      popEl.innerHTML="";
+      buildGselOptions(popEl, sel, btn);
+      placeGsel(popEl, wrap);
+      scrollSelIntoView(popEl);
+      if(newInRail) _revealFromRail(popEl);
+      return;
+    }
+    closePop(false);
+    openWrap=wrap; wrap.classList.add('open'); btn.setAttribute('aria-expanded','true');
+    popEl=document.createElement('div'); popEl.className='gsel-pop'; popEl.setAttribute('role','listbox');
+    buildGselOptions(popEl, sel, btn);
+    document.body.appendChild(popEl);
+    popEl.addEventListener('mouseleave',schedHoverClose);
+    popEl.addEventListener('mouseenter',cancelClose);
+    placeGsel(popEl, wrap);
+    scrollSelIntoView(popEl);
+    if(newInRail) _revealFromRail(popEl);
+    document.addEventListener('pointerdown',onDocDown,true);
+    document.addEventListener('keydown',onKeyDown,true);
+    document.addEventListener('pointermove',onDocMove,true);
+    document.addEventListener('mouseleave',onDocLeave,true);
+    window.addEventListener('resize',onCloseOnly,true);
+    window.addEventListener('scroll',onScrollClose,true);
+  }
+  function buildGselOptions(popEl, sel, btn){
+    /* Pop tags its source select (user order): lets CSS pin one
+       dropdown's overlay without touching the shared pop. */
+    try{ if(sel&&sel.id) popEl.dataset.for=sel.id; }catch(e){}
+    /* Schedule grid (user order): the context dropdown renders its
+       optgroups as category columns under a full-width Global row —
+       generic selects keep the flat list. */
+    const sched = sel && sel.id==="calClassSelect";
+    if(sched) popEl.classList.add("gsel-sched");
+    Array.from(sel.children).forEach(ch=>{
+      if(ch.tagName==='OPTGROUP'){
+        if(sched){
+          const col=document.createElement('div'); col.className='gsel-col';
+          const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; col.appendChild(g);
+          Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(col,o,sel,btn); });
+          popEl.appendChild(col);
+        }else{
+          const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; popEl.appendChild(g);
+          Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(popEl,o,sel,btn); });
+        }
+      }else if(ch.tagName==='OPTION'){
+        const r=addGselOpt(popEl,ch,sel,btn);
+        if(sched && sel.children[0]===ch && r) r.classList.add("gsel-wide");
+      }
+    });
+    /* Row divider (user order): a full-width hairline between the top
+       pair and the bottom pair whenever three or more categories
+       render — generic selects never grow one. */
+    if(sched){
+      const cols=Array.from(popEl.querySelectorAll(':scope > .gsel-col'));
+      if(cols.length>2){
+        const hd=document.createElement('div'); hd.className='gsel-hdiv'; hd.setAttribute('aria-hidden','true');
+        cols[1].after(hd);
+      }
+    }
+  }
+  function addGselOpt(popEl, o, sel, btn){
+    const r=document.createElement('div'); r.className='gsel-opt'; r.setAttribute('role','option');
+    r.textContent=o.textContent; r.dataset.v=o.value;
+    if(o.disabled){ r.setAttribute('aria-disabled','true'); return; }
+    if(o.value===sel.value){ r.classList.add('sel'); r.setAttribute('aria-selected','true'); }
+    r.addEventListener('click',()=>pick(sel,btn,o.value));
+    popEl.appendChild(r);
+    return r;
+  }
+  function placeGsel(popEl, wrap){
+    const rc=wrap.getBoundingClientRect();
+    popEl.style.minWidth=Math.max(rc.width,140)+'px';
+    popEl.style.maxWidth=Math.max(140,window.innerWidth-16)+'px';
+    const h=Math.min(popEl.classList.contains('gsel-sched')?400:260,popEl.offsetHeight||260);
+    const railEl=(wrap.closest&&wrap.closest('#adminSide'))||null;
+    let left=rc.left;
+    let inRail=false;
+    if(railEl){
+      const rr=railEl.getBoundingClientRect();
+      const railLeft=Math.max(0,rr.left);
+      const gap=8;
+      inRail=true;
+      left=Math.max(8,railLeft-gap-popEl.offsetWidth);
+      if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,window.innerWidth-popEl.offsetWidth-8);
+      popEl._triggerY=rc.top+rc.height/2;
+    }else{
+      if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,rc.right-popEl.offsetWidth);
+      try{ delete popEl._triggerY; }catch(e){ try{ popEl._triggerY=null; }catch(_){} }
+    }
+    let top=rc.bottom+4;
+    if(inRail){
+      const desired=Math.round(rc.top+(rc.height-h)/2);
+      top=Math.max(8,Math.min(desired,window.innerHeight-h-8));
+    }else if(top+h>window.innerHeight-8){
+      top=Math.max(8,rc.top-4-h);
+    }
+    /* Modal-footer awareness (user order): a dropdown opening downward
+       over the modal's ✕/✓ row flips up when the card has room above —
+       same rule for every modal select. Viewport logic above keeps
+       final say when neither fits. */
+    if(!inRail){ try{
+      const card=wrap.closest&&wrap.closest('.modal-card');
+      if(card){ const cr=card.getBoundingClientRect(); if(top+h>cr.bottom-8){ const up=Math.round(rc.top-4-h); if(up>=Math.max(8,cr.top)) top=up; } }
+    }catch(_){} }
+    popEl.style.top=top+'px'; popEl.style.left=Math.max(8,left)+'px';
+  }
+  function scrollSelIntoView(popEl){
+    hiIdx=Array.from(popEl.querySelectorAll('.gsel-opt:not([aria-disabled="true"])'))
+      .findIndex(r=>r.classList.contains('sel'));
+    if(hiIdx<0) hiIdx=0;
+    const rs=Array.from(popEl.querySelectorAll('.gsel-opt'));
+    rs.forEach((r,j)=>r.classList.toggle('hi',j===hiIdx));
+    const cur=rs[hiIdx]; if(cur){ try{cur.scrollIntoView({block:'nearest'});}catch(e){} }
+  }
+  function enhance(sel){
+    if(!sel||sel.tagName!=='SELECT'||sel.dataset.gsel) return;
+    if(sel.id==='attDatePreset') return; /* segmented strip owns this one */
+    sel.dataset.gsel='1';
+    const wrap=document.createElement('span'); wrap.className='gsel';
+    try{
+      if(sel.style.width) wrap.style.width=sel.style.width;
+      if(sel.style.maxWidth) wrap.style.maxWidth=sel.style.maxWidth;
+      ['height','minHeight','padding','border','background','fontSize','borderRadius','outline'].forEach(k=>{ sel.style[k]=''; });
+    }catch(e){}
+    if(sel.closest && sel.closest('.form-field')) wrap.classList.add('gsel-form');
+    sel.parentNode.insertBefore(wrap,sel); wrap.appendChild(sel);
+    try{ sel.tabIndex=-1; sel.setAttribute('aria-hidden','true'); }catch(e){}
+    const btn=document.createElement('button'); btn.type='button'; btn.className='gsel-btn';
+    btn.setAttribute('aria-haspopup','listbox'); btn.setAttribute('aria-expanded','false');
+    const lab=document.createElement('span'); lab.className='gsel-lab'; btn.appendChild(lab);
+    const ch=document.createElement('span'); ch.className='gsel-chev'; ch.textContent='\u25BE'; btn.appendChild(ch);
+    wrap.appendChild(btn);
+    const sync=()=>syncBtn(sel,btn); sel.addEventListener('change',sync); sync();
+    try{ new MutationObserver(sync).observe(sel,{childList:true}); }catch(e){}
+    /* Hover owns open/close outside modals (click toggle retired —
+       it fought the hover); modal dropdowns are click-to-toggle
+       instead (user order — hover fired while reaching across small
+       modals like holiday Type). Keyboard Enter/Space/Arrows still
+       open for accessibility everywhere. */
+    const modalClick=sel.closest&&sel.closest('.modal-card');
+    if(modalClick){
+      btn.addEventListener('click',(e)=>{ if(sel.disabled) return; e.stopPropagation(); if(openWrap===wrap) closePop(false); else openPop(wrap,sel,btn); });
+    }else{
+      wrap.addEventListener('mouseenter',()=>{ if(sel.disabled) return; cancelClose(); if(openWrap!==wrap) openPop(wrap,sel,btn); });
+      wrap.addEventListener('mouseleave',schedHoverClose);
+    }
+    btn.addEventListener('mouseenter',cancelClose);
+    btn.addEventListener('focus',cancelClose);
+    btn.addEventListener('keydown',(e)=>{
+      if(sel.disabled) return;
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Enter'||e.key===' '){ e.preventDefault(); if(openWrap!==wrap) openPop(wrap,sel,btn); }
+    });
+  }
+  function enhanceAll(root){
+    try{ (root||document).querySelectorAll('select').forEach(enhance); }catch(e){}
+  }
+  /* Repair hook (user order): if a select somehow missed enhancement
+     (or lost its wrap), re-run it — used by late-shown panes. */
+  try{
+    window.__ensureGsel=function(sel){
+      if(!sel||sel.tagName!=='SELECT') return;
+      const w=sel.parentNode;
+      if(w&&w.classList&&w.classList.contains('gsel')&&w.querySelector(':scope > .gsel-btn')) return;
+      try{ delete sel.dataset.gsel; }catch(e){ try{sel.removeAttribute('data-gsel');}catch(_){} }
+      enhance(sel);
+    };
+  }catch(e){}
+  enhanceAll(document);
+  try{
+    new MutationObserver((muts)=>{
+      muts.forEach(m=>{ m.addedNodes.forEach(n=>{ if(!n||!n.querySelectorAll) return; if(n.tagName==='SELECT') enhance(n); enhanceAll(n); }); });
+    }).observe(document.body,{childList:true,subtree:true});
+  }catch(e){}
+})();
+/* Attendance preset cubes — visual layer over #attDatePreset (truth),
+   now living in the main panel above the KPI strip (rail strip retired).
+   Same flow as before: set value, clear year unless academic, render,
+   dispatch change. Reveal inputs + APPLY live in #attRevealRow and are
+   shown/hidden by renderAttendance; Clear pair runs the section reset. */
+(function(){
+  function sync(){
+    const sel=document.getElementById("attDatePreset"); if(!sel) return;
+    document.querySelectorAll('#attPresetRow .att-cube[data-v]').forEach(b=>{
+      const on=(b.dataset.v===sel.value);
+      b.classList.toggle("on",on);
+      b.setAttribute("aria-pressed",on?"true":"false");
+    });
+  }
+  function build(){
+    const sel=document.getElementById("attDatePreset"); if(!sel||sel.dataset.cubes) return;
+    sel.dataset.cubes="1";
+    document.querySelectorAll('#attPresetRow .att-cube[data-v]').forEach(b=>{
+      b.addEventListener("click",()=>{
+        const v=b.dataset.v;
+        if(sel.value!==v){
+          sel.value=v;
+          /* Drive the flow through the change event alone (single render —
+             no direct call: it rendered twice and raced the fetch) */
+          try{
+            if(v!=="academic"){ attAcadFrom=attAcadTo=null; }
+          }catch(e){}
+          try{ sel.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){ try{ const ev=document.createEvent("HTMLEvents"); ev.initEvent("change",true,false); sel.dispatchEvent(ev); }catch(_){} }
+        }
+        /* Custom cubes open their anchored calendar popup (tap, never
+           hover); Academic Year opens the year-range popup the same
+           way. Every other preset shuts any open popup. Re-tapping
+           the active popup preset reopens its popup. */
+        try{
+          if(v==="custom_day") openDayPop(b);
+          else if(v==="custom_range") openRangePop(b);
+          else if(v==="academic") openAcadPop(b);
+          else closeDtPops();
+        }catch(e){ console.error(e); }
+        sync();
+      });
+    });
+    const clr=()=>{ try{ clearAttendanceSection(); }catch(e){ console.error(e); } };
+    const cb=document.getElementById("attClearBrick"); if(cb) cb.addEventListener("click",clr);
+    sel.addEventListener("change",sync); sync();
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",build); } else { build(); }
+})();
+/* Academic-year + custom-range frost popups for the preset strip.
+   Year spans anchor to Settings.startDate month/day (no invented
+   cutoffs); range Apply auto-orders. Both write through the existing
+   custom_range machinery (attFromDate/attToDate + renderAttendance). */
+const MONTHS_S=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_L=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function _pad2(n){ return (n<10?"0":"")+n; }
+function _iso(y,m,d){ return y+"-"+_pad2(m)+"-"+_pad2(d); }
+function _fmtShort(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; }
+function _dtShell(){
+  closeDtPops();
+  const box=document.createElement("div"); box.className="dt-pop"; box.setAttribute("role","dialog");
+  box.id="dtRangeAcadPop";
+  document.body.appendChild(box);
+  return box;
+}
+let _dtOpenFor=null;
+let _dtCloseT=null, _dtLastX=-1, _dtLastY=-1;
+function _dtCancelClose(){ if(_dtCloseT){ clearTimeout(_dtCloseT); _dtCloseT=null; } }
+function _dtInAnchorOrBox(x,y){
+  const box=document.getElementById("dtRangeAcadPop");
+  if(!box) return false;
+  const a=box._dtAnchor;
+  if(a){
+    const ar=a.getBoundingClientRect();
+    if(x>=ar.left-1 && x<=ar.right+1 && y>=ar.top-1 && y<=ar.bottom+1) return true;
+  }
+  const br=box.getBoundingClientRect();
+  return (x>=br.left-1 && x<=br.right+1 && y>=br.top-1 && y<=br.bottom+1);
+}
+function _dtMaybeCloseSoon(){
+  _dtCancelClose();
+  _dtCloseT=setTimeout(()=>{
+    _dtCloseT=null;
+    if(_dtInAnchorOrBox(_dtLastX,_dtLastY)) return;
+    closeDtPops();
+  },180);
+}
+function _dtDocMove(e){ _dtLastX=e.clientX; _dtLastY=e.clientY; }
+/* Restore the seg-strip's natural .active state (mirrors the strip's
+   own sync(): active = selected preset). Called when an owned popup
+   closes so the opener row releases its reveal marker. */
+function _clearRevealingSegs(){
+  try{
+    const sel=document.getElementById("attDatePreset");
+    const cur=sel?sel.value:"";
+    document.querySelectorAll(".seg-strip .seg-btn[data-v]").forEach(b=>{
+      const on=(b.dataset.v===cur);
+      b.classList.toggle("active",on);
+      b.setAttribute("aria-pressed",on?"true":"false");
+    });
+  }catch(e){}
+}
+function closeDtPops(){
+  _dtCancelClose();
+  _dtOpenFor=null;
+  _clearRevealingSegs();
+  const old=document.getElementById("dtRangeAcadPop"); if(old){ try{old.remove();}catch(e){} }
+  document.removeEventListener("pointerdown",_dtDocDown,true);
+  document.removeEventListener("keydown",_dtKey,true);
+  window.removeEventListener("scroll",_dtScroll,true);
+  window.removeEventListener("resize",closeDtPops);
+  document.removeEventListener("pointermove",_dtDocMove,true);
+}
+function _dtDocDown(e){ const box=document.getElementById("dtRangeAcadPop"); if(box&&!box.contains(e.target)&&!(box._dtAnchor&&box._dtAnchor.contains&&box._dtAnchor.contains(e.target))) closeDtPops(); }
+function _dtKey(e){ if(e.key==="Escape"){ e.preventDefault(); closeDtPops(); } }
+function _dtScroll(e){ const box=document.getElementById("dtRangeAcadPop"); if(box&&e.target&&!box.contains(e.target)) closeDtPops(); }
+function _dtPlace(box,anchor){
+  const r=anchor.getBoundingClientRect();
+  box.style.visibility="hidden"; box.style.left="0px"; box.style.top="0px";
+  const w=box.offsetWidth,h=box.offsetHeight,vw=window.innerWidth,vh=window.innerHeight;
+  /* Sidebar-anchored Academic Year / Custom Range: dock the popup's
+     right edge to the rail's left edge (8px gap) so it opens LEFT
+     into the workspace. Center vertically on the trigger so the
+     picker feels anchored to its control, not dropped from above. */
+  let railLeft=0;
+  try{ const rail=document.getElementById("adminSide"); if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0) railLeft=Math.max(0,rr.left); } }catch(e){}
+  const inRail=(r&&r.width>0&&r.left>=railLeft-1&&r.right<=railLeft+260);
+  let left;
+  if(inRail){
+    /* Modestly larger surface so the calendar reads easier; restrained
+       bump only — does not dominate the workspace. */
+    if(box.classList.contains("dt-pop") && !box.dataset.sized){
+      box.style.minWidth="296px";
+      box.dataset.sized="1";
+    }
+    left=Math.max(8,railLeft-8-w);
+    if(left+w>vw-8) left=Math.max(8,vw-w);
+    box._triggerY=r.top+r.height/2;
+  }else{
+    left=Math.min(Math.max(8,r.left),Math.max(8,vw-w-8));
+    try{ delete box._triggerY; }catch(e){ try{ box._triggerY=null; }catch(_){} }
+  }
+  let top;
+  if(inRail){
+    const desired=Math.round(r.top+(r.height-h)/2);
+    top=Math.max(8,Math.min(desired,vh-h-8));
+  }else{
+    top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
+  }
+  box.style.left=left+"px"; box.style.top=top+"px"; box.style.visibility="";
+  /* Anchored tail (day-bubble language): a sharp apex at the anchor's
+     horizontal center, pointing up when the popup sits below the cube
+     and down when flipped above. Rail-docked popups keep no tail. */
+  try{
+    if(!inRail && anchor && anchor.getBoundingClientRect){
+      let tail=null;
+      try{ tail=box.querySelector(":scope > .dt-tail"); }catch(_){ tail=null; }
+      if(!tail){ tail=document.createElement("div"); tail.className="dt-tail"; tail.setAttribute("aria-hidden","true"); box.appendChild(tail); }
+      const bw=box.offsetWidth||0;
+      const cx=Math.round(r.left+r.width/2-left);
+      tail.style.left=Math.max(20,Math.min(Math.max(20,bw-20),cx))+"px";
+      const below=(top>=r.bottom-2);
+      tail.classList.toggle("tail-up",below);
+      tail.classList.toggle("tail-down",!below);
+    }
+  }catch(e){}
+  if(inRail) _revealFromRail(box);
+}
+function _dtWire(box,anchor){
+  _dtPlace(box,anchor);
+  document.addEventListener("pointerdown",_dtDocDown,true);
+  document.addEventListener("keydown",_dtKey,true);
+  document.addEventListener("pointermove",_dtDocMove,true);
+  window.addEventListener("scroll",_dtScroll,true);
+  window.addEventListener("resize",closeDtPops);
+  /* Cursor is the answer: if it leaves both the trigger and the
+     popup, close (after a small grace window so the calendar survives
+     slow cross-overs). The "no auto-close" comment is the prior
+     policy; replaced with a single tracked-pointer close to kill the
+     stuck-popup residue. */
+  try{
+    box.addEventListener("mouseleave",_dtMaybeCloseSoon);
+    box.addEventListener("mouseenter",_dtCancelClose);
+    if(anchor && anchor.addEventListener){
+      anchor.addEventListener("mouseleave",_dtMaybeCloseSoon);
+      anchor.addEventListener("mouseenter",_dtCancelClose);
+      /* Reveal marker: the owning row borrows the strip's existing
+         .active treatment (opposite-pole 500) so trigger and popup
+         read as one unit. Siblings release theirs, so exactly one
+         row reads as the source. closeDtPops restores sync state. */
+      if(anchor.classList && anchor.classList.contains("seg-btn")){
+        _clearRevealingSegs();
+        try{
+          const strip=anchor.closest?anchor.closest(".seg-strip"):null;
+          if(strip) strip.querySelectorAll(".seg-btn[data-v]").forEach(b=>{
+            if(b!==anchor){ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); }
+          });
+        }catch(e){}
+        anchor.classList.add("active");
+        anchor.setAttribute("aria-pressed","true");
+      }
+    }
+  }catch(e){}
+}
+function _dtCommitPreset(v){
+  /* Arm the hidden preset select so renderAttendance honors the pick,
+     then fire change so the existing reveal/sync/render flow runs. */
+  try{
+    const sel=document.getElementById("attDatePreset");
+    if(sel){
+      if(sel.value!==v) sel.value=v;
+      try{ sel.dispatchEvent(new Event("change",{bubbles:true})); }
+      catch(e){ try{ const ev=document.createEvent("HTMLEvents"); ev.initEvent("change",true,false); sel.dispatchEvent(ev); }catch(_){} }
+    }
+  }catch(e){}
+}
+function acadYearOptions(){
+  const out=[];
+  const m=/^(\d{4})/.exec((typeof Settings!=="undefined"&&Settings&&Settings.academicYear)||"");
+  const y0=m?+m[1]:new Date().getFullYear();
+  const sm=/^(\d{4})-(\d{2})-(\d{2})$/.exec((typeof Settings!=="undefined"&&Settings&&Settings.startDate)||"");
+  const mo=sm?+sm[2]:8, dy=sm?+sm[3]:14;
+  for(let y=y0;y>y0-3;y--){
+    const e=new Date(y+1,mo-1,dy); e.setDate(e.getDate()-1);
+    out.push({label:y+"–"+String(y+1).slice(2),from:_iso(y,mo,dy),to:_iso(e.getFullYear(),e.getMonth()+1,e.getDate())});
+  }
+  return out;
+}
+function openAcadPop(anchor){
+  const key="A:"+((anchor&&anchor.dataset&&anchor.dataset.v)||"");
+  if(_dtOpenFor===key) return; _dtOpenFor=key;
+  const box=_dtShell(); box._dtAnchor=anchor;
+  const head=document.createElement("div"); head.className="dt-head";
+  const title=document.createElement("div"); title.className="dt-title"; title.textContent="Academic year";
+  head.appendChild(title); box.appendChild(head);
+  const curLbl=String((typeof Settings!=="undefined"&&Settings&&Settings.academicYear)||"");
+  acadYearOptions().forEach(opt=>{
+    const b=document.createElement("button"); b.type="button"; b.className="dt-acad-btn";
+    const cur=(attAcadFrom===opt.from&&attAcadTo===opt.to)||(!attAcadFrom&&curLbl.indexOf(String(opt.label).slice(0,4))===0);
+    if(cur) b.classList.add("sel");
+    const m1=document.createElement("span"); m1.className="dt-acad-main"; m1.textContent=opt.label;
+    const m2=document.createElement("span"); m2.className="dt-acad-sub"; m2.textContent=_fmtShort(opt.from)+" → "+_fmtShort(opt.to);
+    b.appendChild(m1); b.appendChild(m2);
+    b.addEventListener("click",()=>{ attAcadFrom=opt.from; attAcadTo=opt.to; _dtCommitPreset("academic"); try{renderAttendance();}catch(e){ console.error(e); } closeDtPops(); });
+    box.appendChild(b);
+  });
+  const foot=document.createElement("div"); foot.className="dt-foot";
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  clear.addEventListener("click",()=>{ attAcadFrom=attAcadTo=null; try{renderAttendance();}catch(e){ console.error(e); } closeDtPops(); });
+  const done=document.createElement("button"); done.type="button"; done.className="dt-glyph"; done.setAttribute("aria-label","Done"); done.innerHTML=TICK_ICON;
+  done.addEventListener("click",closeDtPops);
+  foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
+  _dtWire(box,anchor);
+}
+function _monthGrid(box,label,view,onPick,isSel){
+  if(label){ const sec=document.createElement("div"); sec.className="dt-sec"; sec.textContent=label; box.appendChild(sec); }
+  const head=document.createElement("div"); head.className="dt-head";
+  const title=document.createElement("div"); title.className="dt-title"; title.style.fontSize="10px";
+  const nav=document.createElement("div"); nav.className="dt-nav";
+  const prev=document.createElement("button"); prev.type="button"; prev.textContent="‹";
+  const next=document.createElement("button"); next.type="button"; next.textContent="›";
+  nav.appendChild(prev); nav.appendChild(next); head.appendChild(title); head.appendChild(nav); box.appendChild(head);
+  const grid=document.createElement("div"); grid.className="dt-grid"; box.appendChild(grid);
+  function draw(){
+    title.textContent=MONTHS_L[view.m]+" "+view.y;
+    grid.innerHTML="";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d=>{ const s=document.createElement("div"); s.className="dt-dow"; s.textContent=d; grid.appendChild(s); });
+    const first=new Date(view.y,view.m,1).getDay(), dim=new Date(view.y,view.m+1,0).getDate(), dpm=new Date(view.y,view.m,0).getDate();
+    for(let i=first-1;i>=0;i--) addDay(dpm-i,true);
+    for(let d=1;d<=dim;d++) addDay(d,false);
+    const tail=(7-((first+dim)%7))%7;
+    for(let d=1;d<=tail;d++) addDay(d,true);
+  }
+  function addDay(d,out){
+    const b=document.createElement("button"); b.type="button"; b.className="dt-day"+(out?" out":""); b.textContent=d;
+    const dt=new Date(view.y,view.m+(out?(d>15?-1:1):0),d);
+    const iso=_iso(dt.getFullYear(),dt.getMonth()+1,dt.getDate());
+    if(isSel(iso)) b.classList.add("sel");
+    b.addEventListener("click",()=>{ onPick(iso); });
+    grid.appendChild(b);
+  }
+  prev.addEventListener("click",()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} draw(); });
+  next.addEventListener("click",()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} draw(); });
+  draw();
+  return draw;
+}
+function openRangePop(anchor){
+  const key="R:"+((anchor&&anchor.dataset&&anchor.dataset.v)||"");
+  if(_dtOpenFor===key) return; _dtOpenFor=key;
+  const t=new Date();
+  let from=(typeof attFromDate!=="undefined"&&attFromDate&&attFromDate.value)||"", to=(typeof attToDate!=="undefined"&&attToDate&&attToDate.value)||"";
+  let pickingTo=!!(from&&!to);
+  const box=_dtShell(); box._dtAnchor=anchor;
+  const head=document.createElement("div"); head.className="dt-head";
+  const title=document.createElement("div"); title.className="dt-title"; title.textContent="Custom range";
+  head.appendChild(title); box.appendChild(head);
+  const hint=document.createElement("div"); hint.className="dt-sec"; hint.style.marginTop="0";
+  box.appendChild(hint);
+  const base=from||_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
+  const bm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(base)||[0,t.getFullYear(),t.getMonth()+1,t.getDate()];
+  const view={y:+bm[1],m:+bm[2]-1};
+  function paintHint(){
+    hint.textContent=!from?"Tap the start day":(!to?"Tap the end day":_fmtShort(from)+" → "+_fmtShort(to));
+  }
+  const inSel=iso=>((from&&to&&iso>=from&&iso<=to)||(from&&!to&&iso===from)||(!from&&to&&iso===to));
+  const redraw=_monthGrid(box,"",view,iso=>{
+    if(!pickingTo){ from=iso; to=""; pickingTo=true; }
+    else { to=iso; if(from>to){ const x=from; from=to; to=x; } pickingTo=false; }
+    paintHint(); redraw();
+  },inSel);
+  paintHint();
+  const foot=document.createElement("div"); foot.className="dt-foot";
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  clear.addEventListener("click",()=>{
+    from=""; to=""; pickingTo=false;
+    try{ if(attFromDate)attFromDate.value=""; if(attToDate)attToDate.value=""; renderAttendance(); }catch(e){ console.error(e); }
+    paintHint(); redraw();
+  });
+  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph"; apply.setAttribute("aria-label","Apply"); apply.innerHTML=TICK_ICON;
+  apply.addEventListener("click",()=>{
+    if(!from) from=_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
+    if(!to) to=from;
+    if(from>to){ const x=from; from=to; to=x; }
+    try{ if(attFromDate)attFromDate.value=from; if(attToDate)attToDate.value=to; _dtCommitPreset("custom_range"); try{renderAttendance();}catch(e){ console.error(e); } }catch(e){ console.error(e); }
+    closeDtPops();
+  });
+  foot.appendChild(clear); foot.appendChild(apply); box.appendChild(foot);
+  _dtWire(box,anchor);
+}
+/* Custom-date calendar popup — single-day mirror of openRangePop.
+   Same anchored shell, grid, nav, glyph foot. Pick stages locally;
+   tick writes the hidden single input + commits custom_day. */
+function openDayPop(anchor){
+  const key="D:"+((anchor&&anchor.dataset&&anchor.dataset.v)||"");
+  if(_dtOpenFor===key) return; _dtOpenFor=key;
+  const t=new Date();
+  let sel=(typeof attSingleDate!=="undefined"&&attSingleDate&&attSingleDate.value)||"";
+  const box=_dtShell(); box._dtAnchor=anchor;
+  const head=document.createElement("div"); head.className="dt-head";
+  const title=document.createElement("div"); title.className="dt-title"; title.textContent="Custom date";
+  head.appendChild(title); box.appendChild(head);
+  const hint=document.createElement("div"); hint.className="dt-sec"; hint.style.marginTop="0";
+  box.appendChild(hint);
+  const base=sel||_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
+  const bm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(base)||[0,t.getFullYear(),t.getMonth()+1,t.getDate()];
+  const view={y:+bm[1],m:+bm[2]-1};
+  function paintHint(){
+    hint.textContent=!sel?"Tap the day":_fmtShort(sel);
+  }
+  const redraw=_monthGrid(box,"",view,iso=>{
+    sel=iso;
+    paintHint(); redraw();
+  },iso=>(sel&&iso===sel));
+  paintHint();
+  const foot=document.createElement("div"); foot.className="dt-foot";
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  clear.addEventListener("click",()=>{
+    sel="";
+    try{ if(attSingleDate)attSingleDate.value=""; renderAttendance(); }catch(e){ console.error(e); }
+    paintHint(); redraw();
+  });
+  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph"; apply.setAttribute("aria-label","Apply"); apply.innerHTML=TICK_ICON;
+  apply.addEventListener("click",()=>{
+    if(!sel) sel=_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
+    try{ if(attSingleDate)attSingleDate.value=sel; _dtCommitPreset("custom_day"); try{renderAttendance();}catch(e){ console.error(e); } }catch(e){ console.error(e); }
+    closeDtPops();
+  });
+  foot.appendChild(clear); foot.appendChild(apply); box.appendChild(foot);
+  _dtWire(box,anchor);
+}
+/* Frosted tooltip engine — RETIRED per user call (no hover warnings
+   anywhere). Kept as a no-op shell so nothing references missing code. */
+/* Custom frost date/time picker — replaces native popups (browser chrome
+   can never wear the theme). Trigger glyph + portalled popup, same
+   architecture as the gsel dropdowns. Typing stays native; the picker
+   only writes well-formed values (date YYYY-MM-DD, time HH:MM 24h)
+   and fires input+change so all existing save flows keep working. */
+(function(){
+  if(window.__frostDtInit) return; window.__frostDtInit=true;
+  let popEl=null, popInput=null, popType=null;
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const pad=n=>(n<10?"0":"")+n;
+  const viewKey={};
+  function closePop(){
+    _dtCancelClose();
+    if(popEl){ try{ popEl.remove(); }catch(e){} popEl=null; popInput=null; popType=null; }
+    document.removeEventListener("pointerdown",onDocDown,true);
+    document.removeEventListener("keydown",onKey,true);
+    window.removeEventListener("scroll",onScroll,true);
+    window.removeEventListener("resize",closePop);
+    document.removeEventListener("pointermove",_dtDocMove,true);
+  }
+  function onDocDown(e){ if(popEl && !popEl.contains(e.target) && e.target!==popInput && !(popInput&&popInput._dtTrig&&popInput._dtTrig.contains(e.target))) closePop(); }
+  /* Column scrolls bubble to window: only a scroll OUTSIDE the popup closes */
+  function onScroll(e){ if(popEl && e.target && !popEl.contains(e.target)) closePop(); }
+  function onKey(e){ if(e.key==="Escape"){ e.preventDefault(); closePop(); if(popInput){ try{ popInput.focus(); }catch(_){} } } }
+  function commit(input,val){
+    input.value=val;
+    try{ input.dispatchEvent(new Event("input",{bubbles:true})); }catch(e){}
+    try{ input.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){}
+  }
+  function place(input){
+    if(!popEl) return;
+    const r=input.getBoundingClientRect();
+    popEl.style.visibility="hidden"; popEl.style.left="0px"; popEl.style.top="0px";
+    const w=popEl.offsetWidth, h=popEl.offsetHeight, vw=window.innerWidth, vh=window.innerHeight;
+    /* Rail-dock only for sidebar-anchored fields: dock right edge of
+       the popup to the rail's left edge (8px gap) so the picker opens
+       LEFT into the workspace. Center vertically on the trigger. */
+    let inRail=false, railLeft=0;
+    try{
+      const rail=document.getElementById("adminSide");
+      if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0){ railLeft=Math.max(0,rr.left); inRail=(r&&r.width>0&&r.left>=railLeft-1&&r.right<=railLeft+260); } }
+    }catch(e){}
+    let left;
+    if(inRail){
+      if(!popEl.dataset.sized){ popEl.style.minWidth="296px"; popEl.dataset.sized="1"; }
+      left=Math.max(8,railLeft-8-w);
+      if(left+w>vw-8) left=Math.max(8,vw-w);
+      popEl._triggerY=r.top+r.height/2;
+    }else{
+      left=Math.min(Math.max(8,r.left),Math.max(8,vw-w-8));
+      try{ delete popEl._triggerY; }catch(e){ try{ popEl._triggerY=null; }catch(_){} }
+    }
+    let top;
+    if(inRail){
+      const desired=Math.round(r.top+(r.height-h)/2);
+      top=Math.max(8,Math.min(desired,vh-h-8));
+    }else{
+      top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
+    }
+    /* Same modal-footer flip as the dropdowns (user order): time/date
+       pickers never bury the modal's own action row when room above. */
+    try{
+      const card=input.closest&&input.closest('.modal-card');
+      if(card){ const cr=card.getBoundingClientRect(); if(top+h>cr.bottom-8){ const up=Math.round(r.top-4-h); if(up>=Math.max(8,cr.top)) top=up; } }
+    }catch(_){}
+    popEl.style.left=left+"px"; popEl.style.top=top+"px"; popEl.style.visibility="";
+    if(inRail) _revealFromRail(popEl);
+  }
+  function openPop(input,type){
+    if(popEl && popInput===input && popType===type){ closePop(); return; }
+    closePop();
+    popInput=input; popType=type;
+    popEl=document.createElement("div"); popEl.className="dt-pop"; popEl.setAttribute("role","dialog");
+    if(type==="date") buildDate(popEl,input); else buildTime(popEl,input);
+    document.body.appendChild(popEl); place(input);
+    document.addEventListener("pointerdown",onDocDown,true);
+    document.addEventListener("keydown",onKey,true);
+    window.addEventListener("scroll",onScroll,true);
+    window.addEventListener("resize",closePop);
+    /* Tracked-pointer close: if the cursor leaves the popup AND the
+       trigger for a moment, close. Prevents the stuck-popup residue
+       when the user moves from the input to a sibling control. */
+    try{
+      const wrap=input.closest&&input.closest(".dt-wrap");
+      const trig=input._dtTrig;
+      popEl.addEventListener("mouseenter",_dtCancelClose);
+      popEl.addEventListener("mouseleave",_dtMaybeCloseSoon);
+      if(wrap){ wrap.addEventListener("mouseenter",_dtCancelClose); wrap.addEventListener("mouseleave",_dtMaybeCloseSoon); }
+      if(trig){ trig.addEventListener("mouseenter",_dtCancelClose); trig.addEventListener("mouseleave",_dtMaybeCloseSoon); }
+      document.addEventListener("pointermove",_dtDocMove,true);
+    }catch(e){}
+  }
+  function parseDate(v){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||""); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(d)?null:d; }
+  function buildDate(box,input){
+    const today=new Date(); today.setHours(0,0,0,0);
+    let sel=parseDate(input.value);
+    let vk=input.id||input.name||"dt";
+    let view=viewKey[vk];
+    if(!view){ const base=sel||today; view={y:base.getFullYear(),m:base.getMonth()}; }
+    const head=document.createElement("div"); head.className="dt-head";
+    const title=document.createElement("div"); title.className="dt-title";
+    const nav=document.createElement("div"); nav.className="dt-nav";
+    const prev=document.createElement("button"); prev.type="button"; prev.textContent="‹ Prev";
+    const next=document.createElement("button"); next.type="button"; next.textContent="Next ›";
+    prev.addEventListener("click",()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} draw(); });
+    next.addEventListener("click",()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} draw(); });
+    nav.appendChild(prev); nav.appendChild(next); head.appendChild(title); head.appendChild(nav); box.appendChild(head);
+    const grid=document.createElement("div"); grid.className="dt-grid"; box.appendChild(grid);
+    const foot=document.createElement("div"); foot.className="dt-foot";
+    const clear=document.createElement("button"); clear.type="button"; clear.textContent="Clear";
+    const tBtn=document.createElement("button"); tBtn.type="button"; tBtn.textContent="Today";
+    clear.addEventListener("click",()=>{ viewKey[vk]=view; commit(input,""); closePop(); });
+    tBtn.addEventListener("click",()=>{ const t=new Date(); view={y:t.getFullYear(),m:t.getMonth()}; viewKey[vk]=view; commit(input,t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate())); closePop(); });
+    foot.appendChild(clear); foot.appendChild(tBtn); box.appendChild(foot);
+    function draw(){
+      viewKey[vk]=view;
+      title.textContent=MONTHS[view.m]+" "+view.y;
+      grid.innerHTML="";
+      ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d=>{ const s=document.createElement("div"); s.className="dt-dow"; s.textContent=d; grid.appendChild(s); });
+      const first=new Date(view.y,view.m,1).getDay(), dim=new Date(view.y,view.m+1,0).getDate(), dpm=new Date(view.y,view.m,0).getDate();
+      for(let i=first-1;i>=0;i--) addDay(dpm-i,true);
+      for(let d=1;d<=dim;d++) addDay(d,false);
+      const tail=(7-((first+dim)%7))%7;
+      for(let d=1;d<=tail;d++) addDay(d,true);
+    }
+    function addDay(d,out){
+      const b=document.createElement("button"); b.type="button"; b.className="dt-day"+(out?" out":""); b.textContent=d;
+      const dt=new Date(view.y,view.m+(out?(d>15?-1:1):0),d);
+      if(dt.getTime()===today.getTime()) b.classList.add("today");
+      if(sel&&dt.getFullYear()===sel.getFullYear()&&dt.getMonth()===sel.getMonth()&&dt.getDate()===sel.getDate()) b.classList.add("sel");
+      b.addEventListener("click",()=>{ viewKey[vk]={y:dt.getFullYear(),m:dt.getMonth()}; commit(input,dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())); closePop(); });
+      grid.appendChild(b);
+    }
+    draw();
+  }
+  function parseTime(v){ const m=/^(\d{1,2}):(\d{2})/.exec(v||""); if(!m) return null; const h=+m[1],mi=+m[2]; if(h>23||mi>59) return null; return {h:h,mi:mi}; }
+  function buildTime(box,input){
+    let cur=parseTime(input.value)||{h:8,mi:0};
+    let dirty=false;
+    const head=document.createElement("div"); head.className="dt-head";
+    const title=document.createElement("div"); title.className="dt-title"; title.textContent="Time";
+    head.appendChild(title); box.appendChild(head);
+    const cols=document.createElement("div"); cols.className="dt-cols"; box.appendChild(cols);
+    const hCol=document.createElement("div"); hCol.className="dt-col";
+    const mCol=document.createElement("div"); mCol.className="dt-col";
+    const aCol=document.createElement("div"); aCol.className="dt-col";
+    cols.appendChild(hCol); cols.appendChild(mCol); cols.appendChild(aCol);
+    const foot=document.createElement("div"); foot.className="dt-foot";
+    const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+    const done=document.createElement("button"); done.type="button"; done.className="dt-glyph"; done.setAttribute("aria-label","Done"); done.innerHTML=TICK_ICON;
+    clear.addEventListener("click",()=>{ commit(input,""); closePop(); });
+    done.addEventListener("click",()=>{ if(dirty) apply(); closePop(); });
+    foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
+    function h12(){ const h=cur.h%12; return h===0?12:h; }
+    function isPM(){ return cur.h>=12; }
+    function apply(){ commit(input,pad(cur.h)+":"+pad(cur.mi)); }
+    function fill(col,items,selVal,onPick){
+      col.innerHTML="";
+      items.forEach(v=>{
+        const b=document.createElement("button"); b.type="button"; b.textContent=v.label; if(v.val===selVal) b.classList.add("sel");
+        /* Taps stage only (user order): hour, minute, and AM/PM picks
+           highlight in place — nothing commits until the tick (dirty
+           guard stops an untouched open from stamping the default). */
+        b.addEventListener("click",()=>{ onPick(v.val); dirty=true; refresh(); });
+        col.appendChild(b);
+      });
+    }
+    function refresh(){
+      fill(hCol,[1,2,3,4,5,6,7,8,9,10,11,12].map(h=>({label:pad(h),val:h})),h12(),v=>{ cur.h=(isPM()?12:0)+(v%12); });
+      const mins=[]; for(let m=0;m<60;m+=5) mins.push({label:pad(m),val:m});
+      if(cur.mi%5!==0) mins.push({label:pad(cur.mi),val:cur.mi});
+      mins.sort((a,b)=>a.val-b.val);
+      fill(mCol,mins,cur.mi,v=>{ cur.mi=v; });
+      fill(aCol,[{label:"AM",val:0},{label:"PM",val:1}],isPM()?1:0,v=>{ const h=cur.h%12; cur.h=v?h+12:h; });
+      [hCol,mCol,aCol].forEach(c=>{ const s=c.querySelector(".sel"); if(s){ try{ c.scrollTop=s.offsetTop-c.clientHeight/2+s.clientHeight/2; }catch(e){} } });
+    }
+    refresh();
+  }
+  function enhance(input){
+    if(!input||(input.tagName!=="INPUT")||input.dataset.dt) return;
+    const t=(input.type||"").toLowerCase(); if(t!=="time"&&t!=="date") return;
+    input.dataset.dt="1";
+    const wrap=document.createElement("span"); wrap.className="dt-wrap";
+    try{ input.parentNode.insertBefore(wrap,input); wrap.appendChild(input); }catch(e){ return; }
+    const trig=document.createElement("button"); trig.type="button"; trig.className="dt-trig";
+    trig.textContent=(t==="date"?"\u25A6":"\u25F7");
+    trig.setAttribute("aria-label",t==="date"?"Choose date":"Choose time");
+    trig.setAttribute("tabindex","-1");
+    trig.addEventListener("click",(e)=>{ e.preventDefault(); e.stopPropagation(); try{ input.focus(); }catch(_){} openPop(input,t); });
+    wrap.appendChild(trig); input._dtTrig=trig;
+    /* Click-anywhere: the field body opens the same popup as the
+       trigger (same focus + openPop lines, trigger untouched).
+       Drags keep text selection: only a true click (no movement,
+       nothing selected) opens. Keyboard/typing never fire click. */
+    let _dtX=0, _dtY=0;
+    input.addEventListener("mousedown",(e)=>{ _dtX=e.clientX; _dtY=e.clientY; });
+    input.addEventListener("click",(e)=>{
+      if(Math.abs(e.clientX-_dtX)>4||Math.abs(e.clientY-_dtY)>4) return;
+      try{ const s=window.getSelection(); if(s&&!s.isCollapsed) return; }catch(_){}
+      try{ input.focus(); }catch(_){}
+      openPop(input,t);
+    });
+  }
+  function enhanceAll(root){ try{ (root||document).querySelectorAll('input[type="time"],input[type="date"]').forEach(enhance); }catch(e){} }
+  enhanceAll(document);
+  try{
+    new MutationObserver((muts)=>{
+      muts.forEach(m=>{ m.addedNodes.forEach(n=>{ if(!n||!n.querySelectorAll) return; if(n.tagName==="INPUT") enhance(n); enhanceAll(n); }); });
+    }).observe(document.body,{childList:true,subtree:true});
+  }catch(e){}
+})();
