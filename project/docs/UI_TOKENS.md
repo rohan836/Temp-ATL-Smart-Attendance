@@ -1,224 +1,118 @@
-# UI Tokens — Canonical Frost + Reference Values (single source of truth)
+# UI Tokens — current visual contract
 
-> Cream-wall order (log 58): the photo ambient is retired and every
-> frost fill/blur below is overridden to solid cream / `none` by the
-> X block — the variables stand, but the rendered UI is flat cream.
+This file is the single source of truth for the rendered UI language on `feature/ui-glass-redesign`. Do not treat the old frost/desert specification as the current Admin theme.
 
-These values are canonized as global CSS variables in `:root`
-(`ATL-Smart-Attendance-Production.html`). Use the variables, never literals:
+## 1. Current branch theme: black-and-cream wall
 
-```css
---frost-bg:      rgba(242, 243, 246, 0.08);   /* surface fill */
---frost-blur:    blur(24px) saturate(1.2);    /* frost */
---frost-line:    rgba(242, 243, 246, 0.14);   /* 1px structural border */
---frost-radius:  2px;                         /* 3px allowed for large modals */
---frost-opt-pad: 8px 14px;                    /* option-row rhythm (Y: 8px) */
---frost-opt-min-h: 32px;                      /* option-row minimum height */
-```
+| Token | Value | Use |
+|---|---|---|
+| `--wall-black` | `#141414` | Main dark beds, boards, primary controls |
+| `--wall-cream` | `#F4EEE1` | Main wall, light fields, readable surfaces |
+| `--wall-red` | `#8A3A3A` | Destructive actions and destructive state only |
+| working month state | `#F2DEC7` | Scheduled/working day state |
+| off/override month state | `#E1B8A2` | Non-working and override state |
+| holiday month state | `#CF7D65` | Holiday state |
 
-Reference usage (All Status dropdown): `background: var(--frost-bg);
-backdrop-filter: var(--frost-blur); border: 1px solid var(--frost-line);
-border-radius: var(--frost-radius); box-shadow: none;`
+The wall is one continuous structure per page. Internal joins are sharp. Outer corners may carry the page-level radius; do not add independent card shells merely to separate content.
 
-If the reference changes, update the `:root` variables first —
-every wired surface follows automatically.
+## 2. Surface rules
 
-## Reference rollout (current UI — user-ordered full-UI theme)
+- Admin beds are flat black or cream. No shadows.
+- No translucent white veil over Admin.
+- The previous desert ambient image is retired on this branch.
+- The previous pellet/ring treatment is retired.
+- State changes must not resize or move neighboring content.
+- Internal page sections are separated by deliberate seams or whitespace, not stacked floating cards.
+- Use one surface language across sibling screens. Do not invent a special card for one tab.
 
-Canonized alongside the frost tokens in `:root`
-(`ATL-Smart-Attendance-Production.html:42-56`). Use the variables,
-never literals:
+## 3. Actions
 
-```css
---ref-frost:      rgba(228, 219, 208, 0.45);  /* warm frost window fill */
---ref-frost-blur: blur(22px) saturate(1.25);  /* window frost */
---ref-edge:       rgba(255, 255, 255, 0.4);   /* window edge */
---ref-radius:     24px;                        /* outer windows only */
---ref-white:      #FFFFFF;                     /* white cards */
---ref-white-line: rgba(24, 26, 32, 0.08);     /* white-card edge */
---ref-pill:       #181A20;                     /* black primary pills */
---ref-black:      #141414;                     /* Classes/Batches cards */
---ref-ink:        #181A20;                     /* dark text on light surfaces */
---ref-ink-2:      rgba(24, 26, 32, 0.55);      /* muted dark text */
-```
+Use glyph actions for the wall system:
 
-Windows (no shadow; `ref-radius` outer): rail keeps the sheer frost
-(`--frost-bg` / `--frost-blur` / `--frost-line`) in BOTH inks; Students
-roster, Attendance workspace, Setup month, and Backup manager use the
-warm `--ref-frost` / `--ref-frost-blur` in both inks (roster borderless
-since log 43; `ref-edge` retired on roster/detail — no window edge
-lines). Roster rows carry no
-fade wash — selection reads via 500 name + full-ink text only.
-Rail dropdown rows are underline-free at rest in both inks (hover
-keeps its pole-mirrored underline).
+- close: red cross
+- confirm/apply: black tick
+- remove: red trash, positioned consistently at the far-left remove slot
+- add: black plus
+- edit: black pencil
 
-Cards: the white (`--ref-white`) cards are retired → Students detail
-and Backup audit are twin warm-frost windows (same fill/blur/edge as
-the other windows, dark text forced both poles); black (`--ref-black`,
-white text both inks) = Setup Classes/Batches (`.cb-table`).
+Use pills only where the existing component already uses a pill as a semantic control. Do not turn every action into a pill.
 
-Pills (`border-radius: 999px`): black primary (`--ref-pill`, silver
-text) vs transparent outline secondary (`1px solid
-rgba(24,26,32,0.25)`, `--ref-ink` text) — Students detail, Backup,
-sidebar (`#attApplyBtn`, rail actions). The sidebar ONE-pill block
-(near `.side-act-row`) is the single sidebar-action truth — later
-order + equal-or-higher specificity beats the retired ALL-TEXT twin;
-do not re-add `:not()` rivals.
+## 4. Fields and selectors
 
-Ambient retired: `body::before` = `linear-gradient(rgba(5,5,8,0.12), …)` +
-`#050507` base only (`bg-spheres.jpg` removed — unused since the UI
-redesign); `#adminLayer.open` is transparent (old `0.12` veil
-retired). Top chrome over the ambient uses `--on-img` inks
-(`#F2F3F6` / `-70` / `-60`).
-
-Sharp corners retired + flat cells (global laws): the everywhere-sharp
-`html [class]` rule is deleted — it outranked the ID-scoped 24px window
-rules and squared the white card, rail, roster, and frost windows. What
-stays sharp by own narrow rules: day pills, month cells, option rows,
-validation errors. `body > .gsel-pop.gsel-pop` pins the popover frost
-border + `--frost-radius`. Month cells are flat text-only (`56px` fixed
-rows, transparent, no blur) with a `0.08` hairline grid (dark pole
-`rgba(24,26,32,0.08)`, Saturday edge open); state reads via text only.
-
-## Directional fade washes (RETIRED globally — user order)
-
-All `linear-gradient(90deg, …)` fade slabs are deleted from the CSS
-(zero remain): roster/rail/cube/black-card actives, weekday states,
-search beds (live + dead), dead cube-add/pane-search rules. Selection
-reads via 500/bold + full-ink text only; hover keeps solid fills
-(non-gradient); underline indicators stay. The stop table below is the
-historical record, not current paint.
-
-Shape (all tiles, both poles — silver `242,243,246`, graphite `24,26,32`):
+Cube field:
 
 ```css
-background: linear-gradient(90deg, rgba(POLE, HEAD), rgba(POLE, TAIL) 80%);
+background: #F4EEE1;
+border: 3px solid #141414;
+color: #141414;
 ```
 
-| Tile | White head | White tail | Dark head | Dark tail |
-|---|---|---|---|---|
-| Weekly idle | 0.10 | 0 | 0.10 | 0 |
-| Weekly hover | 0.12 | 0 | 0.14 | 0.02 |
-| Weekly working | 0.12 | 0 | 0.16 | 0.02 |
-| Weekly off | 0.06 | 0 | 0.06 | 0.02 |
-| Month base | 0.06 | 0 | 0.06 | 0 |
-| Month working | 0.10 | 0 | 0.10 | 0 |
-| Month off / holiday / vacation | 0.04 | 0.02 | 0.04 | 0.02 |
-| Month override | 0.12 | 0.02 | 0.12 | 0.02 |
-| Month today | 0.14 | 0.02 (ring untouched) | 0.14 | 0.02 (ring untouched) |
+Selected values may use a black capsule with cream text when the component already uses that selection pattern. Native selects that back custom dropdowns remain invisible truth (`opacity: 0`) and must never be made visually visible again.
 
-Rules: per-tile (never one wash across a wrapping row); hover flips, never
-melts (gradients don't transition — preferred under no-animation).
-Surviving washes: rail active-nav + palette hover (`0.06`) + black-card
-row active. Month/weekday cells are flat text-only now (no washes) —
-the table above is the historical record, not current paint.
+## 5. Typography
 
-## Frosted surface (dropdowns, dialogs, enrollment modal card)
+- Sans is the default interface face.
+- Monospace is reserved for dates, times, identifiers, counts, and technical values.
+- Serif/editorial styling is reserved for existing major identity/title moments.
+- Normal weight: 400.
+- Important/active weight: 500.
+- Do not introduce 600/700 as a visual fix.
+- Avoid forced uppercase and excessive tracking.
+
+## 6. Motion and interaction
+
+Current wall surfaces are snap-state UI:
+
+- no hover animations
+- no layout animation
+- no decorative transitions
+- no scaling or movement to communicate selection
+
+Hover may change a paint value only where an existing component explicitly needs it. Never use hover to move the element.
+
+## 7. Geometry laws
+
+Every interactive state must be shift-proof:
+
+- reserve space for dynamic labels
+- keep control slots fixed
+- use stable grid columns
+- avoid centered flex rows whose width changes when text becomes 500 weight
+- prefer inset markers or paint changes over border insertion that changes box size
+- keep month footprints fixed across 5-row and 6-row months
+
+## 8. Scrollbars
+
+Wall surfaces use thin 4px scrollbars with no arrow controls. The scrollbar thumb must maintain enough contrast against its owning surface. Do not introduce a large native scrollbar as a layout solution.
+
+## 9. Frost is a scoped legacy surface
+
+Frost still exists where the current implementation intentionally retains it: small custom popovers, selected picker surfaces, and untouched kiosk/print surfaces. Those values remain exact:
 
 ```css
-background: rgba(242, 243, 246, 0.08);   /* = var(--frost-bg): use the var */
-backdrop-filter: blur(24px) saturate(1.2); /* = var(--frost-blur): use the var */
--webkit-backdrop-filter: blur(24px) saturate(1.2);
-border: none;   /* borderless like the palette — the 1px edge drew a
-                   visible square over milky cards (log 37) */
-border-radius: 2px;            /* small popovers; 3px allowed for large modals */
-box-shadow: none;
+--frost-bg: rgba(242, 243, 246, 0.08);
+--frost-blur: blur(24px) saturate(1.2);
+--frost-line: rgba(242, 243, 246, 0.14);
+--frost-radius: 2px;
+--frost-opt-pad: 8px 14px;
+--frost-opt-min-h: 32px;
 ```
 
-Two tiers, both variable-locked (log 27): popovers/small surfaces =
-sheer `--frost-*` (+ `2px`) in BOTH poles — text ink alone flips;
-fixed content windows = warm `--ref-*` (+ `24px`). Sole documented
-exception: the search palette's dense coat (both poles — it floats
-over large bright type). Never write a literal fill/blur — always the
-var. Locked by `test_frost_tokens_unified_across_popups_and_windows`.
+Do not use these values to rebuild an entire Admin page. The current branch wall takes precedence.
 
-## Veils (behind overlays — keep minimal, never dark-dialog territory)
+## 10. Retired patterns
 
-```css
-/* Dialog overlay: transparent color, blur only (reference floats undimmed) */
-background: transparent;
+These are historical and must not be reintroduced unless the user explicitly orders a theme change:
 
-/* Enrollment modal veil (needs text contrast over bright spots): */
-background: rgba(26, 20, 16, 0.2);
+- desert ambient image / `bg-spheres.jpg`
+- full-page translucent Admin veil
+- warm frost as the default Admin window
+- white floating cards as the primary page structure
+- directional fade slabs as a state language
+- colored status chips/badges
+- decorative pill-everything treatment
+- animation as a selection or hover language
 
-/* Base .modal light veil rgba(252,251,247,0.38): DO NOT reintroduce — milk source */
-```
+## 11. Source of truth rule
 
-## Primary contained action (reference pills — current)
-
-```css
-black primary:   background: var(--ref-pill); border: 1px solid var(--ref-pill);
-                 border-radius: 999px; color: #F2F3F6; font-weight: 500;
-outline secondary: background: transparent; border: 1px solid rgba(24,26,32,0.25);
-                 border-radius: 999px; color: var(--ref-ink);
-```
-
-The old sheer `0.12`-fill / `3px` treatment below is retired (kept as
-history only):
-
-```css
-background: rgba(242, 243, 246, 0.12);   /* hover: 0.18 */
-border: 1px solid rgba(242, 243, 246, 0.3); /* hover: 0.5 */
-border-radius: 3px;
-box-shadow: none;
-color: #FFFFFF; font-weight: 500;
-```
-
-## Text hierarchy (var(--sans) unless noted)
-
-```css
-primary:    #F2F3F6;                                   /* titles, values, 500 for important */
-secondary:  rgba(242, 243, 246, 0.65–0.75); font-weight: 400;
-tertiary:   rgba(242, 243, 246, 0.4–0.6);  font-weight: 400;
-mono:       var(--mono) — dates, times, IDs, counts, technical data only.
-```
-
-## Hairlines (global line)
-
-```css
---hairline: rgba(242, 243, 246, 0.12);   /* THE global line: 1px structural
-                                           separators (toolbars, grids, sections) */
-structural: 1px solid var(--hairline);
-input underline: 1px solid rgba(242, 243, 246, 0.2);  /* #F2F3F6 on focus */
-row separator: 1px solid rgba(242, 243, 246, 0.07–0.08);
-```
-
-## Laws
-
-- No 600/700. No text shadows. No colored UI.
-- Opaque fills exist only for solid pills (white New Enrollment,
-  black primaries); everything else stays frost/transparent (standalone
-  Setup near-black cards retired — boards are dark-ink rows in the
-  single window now).
-- Native `<select>` under custom dropdowns stays `opacity: 0` (invisible truth).
-- Centered flex rows + dynamic text = shift bug; use absolute centering / fixed slots.
-- Ink toggle (rail foot `#sideFoot`, `atl_ink` persisted):
-  `html[data-ink="dark"]` flips text tiers only — primary `#181A20`,
-  base `rgba(24,26,32,0.8)`, placeholders `rgba(24,26,32,0.5)`.
-  Backgrounds/frost/blur/borders/layout frozen. Native `<option>` popups
-  and kiosk layers excluded (keep white-on-dark).
-
-## Wall language (branch `feature/ui-glass-redesign` — current paint for
-redesigned sections; overrides the frost canon above on conflict —
-see `docs/UI_COMPONENTS.md` logs 58+)
-
-- Palette: matte black `#141414`, cream `#F4EEE1`, matte red `#8A3A3A`
-  destructive-only. Setup month states use three hues only (log 114):
-  pale cream `#F2DEC7` working, peach `#E1B8A2` off-bars + overrides,
-  terracotta `#CF7D65` holidays. Color carries state only — beds,
-  rail, and type stay black-and-cream. Nothing else.
-- Glyph actions, never pills for close/confirm/remove: cross red closes,
-  tick black confirms, trash red removes (far LEFT of action rows),
-  plus black adds, pencil black edits (right side).
-- Cube fields: cream fill, 3px `#141414` outline, dark ink; picked value
-  a black pill with cream text.
-- Wall: one continuous structure per page, edge to edge, sharp internal
-  joints (single-sided 3px cream, never doubled), radius on the four
-  outer corners only.
-- Motion: no hover, no animation, no responsiveness — snaps only. States
-  swap paint, never resize (reserved slots, fixed geometry).
-- Scrollbars: custom thin 4px, no arrows — cream thumb on black,
-  dark thumb on cream.
-- Legacy frost vars are remapped to solid cream / `none` (log 58) so old
-  frosted surfaces follow; desert ambient (`body::before`) is killed —
-  the wall is flat `#F4EEE1`.
+When a selector or value is changed in code, update this document only when the change changes the reusable design contract. One-off implementation detail belongs in `UI_COMPONENTS.md`, not here.
