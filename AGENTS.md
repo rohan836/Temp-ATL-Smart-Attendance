@@ -7,7 +7,7 @@ Read this first. Keep this file short: it is the map, not the encyclopedia. Deta
 - Product: offline-first fingerprint attendance terminal for one school, one Raspberry Pi, one GT-511C3 sensor, one SQLite database.
 - Production release: `v1.2.0` (`bf575451`). Historical tags are immutable.
 - Current development branch: `feature/ui-glass-redesign`.
-- Current branch tip: `7d549d5` (`feat(setup): class-scoped batches, enrollment linkage, rename, cutoff persistence, boards readability, classic theme restore`).
+- UI milestone being documented: `7d549d5` (class-scoped batches, enrollment linkage, rename propagation, per-context cutoff persistence, Setup readability, classic wall restore).
 - Current branch test inventory documented in `project/docs/TESTING.md`: 124 backend tests + 16 Playwright E2E scenarios.
 
 ## Source of truth
