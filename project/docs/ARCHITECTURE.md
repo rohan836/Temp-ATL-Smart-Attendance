@@ -1,39 +1,74 @@
-# ARCHITECTURE — Components and relationships
+# ARCHITECTURE — system and file ownership
 
-## System overview
+## Runtime model
 
-The system is a kiosk: sensor → driver → server → database → UI shell. The GT-511C3 communicates over UART `/dev/serial0` at 9600 baud. `backend/gt511c3.py` is the fingerprint hardware driver (packet protocol: Open, Close, CMOS LED, IsPressFinger, Capture, EnrollStart/1/2/3, Identify, DeleteID). `backend/app.py` is Flask 3.x on `0.0.0.0:5000` exposing `/api/*` and serving the single-page UI. `SQLite` at `/var/lib/atl/attendance.db` on the Pi (fallback `backend/attendance.db` on Windows) is the source of truth alongside the sensor's 200-slot flash store.
-
-UI layering:
-- `ATL-Smart-Attendance-Production.html` = shell/markup/CSS — edit for visual redesign
-- `backend/ui_app.js` = behavior/state/events/API — edit for behavior
-- `backend/app.py` = Flask API (serves HTML with `ui_app.js` injected) + background reconciliation worker (`_reconcile_daemon`) + backup scheduler daemon (`_gdrive_backup_daemon` for Google Drive, Telegram, and USB)
-- `backend/gdrive_backup.py` = Google Drive cloud backup engine (Device Flow RFC 8628, SQLite Online Backup snapshot, resumable upload, GFS retention)
-- `backend/gt511c3.py` = driver (UART only)
-No working-tree backup HTML is kept — current production release is `v1.2.0` (`bf575451`); Git tags `v1.1.0`, `v1.0.1` and `v1.0.0` remain historical rollback points.
-
+```text
+GT-511C3 UART
+    ↕
+backend/gt511c3.py
+    ↕
+backend/app.py (Flask :5000)
+    ↕
+SQLite + sensor flash
+    ↕
+HTML shell + spliced backend/ui_app.js
+    ↕
+Admin / kiosk UI
 ```
-[GT-511C3 UART] ↔ [gt511c3.py] ↔ [app.py Flask :5000 + ReconcileDaemon + BackupDaemon] ↔ [SQLite]
-                                                          ↕                                    ↕
-                               [gdrive_backup.py (Drive) + Telegram Bot + USB Storage]   [.pre_restore.bak]
-                                                          ↕
-                                   [HTML shell + spliced ui_app.js + scan bridge]
-                                                          ↕
-                                         [LocalStorage atl_* cache] ↔ [Admin UI]
-```
+
+SQLite and the GT-511C3 template store are operational truth. Browser LocalStorage is a display cache and is never authoritative.
+
+## Code ownership
+
+| File | Owns |
+|---|---|
+| `ATL-Smart-Attendance-Production.html` | HTML shell, markup, CSS, layout |
+| `backend/ui_app.js` | UI behavior, state, events, API interaction |
+| `backend/app.py` | Flask routes, validation, scheduling, reconciliation, backup workers, serve-time composition |
+| `backend/gt511c3.py` | GT-511C3 UART protocol |
+| `backend/gdrive_backup.py` | Google Drive snapshot/upload/retention |
+| `backend/schema.sql` | SQLite schema |
+
+No separate frontend framework or template tree is used.
 
 ## Serve-time composition
 
-`_serve_production()` in `app.py` reads the HTML shell, replaces the inline `<script>` with the maintained source `backend/ui_app.js`, and injects `SCAN_BRIDGE_SCRIPT` before `</body>` if `window.handleRealScan` is present. No static `css/js/templates` are served. The response is `Cache-Control: no-store` for `/` and for all `/api/*` and asset routes. Unknown non-`/api`, non-`/assets` paths serve the same UI. `/backend/*` is not exposed.
+`app.py` reads the production HTML shell and replaces its inline script with the maintained `backend/ui_app.js`. A scan bridge is injected when the UI exposes `window.handleRealScan`. HTML and API responses use `Cache-Control: no-store`.
 
-## Active scan and bridge
+Because the script is injected at request time, UI changes should be made in `ui_app.js`, not by modifying the obsolete HTML inline script.
 
-Scanning is DB-driven. `sensorScanLoop()` posts `POST /api/scan {waitSec:2}` on the kiosk and in the background while Admin is open (suppressing full-screen identity popup); pauses exclusively during enrollment (`enrollModal`/`scanModal`) and sensor maintenance. The backend under `SENSOR_LOCK` runs `GT511C3.identify()` with a bounded wait, capture retries, and identify. Terminal errors `NO_FINGER`, `SENSOR_BUSY`, `SENSOR_DISCONNECT`/UART create no event. The injected bridge polls `GET /api/scan/last` every 2 seconds, maps integer `fingerId` to string `fid "F-<n>"`, upserts the student via `mapStudent()`, and calls `window.handleRealScan(fid, {status,time,date,seq,student})`. Unknown scans resolve as `__unknown__<seq>`. Enroll and re-enroll success call `returnToFrontPage()` which closes the modal and Admin and re-arms the loop.
+## Scan architecture
 
-## UI and state
+The frontend `sensorScanLoop()` posts `POST /api/scan {waitSec:2}`. The backend serializes sensor access through `SENSOR_LOCK`.
 
-Base palette `bg #FCFBF7 panel #F2F3F6 ink #181A20 ink-2 #6B6B6B ink-3 #A8A5A0 line #E9E6E0 paper #F6F4EF ok #2F5D34 danger #8A3A3A`, Inter/Newsreader/monospace; on branch `feature/ui-glass-redesign` the current paint is the black-and-cream wall (see `docs/UI_COMPONENTS.md` logs 58+ and `docs/UI_TOKENS.md` wall section): flat cream `#F4EEE1` wall, matte black `#141414` boards and primaries, matte red `#8A3A3A` destructive-only, glyph actions, cream cube fields, sharp internal joints with radius outer-only, no hover or animation, 4px custom scrollbars. Frost vars are remapped to solid cream/none and the desert ambient is killed. The ink toggle flips text tiers only — frost windows force `--ref-ink` dark text in both modes. Shell layout: workspace + `248px` right rail (nav + per-tab contexts + `#sideFoot` system controls); `#adminLayer.open` is transparent and kiosk idle chrome hides in Admin. The maintained logic is `ui_app.js`; the HTML stub is replaced at serve time and not edited. Redesign: HTML/CSS in the Production.html, behavior in `ui_app.js`; do not create `css/`/`js/`/`templates/`/components unless proven need. Data load is `cacheLoad() → loadClassesHolidaysSettings() → loadStudents() → loadHistory() → loadTodayAttendance() → cacheSave()` every 15s while visible. LocalStorage omits photos; all writes via API.
+A second bridge polls `GET /api/scan/last` every two seconds and routes persisted scan results to `window.handleRealScan`. `NO_FINGER`, sensor-busy, and UART failures do not create attendance events.
 
-## File map
+Admin scanning continues in the background while Admin is open, but the identity overlay is suppressed. Enrollment and other exclusive sensor/database operations pause the scan loop.
 
-`ATL-Smart-Attendance-Production.html` UI shell, markup, CSS/layout (visual redesign here; includes Unified Backup Manager). `backend/ui_app.js` UI behavior/state/events/API. `backend/app.py` Flask API and serve logic (injects `ui_app.js` into HTML) + reconciliation and multi-destination backup workers. `backend/gdrive_backup.py` Google Drive cloud backup engine (OAuth Device Authorization Grant, SQLite Online Backup snapshot, resumable upload, GFS retention). `backend/gt511c3.py` fingerprint driver. `backend/schema.sql` schema and indexes. `backend/config.example.json` template. `pi/setup.sh` and `pi/atl-attendance.service` provisioning. `tools/deploy.ps1`/`deploy.sh` and `tools/led_test.py`. No working-tree backup HTML — current production release is `v1.2.0` (`bf575451`); tags `v1.1.0`, `v1.0.1` and `v1.0.0` remain historical rollback points. See `API.md` for endpoint contracts and `DATA_MODEL.md` for tables and scheduling. See `OPERATIONS.md` for hardware, service, and deployment.
+## Data load
+
+The UI loads cache first, then authoritative API data:
+
+`cacheLoad → settings/classes → students → history → today attendance → cacheSave`
+
+Visible Admin refreshes authoritative data periodically. All writes go through the backend API.
+
+## Background workers
+
+`app.py` owns automated attendance reconciliation and the multi-destination backup scheduler. Reconciliation follows the attendance cutoff and writes `ABSENT` or `NOT_SCHEDULED` only when resolution rules allow it.
+
+Backup workers are isolated by destination so a Google Drive, Telegram, or USB failure does not block attendance processing.
+
+## UI architecture on the current branch
+
+`feature/ui-glass-redesign` uses the black-and-cream wall as the current Admin visual system. The workspace and rail are stable structural regions. Students, Attendance, Setup, and Backup reuse the same wall primitives instead of each inventing a separate theme.
+
+Exact design values live in `docs/UI_TOKENS.md`; component responsibilities live in `docs/UI_COMPONENTS.md`.
+
+## Boundaries
+
+- API endpoint contracts → `API.md`
+- data/status/scheduling rules → `DATA_MODEL.md`
+- runtime sequences → `WORKFLOW.md`
+- Admin behavior → `ADMIN.md`
+- deployment/recovery → `OPERATIONS.md`
