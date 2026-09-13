@@ -1,47 +1,105 @@
-# ADMIN — Responsibilities and functions
+# ADMIN — current behavior and UI responsibilities
 
-Admin is gated behind the terminal's `Admin` trigger and is organized into four unified tabs: **Students**, **Attendance**, **Setup**, and **Backup**. It is the only place that mutates roster, schedules, and school settings. The terminal scan loop continues in the background while Admin is open (recording scans and refreshing Attendance live while suppressing the full-screen identity popup); it pauses exclusively during enrollment modals and sensor maintenance.
+Admin is gated behind the terminal's `Admin` trigger and contains four tabs: **Students**, **Attendance**, **Setup**, and **Backup**. The terminal scan loop can continue in the background while Admin is open; it pauses only for exclusive sensor operations such as enrollment, re-enrollment, deletion, and restore.
+
+## Shared Admin rules
+
+- No duplicate top navigation. The right rail owns tabs and contextual controls.
+- The current branch visual language is the black-and-cream wall documented in `UI_TOKENS.md`.
+- Destructive actions use matte red and the established remove glyph.
+- Interactive states must not resize or move surrounding content.
+- Use existing component patterns before creating new surfaces.
 
 ## Students
 
-Owns the roster. No top bar anywhere in Admin (titles, command search, and top controls all retired; INK/ESC/CLOSE docked in the rail foot). Rail holds the class, batch, and status filters (Active only / All / Inactive only); the workspace is a split view — ONE frost roster window (roster-local search slot, transparent rows, action pills docked below, dashed dividers) fused edge-to-edge with the detail pane (shared hairline seam), both full-height in the even-12 frame. First student is always selected. The enrollment form collects name (1-80), roll (1-20 unique lower), grade/class (1-40 required), batch/group (≤40), section (≤20), parent (≤80), phone (≤40 with 8+ digits), address (≤200), and photo as data URL (≤2MB, stored in `IMAGES_DIR` plus `students.photo`). Validation and auto-creation of classes/batches happens in `POST /api/students` and `POST /api/enroll`.
+Students owns the roster and enrollment lifecycle.
 
-Detail cards show the last 60 events and actions: Edit (whitelisted `PATCH /api/students/:id`), Re-enroll, Deactivate (`DELETE` → `active=0, roll#d{id}, fingerId=NULL`), Re-activate (`PATCH active=1` restores roll if free), and Print. Presentation: frost roster window + warm frost detail window (dark ink forced both modes) + pill actions (one black primary). History bundles `events` 500 and `daily` 500. CSV export includes `batch/section/parent/address/attendance_rate`.
+### Roster
 
-## Attendance (Unified Today & Reports Workspace)
+The workspace contains a roster and a detail view. Search stays local to the roster. Rail filters cover class, batch, and active state.
 
-Unifies live operations and historical reporting into a single screen:
-- **Default View:** Defaults immediately to today's live attendance upon opening, with a cream-on-black mode badge (`#attModeBadge` — `Live` in matte red, `Today` in cream), working day vs. holiday status, and scheduled vs. not scheduled breakdown.
-- **Rail Controls:** Date presets (Today, Yesterday, Custom Date, Custom Range, Last 7 Days, This Month, Academic Year) render as a segmented strip with hover frost popups for Academic Year / Custom Range, explicit `Apply` for custom dates, and `Clear`; class, batch, student, status, and sort filters stay wired as hidden truth (value + `change` driven) until the rail surfaces them.
-- **9 KPI Cards:** In both live and historical modes: `Date`, `Total students`, `Present`, `Late`, `Absent`, `Not Scheduled`, `Unknown scans`, `Duplicate scans`, and `Attendance %`.
-- **Dynamic Attendance Table:**
-  - *Single-Day Mode:* Columns for Time, Student, Roll, Class, Status with `[Correct]` button, and Fingerprint ID.
-  - *Multi-Day Mode:* Columns for Date, Time, Student, Roll, Class, Status with `[Correct]` button, and Working Day (`Scheduled` vs `Not Scheduled`).
-- **Operational Data:** Live unknown scan attempts list with count, time, fingerprint slot, and note.
-- **Actions:** In-place `Refresh` (re-loads sensor events and recalculates), live auto-refresh on real scans and 15-second background poller, `Print` (professional editorial report layout with header, metadata, 9 KPI cards, table, and unknown attempts), and `Export CSV` (streaming backend export for both single-day and multi-day ranges with class, batch, student, and status filtering). Refresh/Print/Export handlers stay wired to hidden buttons (presence, not visible — see `docs/UI_COMPONENTS.md` §12).
+### Student detail
 
-## Setup (Unified School Configuration & Schedule)
+The detail view supports edit, re-enroll, deactivate/reactivate, print, attendance history, and CSV operations.
 
-Unifies school settings, classes, batches, rules, calendar, holidays, and schedule inheritance:
-- **School Information & Rules:** Name, address, academic year, attendance start date, present cutoff, and late cutoff — opened from the Setup toolbar top-left (`School Information` → `#schoolInfoModal`), saved with one POST, mirrored into local state.
-- **Classes & Batches (4-across board row):** Classes · Batches · Holidays · Overrides render as four equal tables under the month; cards hold a 376px minimum (header 40 + eight 42px rows) and stretch toward the window bottom, edges flush edge-to-edge with no gaps. Rows are 42px with 14px names and 13px counts; each rows viewport shows exactly 8 with a barless internal scroll. Class/batch row tap selects + previews its schedule in the month above (no popup); the pencil glyph (right side, beside the remove cross) opens the row's editor (names editable — a rename moves lists, schedules, `Class|Batch` keys, and student records together); only the remove cross keeps its own action. Creation lives in the per-card ADD verbs (`openSchedPopup` + `#holidayModal`/`#overrideModal`, single persist path). Batches list flat alongside classes. Tapping a class row additionally scopes the Batches board to that class only (toggle; `· Class ×` chip clears) — linkage is shared global names + `Class|Batch` composite schedules + student records. New classes land scoped with an empty-state shortcut; scoped + opens Add Batch for that class (shared names are reused, never duplicated). Removing a class drops its schedule and its composites; removing a composite drops that timing only (students fall back to shared timing). The month view sits above (toolbar with legend + context selector + Prev/Month/Next/Today + 7-column tile grid + working-days readout).
-- **Schedule Context Selector:** Switch between Global, Class, and Batch contexts (sits on the month-view bar, middle, right of OVERRIDE — it IS the context readout, no separate pill). Values: empty = Global, `class:Name`, `batch:Name` (plain shared) or `batch:Class|Name` (per-class timing, labeled `Name · Class`).
-- **Enrollment linkage:** New-student Class is a locked dropdown of existing classes (no phantom fallback; blocked with Setup guidance when empty); Batch is a dependent dropdown of that class's batches only (shared + composites + student-linked short names), hard-blocking with Setup guidance when the class has none. Edit-student preserves out-of-list legacy values labeled `(legacy)`, stored untouched.
-- **Schedule editor (solid, single):** The detail pane carries the schedule editor for the selected class/batch — weekday toggles, Present/Late cutoffs with inherit notice, `Save`, one persist path through `persistCalendar()`. Setup shows the stacks, selector, month, and tables — class/batch schedule editing lives only in the pane.
-- **Action Wheel:** The rail `Action Wheel` button (and the toolbar `Wheel` button) opens the 5-sector shortcut wheel (Classes · Batches · Cutoffs · Exceptions · School Info) — hover fans a sector's actions, click runs one and lands on the real destination. Shortcuts, not duplicate logic.
-- **Weekly Template, Holidays & Overrides:** Month View (resolved day cells above, editable weekday-header row below that stages into `pendingDays`, composed with cutoffs by the month-editor Save/Cancel) — weekday toggles and per-context Present/Late timing live in the solid schedule editor. Holiday ranges (`holiday`, `vacation`, `exam`) and single-date overrides are created only from the sidebar (`ADD HOLIDAY`, `ADD OVERRIDE` → same `#holidayModal`/`#overrideModal`), edited/removed through their list tables (table Edit/Remove). Both carry optional start/end times (`@HH:MM-HH:MM`, record-keeping only — attendance resolution stays day-granular, empty = all-day). The tables live in Holiday / Override popup windows (sidebar eye icons open the same frost modals as creation; `Close` dismisses); Month View is always the workspace. Month cells open the read-only day window (resolved badge + global-vs-template source line + Close); the window offers an `Add override for this date…` shortcut into the override modal (door only — tables stay the single editor).
+Enrollment and edit rules:
+
+- name: 1–80
+- roll: 1–20, unique case-insensitive
+- class/grade: 1–40, required
+- batch: ≤40
+- section: ≤20
+- parent: ≤80
+- phone: ≤40, at least 8 digits when present
+- address: ≤200
+- photo: validated data URL / current backend size limit
+
+New enrollment must use an existing Setup class. Batch choices depend on that class. An empty class shows Setup guidance instead of inventing a batch.
+
+## Attendance
+
+Attendance is one workspace for live Today plus historical reporting and single-student metrics.
+
+The default view is today. The rail supplies date presets and contextual filters. The table switches between single-day and multi-day forms without changing the surrounding workspace geometry.
+
+Attendance semantics are defined by `DATA_MODEL.md` and `WORKFLOW.md`:
+
+`PRESENT → LATE → DUPLICATE`, with `NOT_SCHEDULED` muted and `ABSENT` produced only after reconciliation/cutoff rules allow it.
+
+Correction is an explicit audited action with a required reason.
+
+## Setup
+
+Setup owns school information, classes, batches, weekly schedules, holidays, overrides, and per-context cutoffs.
+
+### Month view
+
+Month View is the main schedule workspace. Its context selector supports:
+
+- Global
+- Class
+- Batch
+- per-class batch timing using `Class|Batch` composite keys
+
+Calendar footprints are fixed so changing month shape does not move sibling sections.
+
+### Classes and batches
+
+Classes and Batches are persistent boards below Month View.
+
+- tap row = select/preview
+- pencil = edit/rename
+- remove glyph = delete
+- class selection scopes the Batches board
+- shared batch names are reused rather than duplicated
+- composite schedule records hold per-class timing
+
+Rename propagation updates the related lists, schedule keys, composite keys, and student records through the existing persistence path.
+
+### Holidays and overrides
+
+Holiday ranges use `holiday`, `vacation`, or `exam`; `exam` is a working day. Overrides target a specific date. Optional time ranges are stored/displayed but schedule resolution remains day-granular.
+
+Resolution precedence:
+
+`override → holiday/vacation/exam → weekly`
+
+Weekly student resolution:
+
+`Grade|Batch → batch → class → global`
 
 ## Backup
 
-The Admin Backup tab presents a **Unified Backup Manager** (`#backupManagerCard`) consolidating offsite destinations, scheduled automation, and local database tools into a clean, compact interface. Presentation: cream wall manager + audit cards + black-pill primaries (state-correct per service) + red-text Clear + cream 3px checkboxes with red ticks + soft-wash idle day pills with black-fill active + shared 68px footer baseline.
+Backup is a unified manager for Google Drive, Telegram, USB, local SQLite backup/restore, and audit export.
 
-1. **Unified Destinations:** Google Drive, Telegram, and USB are presented as three identical rows — Row-1 checkbox + name + live status pill (`Ready`, `Not connected`, `Disabled`, `Not paired`, `Error`, or `Offline`), Row-2 optional detail line (chat ID / mount+space / cloud folder; collapses when empty), Row-3 actions. The primary action matches service state: not-ready services show their enable/connect action (Drive **Pair with Google**, USB **Check USB**) instead of a send; ready services show the send/backup action (Drive **Send backup now**, Telegram **Send backup now**, USB **Backup to USB**) with maintenance as outline pills and **Clear status** as red text. Each destination has an independent toggle checkbox (`#destCheckGdrive`, `#destCheckTelegram`, `#destCheckUsb`), and a "Select all" button (`#backupSelectAllBtn`) allows toggling all destinations simultaneously.
-2. **Unified Automatic Backup Scheduler:** One shared scheduler (`#backupSchedBody`) configures backup time (`#backupSchedTime`), frequency (`#backupSchedFreq`: Daily, Every N days, Specific weekdays), and active weekdays. Clicking "Save Schedule" synchronizes the schedule across all three destination engines via `/api/backup/{gdrive,telegram,usb}/schedule`.
-3. **Unified Execution and Live Refresh:**
-   - **Back Up Now (`#backupNowBtn`):** Executes on-demand backups in parallel exclusively for the destinations currently checked, displaying granular status (e.g. `Google Drive: OK; Telegram: OK`) without blocking UI responsiveness.
-   - **Refresh (`#backupRefreshBtn`):** Queries live status from all three engines asynchronously and updates status pills and the last backup timestamp without a full page reload (detecting USB plug/unplug events dynamically).
-4. **Google Drive Integration Drawer:** Inline expandable drawer (`#gdriveAuthBox`) provides Device Authorization Flow controls (`Connect Google Drive`, user-code prompt, cancellation, and disconnection) and operator-initiated cloud snapshot listing/restores.
-5. **Local SQLite Database Tools:**
-   - **Download DB Backup:** `GET /api/backup` checkpoints WAL and sends `atl_backup_YYYY-MM-DD.db` containing students, daily, events, settings (including `classSchedules/batchSchedules/holidays/overrides`), and audit.
-   - **Restore Database:** `POST /api/restore` validates the SQLite header `SQLite format 3\x00`, saves `.pre_restore.bak`, overwrites the DB file, and verifies `SELECT 1 FROM students`.
-   - **Export Audit History:** Exports system audit history as CSV. Calendar and schedule data travels with the database backup.
+The three destinations share one scheduler and selection model while retaining destination-specific status and connection controls. Manual backup can target only selected destinations. USB status is refreshed without reloading the page.
+
+Database restore is an operator action and is validated before replacement. Cloud restore is never automatic.
+
+## Documentation ownership
+
+UI visuals → `UI_TOKENS.md`  
+UI structure → `UI_COMPONENTS.md`  
+Runtime sequences → `WORKFLOW.md`  
+Data/status rules → `DATA_MODEL.md`  
+API endpoints → `API.md`
