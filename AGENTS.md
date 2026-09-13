@@ -1,76 +1,83 @@
-# AGENTS.md — Main agent instructions
+# AGENTS.md — repository map
 
-This file is the first source of rules for any coding agent. Read it before changing code. It points to the right doc for each task.
+Read this first. Keep this file short: it is the map, not the encyclopedia. Detailed truth lives in `project/docs/` and the task-specific skills. This structure follows the agent-documentation pattern where the root instruction file points agents to deeper sources of truth rather than duplicating them. citeturn238251search10turn238251search24
 
-Production release: `v1.2.0` (`bf575451`). Current `main`: Unified Attendance workspace (Today default + historical + single-student metrics + streaming CSV + Apply action) + Unified Setup (Global/Class/Batch scheduling + Month View) + Unified Backup Manager (Google Drive, Telegram, USB) with 124 backend tests + 16 Playwright E2E tests. Historical rollback tags: `v1.1.0` (`da89bdf`), `v1.0.1` (`32e5ef7`), `v1.0.0` (`c0fe411`). For new work, start from current `main`. Never modify historical release tags. See `docs/VERSIONS.md`.
+## Current repository
 
-## What this project is
+- Product: offline-first fingerprint attendance terminal for one school, one Raspberry Pi, one GT-511C3 sensor, one SQLite database.
+- Production release: `v1.2.0` (`bf575451`). Historical tags are immutable.
+- Current development branch: `feature/ui-glass-redesign`.
+- Current branch tip: `7d549d5` (`feat(setup): class-scoped batches, enrollment linkage, rename, cutoff persistence, boards readability, classic theme restore`).
+- Current branch test inventory documented in `project/docs/TESTING.md`: 124 backend tests + 16 Playwright E2E scenarios.
 
-Fingerprint kiosk:
-- `ATL-Smart-Attendance-Production.html` = UI shell, markup, and CSS/layout — change here for visual redesign
-- `backend/ui_app.js` = UI JavaScript behavior, state, events, and API interaction — change here for behavior
-- `backend/app.py` = Flask backend/API; serves the HTML at `/` with `ui_app.js` injected via `_serve_production()` (`Cache-Control: no-store`)
-- `backend/gt511c3.py` = fingerprint hardware driver (UART packet protocol)
+## Source of truth
 
-`GT-511C3 UART → gt511c3.py → app.py Flask :5000 → SQLite` → HTML shell spliced with `ui_app.js`. Truth is sensor flash (200 slots) + SQLite. LocalStorage `atl_*` is cache only, omits photos. See `docs/PROJECT.md` and `docs/ARCHITECTURE.md` for UI layering. Redesign rule: HTML/CSS in the Production.html, behavior in `ui_app.js`; do not create `css/`/`js/`/`templates/`/component folders unless proven need.
+| Question | Read |
+|---|---|
+| What the product is / non-goals | `project/docs/PROJECT.md` |
+| End-to-end runtime behavior | `project/docs/WORKFLOW.md` |
+| Admin behavior and screen responsibilities | `project/docs/ADMIN.md` |
+| System architecture / file ownership | `project/docs/ARCHITECTURE.md` |
+| Data, scheduling, validation, statuses | `project/docs/DATA_MODEL.md` |
+| API contract | `project/API.md` |
+| Safe development rules | `project/docs/DEVELOPMENT.md` |
+| Tests and verification | `project/docs/TESTING.md` |
+| Pi / deployment / recovery | `project/docs/OPERATIONS.md` |
+| Release history | `project/docs/VERSIONS.md` |
+| UI component inventory | `project/docs/UI_COMPONENTS.md` |
+| UI visual contract | `project/docs/UI_TOKENS.md` |
+| Coding-agent procedure | `project/docs/AGENT_WORKFLOW.md` |
+| Documentation index / authority order | `project/docs/DOCS.md` |
 
-## Which doc to read
+`project/plan/` contains working and historical notes. It is not the authority for current architecture or UI unless the index explicitly marks a note as active.
 
-| Task | Read |
-|------|------|
-| Understand product, non-goals | `docs/PROJECT.md` |
-| Trace any end-to-end flow (load, scan, enroll, reconcile) | `docs/WORKFLOW.md` |
-| Change Admin tabs or admin UX | `docs/ADMIN.md` |
-| Change components, request flow, serve/splice/bridge | `docs/ARCHITECTURE.md` + `API.md` |
-| Change tables, fields, validation, statuses, schedules | `docs/DATA_MODEL.md` + `API.md` |
-| Safely modify code, add a feature | `docs/DEVELOPMENT.md` |
-| Test or verify (unit/hardware/production) | `docs/TESTING.md` |
-| Provision Pi, deploy, backup/restore/recover | `docs/OPERATIONS.md` |
-| Follow standard workflow | `docs/AGENT_WORKFLOW.md` |
+## Code ownership
 
-`API.md` is the endpoint contract. `README.md` is the short human entry point. Workflow: `docs/AGENT_WORKFLOW.md`.
+- `project/ATL-Smart-Attendance-Production.html` = UI shell, markup, CSS, layout.
+- `project/backend/ui_app.js` = UI behavior, state, events, API calls.
+- `project/backend/app.py` = Flask API, serve-time JS injection, reconciliation, backup workers.
+- `project/backend/gt511c3.py` = GT-511C3 UART driver.
+- `project/backend/gdrive_backup.py` = Google Drive backup engine.
+- `project/backend/schema.sql` = SQLite schema.
 
-## Repo and source of truth
+Do not edit the HTML inline script block: `app.py` replaces it with `backend/ui_app.js` at serve time. Do not create `css/`, `js/`, `templates/`, or component folders unless a concrete need is documented.
 
-- **Working dir:** `E:\temp` session root — do not probe other drives.
-  Code lives in `E:\temp\project` (repo root for git, run, and deploy
-  commands below); `AGENTS.md` alone stays at `E:\temp`.
-- **UI architecture:** `ATL-Smart-Attendance-Production.html` = shell/markup/CSS/layout; `backend/ui_app.js` = behavior/state/events/API; `backend/app.py` = serves HTML with `ui_app.js` injected at `_serve_production()`; `backend/gt511c3.py` = sensor driver. No working-tree backup HTML is kept — current production release is `v1.2.0` (`bf575451`); Git tags `v1.1.0`, `v1.0.1` and `v1.0.0` remain historical rollback points (see `docs/VERSIONS.md`). Theme `bg #FCFBF7 panel #F2F3F6 ink #181A20 ink-2 #6B6B6B ink-3 #A8A5A0 line #E9E6E0 paper #F6F4EF ok #2F5D34 danger #8A3A3A` + `Inter/Newsreader/ui-monospace`. Idle `PLACE YOUR FINGER` 11px 0.22em + `Admin` bottom-middle. No `css/ js/ templates/` unless proven need; keep simple architecture.
-- **Stack:** `backend/app.py` + `backend/gt511c3.py` + `backend/schema.sql` + `backend/config.json` (`sensor real`, `uart /dev/serial0`, `baud 9600`, `db /var/lib/atl/attendance.db`, `host 0.0.0.0:5000`). Windows fallback `backend/attendance.db` + `backend/uploads/`. Template `backend/config.example.json`.
-- **Structure (under `project/`):** `ATL-Smart-Attendance-Production.html` (prod) · `README.md API.md` · `docs/*.md` · `plan/*.md` · `backend/{app.py,gt511c3.py,gdrive_backup.py,schema.sql,config.example.json,requirements.txt,ui_app.js,test_app.py,test_ui_e2e.py}` · `pi/{setup.sh,atl-attendance.service,tailscale_service.sh}` · `tools/{deploy.ps1,deploy.sh,dev.ps1,dev.sh,led_test.py}` · `skills/{atl-frosted-ui,atl-ui-translator,atl-user-protocol}` (`assets/` deleted — nothing references it)
+## Current UI language on this branch
 
-## How to run, deploy, verify
+The branch uses the **black-and-cream wall**. This is the current design system, not an optional override:
 
-- **Local (from `E:\temp\project`):** `python backend/app.py` → `http://127.0.0.1:5000/` · **Pi:** `http://192.168.1.8:5000/` · `sudo systemctl status atl-attendance` · `journalctl -u atl-attendance -f` · DB `/var/lib/atl/attendance.db`
-- **Deploy (from `E:\temp\project`):** `powershell -File tools/deploy.ps1` or `bash tools/deploy.sh` — never copies `attendance.db`, `config.json`, or `*.backup.html`
-- **SSH:** `ssh -i C:\Users\LaNcer\.ssh\id_ed25519 lancer@192.168.1.8` (user `lancer`, not `pi`)
-- **Verify:** `curl http://192.168.1.8:5000/` → title `ATL Smart Attendance Terminal — Complete School System`, `pane-backup` + `#F4EEE1`, spliced `ui_app.js`, no `__SSR_DATA__` · `curl /api/health` → `db_ok: true` (`sensor offline` expected when `sensor:real` without hardware) · Routes `/` + `/assets/<path>` + `/api/*`; unknown non-API paths serve UI; dead `/legacy|/terminal|/perfect|/css|/js` stay gone
-- **Tests:** `python -m unittest backend.test_app -v` (124 backend unit tests) · `python -m unittest backend.test_ui_e2e -v` (16 Playwright E2E browser tests)
+- matte black `#141414`
+- cream `#F4EEE1`
+- matte red `#8A3A3A` for destructive states only
+- cream cube fields with 3px black outlines
+- glyph actions for close / confirm / remove / add / edit
+- one continuous wall per page; sharp internal joins; radius only at outer corners
+- no hover-driven motion and no animation in redesigned wall surfaces
+- thin 4px scrollbars
+- state changes must not resize or move surrounding content
 
-## UI design baseline — locked visual language (restyle only on explicit instruction)
+Legacy frost values remain only where the current implementation still uses them, chiefly kiosk/idle, print, and small popovers. When documentation conflicts, the current branch wall rules win and `project/docs/UI_TOKENS.md` is authoritative.
 
-- **Reference:** desert ambient render is canonical; approved direction = one admin window (workspace + rail fused, `--ref-*` frost, 24px) + near-black Setup board cards + black-pill primaries / outline pills + flat text-only month cells (white cards retired).
-- **Branch wall override (`feature/ui-glass-redesign`):** Attendance, Setup, Backup, and all popups now wear the black-and-cream wall — `#141414` / `#F4EEE1` / `#8A3A3A` destructive-only, glyph actions (red cross closes, black tick confirms, red trash far-left removes), cream cube fields (3px black outline), one continuous wall per page (sharp joints, radius outer-only), no hover/animation, 4px scrollbars. Beds are full-bleed black (Backup flush, Setup full-screen, Attendance outlined on black, Students black gutters + cream panes); the pellet ring is fully removed. Row-tap previews, pen opens editors; all state shifts are layout-free (inset markers, uniform weights). Truth lives in `docs/UI_COMPONENTS.md` logs 58+ and the wall section of `docs/UI_TOKENS.md`; the frost baseline below survives only for untouched surfaces (kiosk/idle, print). On conflict, the wall wins.
-- **Surfaces:** desert ambient retired (`bg-spheres.jpg` deleted with `assets/`); one admin window (workspace + rail fused, `--ref-*` frost, 24px, no opaque white left); near-black cards for the Setup board rows. No shadows, no per-cell boxes, no colored badges/status chips. `#adminLayer.open` is transparent (veil retired).
-- **Controls:** pills (`999px`) — black primary vs transparent outline secondary; rail Apply/actions are black pills (ONE-pill block is the single truth). Popover dropdowns keep frost + 2px.
-- **Type:** `var(--sans)` for normal interface text; `var(--mono)` only for dates, times, IDs, technical/numeric data; serif/editorial only for major titles where appropriate. Weight 400 normal / 500 important-active; avoid 600/700; soft, light, restrained; no excessive letter-spacing, no forced-everything-uppercase, no text shadows. Light surfaces force `--ref-ink` dark text in both ink modes; top chrome over ambient uses `--on-img` inks.
-- **Screenshot tasks:** compare the request against this baseline first, then modify only the specific element asked about; never invent a new style for an individual screen/component. Baseline stands unless the user explicitly orders a theme change.
-- **Understand intent before implementing:** when the user points at a working pattern elsewhere in the UI ("like the tabs", "like the reference"), rebuild on that pattern's *architecture*, not a nearby approximation. Restate their mechanism in plain words; if it doesn't fit, say so before editing.
-- **Project UI skills:** `skills/atl-frosted-ui/SKILL.md` holds the full enforceable version of this language (values, components, diagnoses, workflow, intent guide). `skills/atl-user-protocol/SKILL.md` holds the collaboration protocol (directives, ground truth, staleness checks). Any coding agent doing UI work must read and follow both.
-- **Canonical frost values:** `docs/UI_TOKENS.md` is the single source of truth (copied from the approved dropdown treatment). Copy values exactly — never approximate.
-- **UI-change risk check (mandatory before any UI edit):** assess layout-shift risk first — dynamic text lengths, font-weight changes (400↔500 alters width), flex centering dependencies, scrollbar/overflow changes, and cross-tab/pane differences. Prefer shift-proof construction (fixed slots, absolute centering, uniform weights, reserved space) so switching states never moves surrounding UI.
-- **Hard-won diagnoses (check these first):** milky modal = usually the overlay veil + blur stack, not the card fill (don't chase fill toward 0); ghost/doubled select text = a global `opacity:1` rule re-showing the native `<select>` hidden by the custom-dropdown system; tab-switch jumps = dynamic title lengths re-centering flex content + active-tab weight change; square pills/cards = rival `:not()` rules fighting the ONE-pill block
-  or a stray global radius-zero (the everywhere-sharp law is retired —
-  delete, don't stack). Verify with evidence (read the cascade, compare screenshots) before editing.
+## UI work
 
-## Constraints — must not break
+For any UI change, read:
 
-- **Scan:** active loop `POST /api/scan {waitSec:2}` runs on kiosk and in background while Admin is open (suppressing full-screen identity popup); pauses during enrollment (`enrollModal`/`scanModal`) and sensor maintenance (`reenroll`, `delete`, `restore`); bridge `GET /api/scan/last` every 2s; both call `window.handleRealScan`. `NO_FINGER/SENSOR_BUSY/UART` create no event. Enrollment one Start + 3 captures with lifts; progress via `GET /api/sensor/progress`. Keep `SENSOR_LOCK` and `keep_led_on=True`; `project/tools/led_test.py` diagnostic only.
-- **Edit:** `ATL-Smart-Attendance-Production.html` = markup/CSS/layout; `backend/ui_app.js` = behavior/state/events/API. When redesigning UI: change HTML/CSS in the Production.html, change behavior in `ui_app.js` (do not edit HTML inline script block — it is replaced at serve time). Keep light-editorial UI frameless photo+fields. Do not create `css/`/`js/`/`templates/`/component folders unless proven need; keep simple architecture.
-- **Settings:** `POST /api/settings` whitelist excludes `sensor/uart/baud/db/host/port/imagesDir` and `adminPin`. Holidays `YYYY-MM-DD[..YYYY-MM-DD]:type:name` where `type holiday|vacation|exam` (`exam`=working); validated via shared holiday parser.
-- **Scheduling:** precedence `override → holiday/vacation/exam → weekly`; weekly per-student `Grade|Batch → batch → class → global`; default Sunday off Mon-Sat on.
-- **Wiring:** VCC **3.3V pin1** never 5V, GND pin6, RX GPIO14/pin8, TX GPIO15/pin10, `/dev/serial0` 9600, `enable_uart=1`.
-- **Artifacts never commit/deploy:** `__pycache__/ *.log *.db *.pre_restore.bak uploads/ .venv/ .env backend/config.json *gdrive_token.json` — template is `backend/config.example.json`.
-- **Attendance:** `PRESENT ≤08:00`, `LATE` otherwise, `DUPLICATE` on same-day re-scan, `NOT_SCHEDULED` muted never absent, `ABSENT` generated only after `lateCutoff` with today guard `BEFORE_CUTOFF` via automated background daemon (`_reconcile_daemon`) or manual `POST /api/reconcile`.
-- **Auth:** Admin PIN via `X-Admin-Pin` header only (no `?pin=` query); health never exposes `adminPin`; backup/restore/export/audit/correction/reconcile require PIN when configured, empty PIN preserves open behavior.
-- **One task at a time.** After code, update docs. Check `docs/*.md` against `backend/app.py`, `gt511c3.py`, `schema.sql`, `ui_app.js` before finishing.
+1. `project/docs/ADMIN.md` if the change affects an Admin tab.
+2. `project/docs/UI_TOKENS.md` for visual values.
+3. `project/docs/UI_COMPONENTS.md` for component structure.
+4. `project/skills/atl-frosted-ui/SKILL.md` for enforceable UI rules.
+5. `project/skills/atl-user-protocol/SKILL.md` for collaboration and scope rules.
+
+UI work changes only the HTML/CSS shell and/or `backend/ui_app.js` unless the request explicitly expands scope. Do not invent a new visual system for one screen.
+
+## Safety
+
+- Development source is `E:\temp\project`.
+- Never touch `E:\sss` during UI work.
+- Never commit or deploy `backend/config.json`, `*.db`, `*.pre_restore.bak`, `*gdrive_token.json`, `uploads/`, `__pycache__/`, `*.log`, `.venv/`, or `.env`.
+- Sensor VCC is 3.3V pin 1, never 5V.
+- Keep `SENSOR_LOCK`, `DB_LOCK`, scan/enrollment semantics, attendance scheduling precedence, and auth rules intact unless explicitly changing that behavior.
+
+## Collaboration
+
+Do one task at a time. Prefer the smallest correct change. Do not silently expand scope. Verify documentation against the code after behavior changes. Do not commit, push, deploy, or change branches unless explicitly requested for that task.
