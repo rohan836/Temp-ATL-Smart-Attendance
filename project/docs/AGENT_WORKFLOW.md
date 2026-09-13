@@ -1,30 +1,54 @@
-# AGENT_WORKFLOW — Standard workflow for coding agents
+# AGENT_WORKFLOW — standard coding-agent loop
 
-Every agent must follow this workflow. It keeps changes small, verifiable, and production-safe.
+This is the operating procedure for work in this repository. It is intentionally separate from the project facts and UI tokens.
 
-## Workflow
+## 1. Orient
 
-1. **Read `AGENTS.md` first.** Entry point that maps tasks to docs.
-2. **Inspect the repository and relevant docs.** Use the `AGENTS.md` table to consult only relevant docs (`docs/PROJECT.md`, `WORKFLOW.md`, `ADMIN.md`, `ARCHITECTURE.md`, `DATA_MODEL.md`, `DEVELOPMENT.md`, `TESTING.md`, `OPERATIONS.md`, or `API.md`). Read active code in `backend/app.py`, `gt511c3.py`, `gdrive_backup.py`, `schema.sql`, `ui_app.js`, or `ATL-Smart-Attendance-Production.html` as needed.
-3. **Understand the task.** Clarify requirements, identify target files and line ranges, and understand system constraints before editing.
-4. **Implement directly.** Make the requested changes cleanly within the existing architecture: HTML/CSS in `ATL-Smart-Attendance-Production.html`, behavior/events in `backend/ui_app.js`, backend/API in `backend/app.py`. Do not create extraneous files or component directories unless proven necessary.
-5. **Add or update tests.** For bug fixes or new features, add or update covering tests in `backend/test_app.py` (unit) and/or `backend/test_ui_e2e.py` (Playwright E2E).
-6. **Run the test suites.** Run `python -m unittest backend.test_app -v` and `python -m unittest backend.test_ui_e2e -v` to confirm zero regressions.
-7. **Review `git diff`.** Verify that changes are minimal and focused. Ensure no secrets, machine configs, or runtime artifacts (`backend/config.json`, `*gdrive_token.json`, `*.db`, `*.pre_restore.bak`, `uploads/`, `__pycache__/`, `*.log`, `.venv/`, `.env`) are staged.
-8. **Update documentation.** Keep `AGENTS.md` and `docs/*.md` synchronized whenever behavior, constraints, endpoints, or test counts change. Docs are truth after code.
-9. **Commit and push.** Commit one logical concern at a time with a clear, descriptive message, then push to `origin/main`.
-10. **Deploy and verify when requested.** When deployment to the Raspberry Pi is requested, deploy via `powershell -File tools/deploy.ps1` or `bash tools/deploy.sh` and verify service status, `/api/health`, and live terminal functionality on `192.168.1.8`. Never claim verification that was not actually performed.
+Read `AGENTS.md`, then use `docs/DOCS.md` to open only the documents relevant to the task. Do not load every document by default.
 
-## Definition of Done
+For UI work also read:
 
-A task is done only when:
+- `docs/UI_TOKENS.md`
+- `docs/UI_COMPONENTS.md`
+- `skills/atl-frosted-ui/SKILL.md`
+- `skills/atl-user-protocol/SKILL.md`
 
-- Requested behavior works as specified
-- Tests pass (`121/121` backend + `16/16` Playwright or current suite) and new regression coverage exists
-- Documentation is accurate and the relevant `docs/*.md` were updated
-- No unrelated changes are in the diff
-- Git diff was reviewed and no secrets or runtime data are included
-- Deployment impact is understood (or deployment was verified)
-- Real hardware was verified when the change touches sensor, Pi, or deployment
+## 2. Establish scope
 
-If any item is not met, the task is not done.
+State exactly what is changing and what is frozen. One task at a time.
+
+For UI tasks, the default scope is the HTML/CSS shell and `backend/ui_app.js`. Backend, API, database, hardware, deployment, and tests are not changed unless the request requires them.
+
+## 3. Use current truth
+
+Prefer current code and tests over prose. Then use the owning document for intent. Treat `plan/` as notes, not authority.
+
+When a document conflicts with another document, update the owner rather than adding another exception.
+
+## 4. Implement the smallest coherent change
+
+Reuse an existing component pattern before inventing a new one. Remove obsolete rules rather than stacking overrides. Keep state changes layout-stable.
+
+For UI, preserve the current black-and-cream wall unless the user explicitly orders a theme change.
+
+## 5. Verify
+
+Use the narrowest useful verification first, then the full relevant suite when the change can affect behavior.
+
+For UI, re-read changed selectors and check sibling screens/modals for accidental coupling. Browser or screenshot verification must be truthfully reported; do not imply it happened when it did not.
+
+## 6. Documentation
+
+When behavior, structure, or reusable UI rules change, update the owning documentation in the same task. Avoid duplicating the rule in multiple files.
+
+## 7. Git discipline
+
+Work on the current branch. Do not switch branches, force-move tags, deploy to production, or push to `main` as a side effect of a task.
+
+Do not commit or push active UI redesign work until the user accepts the visual result, unless the user explicitly asks for a commit earlier.
+
+When the user explicitly requests a commit/push, make one focused commit for the approved change and report the resulting SHA.
+
+## 8. Definition of done
+
+A task is done when the requested result is implemented, relevant verification is complete, documentation is synchronized, no unrelated files changed, and no machine-local or secret artifacts are included.
