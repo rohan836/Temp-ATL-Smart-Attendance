@@ -1,38 +1,60 @@
-# DEVELOPMENT — How to change the project safely
+# DEVELOPMENT — safe changes
 
-## Source of truth
+## Source ownership
 
-Behavior lives in `backend/app.py` (Flask + scheduling + validation; serves HTML with `ui_app.js` injected; autonomous reconciliation and multi-destination backup workers), `backend/gdrive_backup.py` (Google Drive cloud backup engine), `backend/gt511c3.py` (fingerprint UART driver), `backend/schema.sql` (tables), and `backend/ui_app.js` (UI behavior/state/events/API). `ATL-Smart-Attendance-Production.html` is the UI shell — markup and CSS/layout; its `<script>` block is replaced at serve time by `_serve_production()` in `app.py` and is not edited directly. No working-tree backup HTML is kept — current production release is `v1.2.0` (`bf575451`); tags `v1.1.0`, `v1.0.1` and `v1.0.0` remain historical rollback points. When redesigning: HTML/CSS → `ATL-Smart-Attendance-Production.html`, behavior → `backend/ui_app.js`. The GT-511C3 template store plus SQLite are truth; LocalStorage `atl_*` is a photos-omitted cache. Do not create separate `css/`/`js/`/`templates/` or component folders unless proven need; keep simple architecture.
+- `ATL-Smart-Attendance-Production.html` — UI markup and CSS/layout.
+- `backend/ui_app.js` — UI state, events, rendering, API calls.
+- `backend/app.py` — Flask routes, validation, scheduling, reconciliation, backup workers, serve-time JS injection.
+- `backend/gt511c3.py` — fingerprint UART driver.
+- `backend/schema.sql` — database schema.
+- `backend/gdrive_backup.py` — Google Drive backup engine.
 
-## What not to touch
+The HTML inline `<script>` is replaced by `app.py`; do not edit it directly. Keep the architecture simple. Do not create `css/`, `js/`, `templates/`, or component folders without a documented need.
 
-Never commit or deploy `backend/config.json`, `*gdrive_token.json`, any `*.db`, `*.pre_restore.bak`, `backend/uploads/`, `__pycache__/`, `*.log`, `.venv/` or `.env` — they are gitignored or excluded from deploy and contain machine-specific or derived data. No backup HTML is kept in the working tree — current production release is `v1.2.0` (`bf575451`); tags `v1.1.0`, `v1.0.1` and `v1.0.0` are historical restore points; do not create `*.backup.html` copies. Never deploy the development database to the Pi. Keep dead routes `/legacy|/terminal|/perfect|/css|/js` removed. Never store `sensor/uart/baud/db/host/port/imagesDir` through `POST /api/settings` — they are file-only and excluded by the whitelist in `app.py`. Never power the sensor from 5V; VCC is 3.3V pin 1 only. Keep `keep_led_on=True` in `app.py` — the LED stays on while the service runs.
+## Safe editing rules
 
-## Making changes
+- One task at a time.
+- Preserve validation, scheduling precedence, authentication, and sensor locking unless explicitly changing that behavior.
+- UI changes default to UI files only.
+- Prefer deleting a stale rule over adding a more specific rival.
+- Keep dynamic UI states shift-proof.
+- Do not commit machine-local files: `backend/config.json`, databases, backup files, tokens, uploads, logs, caches, `.venv`, `.env`.
 
-One task at a time. Before coding, read the doc that owns the area: workflow changes need `WORKFLOW.md` and `ARCHITECTURE.md`; schedule or status changes need `DATA_MODEL.md`; Admin layout needs `ADMIN.md`. Keep each concern in its file — do not duplicate schedule logic in Admin and data-model docs. Preserve validation limits exactly (`name 1-80`, `roll 1-20 unique lower()`, `grade 1-40`, `batch 40`, `section 20`, `parent 80`, `phone 40 digits≥8`, `address 200`, `photo` capped by `PHOTO_MAX 2_800_000`) and the holiday string format `YYYY-MM-DD[..YYYY-MM-DD]:type:name` parsed in `app.py`.
+## Local development
 
-Scan and enroll are concurrency-sensitive. Guard any sensor access with `SENSOR_LOCK` and never create `events` for `NO_FINGER`, `SENSOR_BUSY`, or UART errors (`app.py`). Enrollment is one Start plus three lifts with 40s/30s waits; `SENSOR_PROGRESS` must be updated and exposed via `GET /api/sensor/progress`. Keep `is_student_scheduled()` precedence as `override → holiday → weekly` and weekly resolution `Grade|Batch → batch → class → global` in `app.py`.
+From `E:\temp\project`:
 
-## Adding a feature
-
-Add UI in `ui_app.js` mapping through `mapStudent()`/`mapEvent()` and rendering via `renderAll()`. Add persistence in `app.py` with an additive migration in `_migrate_db()` or `get_settings()` so `DB_PATH` preserves history. Expose any new state through `/api/settings` only if it is in the whitelist; otherwise keep it file-backed. Keep `Cache-Control: no-store` for HTML and API.
-
-## Local UI Development
-
-To preview and iterate on the UI locally on your PC without deploying to the Raspberry Pi:
 ```powershell
-# Windows PowerShell
 powershell -File tools/dev.ps1
-# Or directly via Python
+```
+
+or:
+
+```powershell
 python backend/app.py
 ```
-Open **`http://127.0.0.1:5000/`**.
 
-- **Instant Preview:** `backend/app.py` splices `backend/ui_app.js` into `ATL-Smart-Attendance-Production.html` on every GET `/` request with `Cache-Control: no-store`. Any UI/CSS/JS edits take effect immediately upon refreshing the browser (**`F5`** or **`Ctrl+R`**). Server restart is NOT required for UI changes.
-- **Safety & Isolation:** Local development runs in simulated sensor mode (`sensor: sim`) using the local SQLite file (`backend/attendance.db`) and local upload directory (`backend/uploads/`). It has zero network dependency or write access to the Raspberry Pi (`192.168.1.8`).
-- **Production Parity:** Uses the exact same single-file production HTML shell and `ui_app.js` rendered in production.
+Open `http://127.0.0.1:5000/`. Flask serves the same production HTML shell and splices `ui_app.js` on every request with `Cache-Control: no-store`.
+
+## UI workflow
+
+Before a UI edit, read `AGENTS.md`, `docs/ADMIN.md` when relevant, `docs/UI_TOKENS.md`, `docs/UI_COMPONENTS.md`, and the two UI skills.
+
+Implement the requested visual mechanism using an existing sibling pattern. Do not redesign adjacent screens unless the request includes them.
+
+For active UI redesign, iterate visually before committing. A user-approved visual pass is the gate for the eventual commit.
+
+## Backend/data changes
+
+Use additive database migrations. Keep `POST /api/settings` within its whitelist. Protect sensor access with `SENSOR_LOCK` and DB mutations with `DB_LOCK` according to the existing ordering. Preserve `override → holiday/vacation/exam → weekly` scheduling precedence and `Grade|Batch → batch → class → global` weekly resolution.
 
 ## Verification
 
-Run `python -m unittest backend.test_app -v` from the repo root — it uses a temp SQLite file and a simulated sensor, so it never touches hardware. Run `python -m unittest backend.test_ui_e2e -v` for the Playwright browser test suite. Check that `curl http://127.0.0.1:5000/` still contains the title `ATL Smart Attendance Terminal — Complete School System` and that `curl /api/health` returns `db_ok true`. Confirm `/backend/config.json` is not served and no `__SSR_DATA__` appears in the HTML.
+Relevant suites:
+
+```bash
+python -m unittest backend.test_app -v
+python -m unittest backend.test_ui_e2e -v
+```
+
+Current branch documentation lists 124 backend tests and 16 Playwright scenarios. A change is not considered verified merely because a test command is documented. Report what actually ran.
