@@ -4520,6 +4520,10 @@ function openCorrection(studentId, date, oldStatus){
   // preselect oldStatus if matches
   try{ const sel=$("corrStatus"); if(sel && oldStatus) { const up=String(oldStatus).toUpperCase(); for(let o of sel.options){ if(o.value===up) sel.value=o.value; } } }catch(e){}
   openModal(correctionModal);
+  try{
+    const _cs = document.getElementById("corrStatus");
+    if(_cs && window.__ensureGsel) window.__ensureGsel(_cs);
+  }catch(e){}
   $("corrCancel").onclick=()=>closeModal(correctionModal);
   $("corrSave").onclick=async()=>{
     const newStatus=$("corrStatus").value, reason=$("corrReason").value.trim(), err=$("corrErr");
