@@ -24,3 +24,5 @@ backend/config.json
 *gdrive*.token
 *.staging.db
 artifacts/
+# Node tooling (Playwright is installed locally, never committed)
+node_modules/
