@@ -24,6 +24,14 @@ let Holidays = [];      // backend "YYYY-MM-DD:Reason" -> {start}/{name}
 let Overrides = [];
 let Audit = [];         // mapped from backend audit
 let AllEvents = [];     // full event history (for reports + student detail)
+let sdMonth = null;     // student-detail timeline month (Date, first of month)
+let sdStatus = "";      // student-detail records status filter
+let sdNewest = true;    // student-detail records time order
+let sdMode = "month";   // "month" or "range" — last date-control action wins
+let sdDatePreset = "current"; // compact dropdown truth
+let sdCustomFrom = ""; // custom range start (YYYY-MM-DD)
+let sdCustomTo = "";   // custom range end (YYYY-MM-DD)
+let sdStudentSort = "name"; // student-list sort preset
 let ClassSchedules = {}; // backend-persisted per-class weekly {class: {workingDays:{0..6}} or {0..6}}
 let BatchSchedules = {}; // backend-persisted per-batch { "Grade|Batch": workingDays }
 let Daily = [];         // from /api/daily
@@ -31,6 +39,10 @@ let Kpis = null;        // from /api/kpis
 // backward compat alias for older cache key
 let ClassSchedulesUI = ClassSchedules;
 let _enrollPoll = null; let _enrollAbort = false; let _enrollCtrl = null;
+// Month tables live at the top: boot-path formatters (holidays, overrides,
+// corrections) run before later sections finish evaluating.
+const MONTHS_S=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_L=["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 // ---- helpers ----
 function $(id){ return document.getElementById(id); }
@@ -40,6 +52,106 @@ function toLocalISO(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padSta
 function parseISO(s){ return new Date(s+"T00:00:00"); }
 function fmtDate(d){ if(!d) return ""; const dt=parseISO(d); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
 function inRange(d,a,b){ return d>=a && d<=b; }
+/* Hold-to-repeat (user order): a single tap steps once, holding past
+   HOLD_START_MS repeats on an interval that eases toward HOLD_FLOOR_MS so
+   long runs are quick but still land on exact values. Pointer events cover
+   mouse, touch and pen in one path, and setPointerCapture keeps the stream
+   on the button even if the finger drifts off it. fn(isRepeat) gets true
+   from the first repeat tick onward, so a caller can skip work that only
+   belongs to the initial tap. */
+const HOLD_START_MS=400, HOLD_FAST_MS=170, HOLD_FLOOR_MS=55;
+/* One shared window-blur hook: these buttons are rebuilt often (each month
+   grid redraw makes new ones), so a per-element blur listener would leak. */
+const _holdStops=new Set();
+let _holdBlurBound=false;
+function holdRepeat(el, fn){
+  if(!el) return;
+  let timer=null, delay=HOLD_FAST_MS, ranRepeat=false;
+  const stop=()=>{ if(timer){ clearTimeout(timer); timer=null; } };
+  _holdStops.add(stop);
+  if(!_holdBlurBound){ _holdBlurBound=true; window.addEventListener("blur",()=>{ _holdStops.forEach(f=>{ try{ f(); }catch(e){} }); }); }
+  const fire=(rep)=>{ ranRepeat=ranRepeat||rep; try{ fn(rep); }catch(e){} };
+  const tick=()=>{
+    fire(true);
+    /* Ease toward the floor so long runs stay quick, then hold steady.
+       setTimeout (not setInterval) so the interval can actually change. */
+    delay=Math.max(HOLD_FLOOR_MS,Math.round(delay*0.85));
+    timer=setTimeout(tick,delay);
+  };
+  el.addEventListener("pointerdown",(e)=>{
+    if(e.button!==undefined && e.button!==0) return;
+    stop();
+    ranRepeat=false;
+    fire(false);                       /* the tap itself: exactly one step */
+    timer=setTimeout(tick,HOLD_START_MS);
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  });
+  ["pointerup","pointercancel","pointerleave","lostpointercapture"].forEach(ev=>
+    el.addEventListener(ev,stop));
+  el.addEventListener("contextmenu",e=>e.preventDefault());
+  /* The browser still synthesises a click after a hold. Swallow it so one
+     press is never counted twice by any onclick still bound elsewhere. */
+  el.addEventListener("click",(e)=>{
+    if(ranRepeat){ e.stopPropagation(); e.preventDefault(); ranRepeat=false; }
+  },true);
+}
+/* Delegated hold-to-repeat (user order): the same tap-steps-once /
+   hold-runs-with-easing behavior as holdRepeat, but the listener lives on
+   a stable ancestor and the target is resolved per event — so it survives
+   innerHTML rebuilds of the buttons themselves. Built for the
+   student-detail month arrows, which renderStudentDetail recreates on
+   every step (a direct holdRepeat would lose its pointer capture with the
+   discarded node after the first tick). The single tap is left to the
+   existing click handler; only repeat ticks fire here, and the trailing
+   click after a hold is swallowed. Deliberately no pointer capture: the
+   repeat timer is setTimeout-driven and cannot break, while capturing on
+   the container would retarget the trailing click onto it. Window-level
+   release hooks stop a run even if the pointer leaves the panel mid-hold. */
+function holdRepeatDelegate(container, match, fn, opts){
+  if(!container||typeof match!=="function"||typeof fn!=="function") return;
+  opts=opts||{};
+  const startMs=opts.startMs||HOLD_START_MS, fastMs=opts.fastMs||HOLD_FAST_MS, floorMs=opts.floorMs||HOLD_FLOOR_MS;
+  let timer=null, delay=fastMs, cur=null, ranRepeat=false, lastFire=0;
+  const stop=()=>{ if(timer){ clearTimeout(timer); timer=null; } };
+  _holdStops.add(stop);
+  const fire=()=>{ ranRepeat=true; lastFire=Date.now(); try{ fn(cur); }catch(e){} };
+  const tick=()=>{
+    fire();
+    /* Ease toward the floor so long runs stay quick, then hold steady. */
+    delay=Math.max(floorMs,Math.round(delay*0.85));
+    timer=setTimeout(tick,delay);
+  };
+  container.addEventListener("pointerdown",(e)=>{
+    if(e.button!==undefined && e.button!==0) return;
+    let t=null;
+    try{ t=match(e); }catch(_){ t=null; }
+    if(!t) return;
+    stop();
+    cur=t; ranRepeat=false; delay=fastMs;
+    timer=setTimeout(tick,startMs);
+  });
+  ["pointerup","pointercancel","pointerleave"].forEach(ev=>
+    container.addEventListener(ev,stop));
+  /* No setPointerCapture here: capturing on the container would retarget
+     the trailing click onto it, so single taps would land on the container
+     (dead taps) and the suppressor below could never match the button. */
+  window.addEventListener("pointerup",stop);
+  window.addEventListener("pointercancel",stop);
+  container.addEventListener("contextmenu",(e)=>{
+    let t=null;
+    try{ t=match(e); }catch(_){ t=null; }
+    if(t) e.preventDefault();
+  });
+  /* Swallow only the trailing click of a real hold (keyboard Enter fires
+     click with no pointerdown, so the time window keeps it working). */
+  container.addEventListener("click",(e)=>{
+    if(!ranRepeat||Date.now()-lastFire>750) return;
+    let t=null;
+    try{ t=match(e); }catch(_){ t=null; }
+    if(t){ e.stopPropagation(); e.preventDefault(); ranRepeat=false; }
+  },true);
+}
 async function api(path, opts){
   opts = opts || {};
   // Don't set JSON content-type for FormData (browser sets multipart boundary)
@@ -194,7 +306,7 @@ function mapOverride(s){
 /* Intra-day hours (user order): optional @HH:MM-HH:MM records on
    holidays/overrides — stored, displayed, editable; resolution
    stays day-granular. Empty = all-day (today's behavior). */
-function fmtTimes(r){ return (r&&(r.startTime||r.endTime))?(" · "+(r.startTime||"00:00")+"–"+(r.endTime||"23:59")):""; }
+function fmtTimes(r){ return (r&&(r.startTime||r.endTime))?(" · "+(r.startTime||"00:00")+"-"+(r.endTime||"23:59")):""; }
 function isHHMM(v){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v||"")); }
 function normTimes(st,en){ st=String(st||""); en=String(en||""); if(!st&&!en) return ["",""]; return [st||"00:00",en||"23:59"]; }
 function mapHolidayFromList(s){
@@ -352,11 +464,82 @@ let currentTab="students", selectedStudentId=null, calendarMonth=new Date();
 /* Refresh persistence (testing convenience): remember the last admin
    tab; after the normal PIN unlock the admin reopens there instead of
    the default. The PIN gate itself is untouched. */
-try{ const _t=localStorage.getItem("atl_admin_tab"); if(["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(_t)>=0) currentTab=_t; }catch(e){}
+try{ const _t=localStorage.getItem("atl_admin_tab"); const _t2=_t==="setup2"?"setup":_t; if(["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(_t2)>=0) currentTab=_t2; }catch(e){}
 /* Academic-year override span (null = follow Settings); set by the year popup */
 let attAcadFrom=null, attAcadTo=null;
 
-function openModal(m){ m.classList.add("open"); }
+/* Body fade is conditional: no mask when content fits; top fade only when
+   scrolled off the top edge, bottom fade only when more sits below. */
+function paintModalFade(body){
+  if(!body||!body.scrollHeight) return;
+  const max=body.scrollHeight-body.clientHeight;
+  const over=max>4, st=body.scrollTop;
+  let mask="none";
+  if(over&&st>4&&st<max-4) mask="linear-gradient(transparent,#000 16px,#000 calc(100% - 16px),transparent)";
+  else if(over&&st>=max-4) mask="linear-gradient(transparent,#000 16px,#000 100%)";
+  else if(over) mask="linear-gradient(#000 calc(100% - 16px),transparent)";
+  body.style.webkitMaskImage=mask; body.style.maskImage=mask;
+}
+function wireModalFade(body){
+  if(!body||body._fadeWired) return; body._fadeWired=true;
+  body.addEventListener("scroll",()=>paintModalFade(body),{passive:true});
+}
+/* Bottom fade for scroll containers (no native scrollbars anywhere):
+   16px fade while there is more below, none when the content fits.
+   GATED ON REAL SCROLLABILITY, and that gate is load-bearing: a CSS mask is
+   painted only inside the element's own border box, so masking a box that does
+   NOT scroll hides everything that overflows it. Backup was masked here while
+   it no longer scrolled — its content spilled below the box and the fade
+   painted the whole audit history transparent (user report: the history was
+   laid out but never visible). Same latent trap on .dt (Students), which is
+   overflow:visible. A stale mask is cleared, not just skipped. */
+function paintFadeBottom(el){
+  if(!el||el.scrollHeight==null) return;
+  /* Setup 2 lists must cut cleanly at their bottom edge (user order): no
+     gradient is ever written to them. Guarded HERE rather than in
+     repaintFades(), because the document scroll listener and the
+     MutationObserver below also call this — skipping only the repaint pass
+     would re-stamp the mask on the next scroll. A mask already stamped on
+     such a list is cleared, not just skipped. */
+  if(el.closest&&el.closest("#setupLists")){
+    if(el.style.maskImage||el.style.webkitMaskImage){
+      el.style.webkitMaskImage=""; el.style.maskImage="";
+    }
+    return;
+  }
+  const scrolls=/(auto|scroll)/.test(getComputedStyle(el).overflowY)
+    && el.scrollHeight-el.clientHeight>4;
+  if(!scrolls){
+    if(el.style.maskImage||el.style.webkitMaskImage){
+      el.style.webkitMaskImage=""; el.style.maskImage="";
+    }
+    return;
+  }
+  const more=el.scrollHeight-el.clientHeight-el.scrollTop>4;
+  const mask=more?"linear-gradient(#000 calc(100% - 16px),transparent)":"none";
+  el.style.webkitMaskImage=mask; el.style.maskImage=mask;
+}
+function repaintFades(){
+  try{ document.querySelectorAll(".rows,.ros,.dt,.bk,.cmd-pal").forEach(paintFadeBottom); }catch(e){}
+}
+try{
+  document.addEventListener("scroll",(e)=>{
+    const t=e.target;
+    if(t&&t.nodeType===1&&t.matches&&t.matches(".rows,.ros,.dt,.bk,.cmd-pal")) paintFadeBottom(t);
+  },true);
+  const _fadeObs=new MutationObserver((muts)=>{
+    muts.forEach(m=>{
+      const t=m.target;
+      if(!t||t.nodeType!==1) return;
+      if(t.matches&&t.matches(".rows,.ros,.dt,.bk,.cmd-pal")) paintFadeBottom(t);
+      else if(t.closest){ const c=t.closest(".rows,.ros,.dt,.bk,.cmd-pal"); if(c) paintFadeBottom(c); }
+    });
+  });
+  _fadeObs.observe(document.body,{childList:true,subtree:true});
+  document.querySelectorAll(".rows,.ros,.dt,.bk,.cmd-pal").forEach(paintFadeBottom);
+}catch(e){}
+if(!window._modalFadeResize){ window._modalFadeResize=true; window.addEventListener("resize",()=>{ try{ document.querySelectorAll('.scrim.open .mod>div[id$="Body"]').forEach(paintModalFade); }catch(e){} try{ document.querySelectorAll(".rows,.ros,.dt,.bk,.cmd-pal").forEach(paintFadeBottom); }catch(e){} }); }
+function openModal(m){ m.classList.add("open"); try{ if(window.__closeGselPop) window.__closeGselPop(); }catch(e){} try{ if(typeof closeDtPops==="function") closeDtPops(); }catch(e){} try{ m.querySelectorAll('.mod>div[id$="Body"]').forEach(b=>{ wireModalFade(b); paintModalFade(b); }); }catch(e){} }
 function closeModal(m){ m.classList.remove("open"); }
 [enrollModal, holidayModal, overrideModal, holidayViewModal, overrideViewModal, correctionModal, daySheetModal, schoolInfoModal, schedModal].forEach(m=>{
   if(!m) return;
@@ -623,23 +806,24 @@ async function sensorScanLoop(){
 }
 // ---- render: Students ----
 function renderClassFilters(){
-  const opts=['<option value="">All Classes</option>'].concat(Classes.map(c=>`<option>${esc(c)}</option>`)).join("");
+  const opts=['<option value="">All classes</option>'].concat(Classes.map(c=>`<option>${esc(c)}</option>`)).join("");
   if(classFilter) classFilter.innerHTML=opts;
   if(attClassFilter) attClassFilter.innerHTML=opts;
   const batches=[...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
   if(batchFilter){
     const cur=batchFilter.value;
-    batchFilter.innerHTML='<option value="">All Batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
+    batchFilter.innerHTML='<option value="">All batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
     if(!batches.includes(cur)) batchFilter.value="";
   }
   if(attBatchFilter){
     const cur=attBatchFilter.value;
-    attBatchFilter.innerHTML='<option value="">All Batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
+    attBatchFilter.innerHTML='<option value="">All batches</option>'+batches.map(b=>`<option ${b===cur?'selected':''}>${esc(b)}</option>`).join("");
     if(!batches.includes(cur)) attBatchFilter.value="";
   }
   populateAttStudents();
   // also populate schedule context selector (Global, Classes, Batches)
   populateScheduleSelector();
+  try{ paintFlt(); }catch(e){}
 }
 function populateAttStudents(){
   if(!attStudentFilter) return;
@@ -648,14 +832,14 @@ function populateAttStudents(){
   const bf = attBatchFilter ? attBatchFilter.value : "";
   const inScope = Students.filter(s => s.active && (!cf || s.class === cf) && (!bf || (s.batch || "") === bf));
   inScope.sort((a,b) => (a.name||"").localeCompare(b.name||""));
-  let html = '<option value="">All Students</option>';
+  let html = '<option value="">All students</option>';
   html += inScope.map(s => `<option value="${s.id}" ${String(s.id)===cur?'selected':''}>${esc(s.name)} (${esc(s.roll||"—")})</option>`).join("");
   attStudentFilter.innerHTML = html;
   if(cur && !inScope.some(s => String(s.id)===cur)) attStudentFilter.value = "";
 }
 function renderStudentList(){
   var _rs=$("rosterSearch"); if(_rs&&document.activeElement!==_rs&&searchInput) _rs.value=searchInput.value||"";
-  const q=(searchInput.value||"").toLowerCase(), cf=classFilter?classFilter.value:"", bf=batchFilter?batchFilter.value:"", sf=studentStatusFilter?studentStatusFilter.value:"active";
+  const q=(searchInput.value||"").toLowerCase(), cf=classFilter?classFilter.value:"", bf=batchFilter?batchFilter.value:"", sf=studentStatusFilter?studentStatusFilter.value:"all";
   let list=Students.filter(s=>{
     if(sf==="active" && !s.active) return false;
     if(sf==="inactive" && s.active) return false;
@@ -664,65 +848,166 @@ function renderStudentList(){
     if(!q) return true;
     return (s.name+" "+s.roll+" "+s.class+" "+(s.batch||"")+" "+s.phone+" "+s.fid+" "+s.id+" "+(s.section||"")+" "+(s.parent||"")).toLowerCase().includes(q);
   });
-  list.sort((a,b)=> (b.active - a.active) || a.name.localeCompare(b.name));
-  if(!list.length){ studentListEl.innerHTML=`<div class="empty"><b>No students found</b>Try different search or add a new student.</div>`; return; }
-  studentListEl.innerHTML=list.map(s=>{
-    const initials=studentInitials(s.name);
-    const thumb=s.photo?`<img src="${esc(s.photo)}" alt="">`:`<div class="student-thumb-fallback">${esc(initials)}</div>`;
+  if(sdStudentSort==="name_desc"){ list.sort((a,b)=>b.name.localeCompare(a.name)); }
+  else if(sdStudentSort==="roll"){ list.sort((a,b)=>String(a.roll||"").localeCompare(String(b.roll||""))); }
+  else if(sdStudentSort==="class"){ list.sort((a,b)=>String(a.class||"").localeCompare(String(b.class||""))||a.name.localeCompare(b.name)); }
+  else if(sdStudentSort==="active"){ list.sort((a,b)=>(b.active-a.active)||a.name.localeCompare(b.name)); }
+  else { list.sort((a,b)=>a.name.localeCompare(b.name)); }
+  const sc=$("scount"); if(sc) sc.textContent=Students.length+(Students.length===1?" enrolled":" enrolled");
+  const rc=$("roCount"); if(rc) rc.textContent="STUDENTS ("+Students.length+")";
+  try{
+    const hc=$("fltHideCount");
+    if(hc){
+      if(sf==="active"){
+        const n=Students.filter(s=>!s.active&&(!cf||s.class===cf)&&(!bf||(s.batch||"")===bf)&&(!q||(s.name+" "+s.roll+" "+s.class+" "+(s.batch||"")+" "+s.phone+" "+s.fid+" "+s.id+" "+(s.section||"")+" "+(s.parent||"")).toLowerCase().includes(q))).length;
+        hc.textContent=n+" inactive hidden"; hc.hidden=n===0;
+      } else hc.hidden=true;
+    }
+  }catch(e){}
+  if(!list.length){ studentListEl.innerHTML=`<p class="none">No students match these filters.</p>`; return; }
+  studentListEl.innerHTML=list.map((s,ix)=>{
     const batchTxt=s.batch?` · ${esc(s.batch)}`:"";
-    const inactiveBadge = s.active ? "" : `<span class="badge" style="margin-left:6px">Inactive</span>`;
-    const rowStyle = s.active ? "" : ` style="opacity:0.6"`;
-    return `<div class="student-row ${selectedStudentId===s.id?"active":""}" data-id="${s.id}"${rowStyle}><div class="student-thumb">${thumb}</div><div class="student-info"><div class="student-name">${esc(s.name)}${inactiveBadge}</div><div class="student-meta"><span>${esc(s.roll)}</span><span>${esc(s.class)}${batchTxt}</span><span class="student-roll">${esc(s.fid||"no fp")}</span></div></div></div>`;
+    const sub=`${esc(s.roll)} · ${esc(s.class)}${batchTxt}${s.active?"":" · Inactive"}`;
+    return `<button class="ri${selectedStudentId===s.id?" on":""}" data-id="${s.id}"><span class="ri-num" aria-hidden="true">${String(ix+1).padStart(2,"0")}</span><div><span>${esc(s.name)}</span><small>${sub}</small><small class="ri-status"><i class="ri-dot${s.active?"":" off"}"></i>${s.active?"Active":"Inactive"}</small></div><span class="ri-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></span></button>`;
   }).join("");
 }
 function renderStudentDetail(id){
   const s=Students.find(x=>x.id===id);
   if(!s){ detailScroll.innerHTML=`<div class="empty"><b>No student selected</b>Choose a student.</div>`; return; }
   const initials=studentInitials(s.name);
-  const photo=s.photo?`<img src="${esc(s.photo)}" alt="">`:`<div class="detail-photo-fallback">${esc(initials)}</div>`;
-  const history=AllEvents.filter(a=>a.studentId===s.id).slice(-60).reverse();
-  const histRows=history.length?history.map(a=>`<tr><td>${esc(a.date)}</td><td>${esc(a.time)}</td><td><span class="badge ${a.status.toLowerCase().replace(" ","-")}">${esc(a.status)}</span></td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"")}</td><td><button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(a.date)}" data-correct-status="${esc(a.status)}">Correct</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty"><b>No records</b>Scan results will appear here from the sensor.</div></td></tr>`;
+  const mono=s.photo?`<div class="mono has-photo"><img src="${esc(s.photo)}" alt=""></div>`:`<div class="mono">${esc(initials)}</div>`;
+  const history=(AllEvents.filter(a=>a.studentId===s.id).slice(-60).reverse()); // quick UI list fallback
+  const _allHistory=AllEvents.filter(a=>a.studentId===s.id);
+  const stCls=a=>({Present:"P",Late:"L",Absent:"A"})[a]||"X";
+  const _fd=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; };
+  const _ft=t=>{ if(t==="23:59:59"||t==="00:00:00") return "—"; const m=/^(\d{1,2}):(\d{2})/.exec(t||""); if(!m) return "—"; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12; return h+":"+m[2]+" "+ap; };
+  const _stName=a=>a==="Not Scheduled"?"Not scheduled":a;
   const _rows=Attendance.filter(a=>a.studentId===s.id);
   const _p=_rows.filter(a=>a.status==="Present").length;
   const _l=_rows.filter(a=>a.status==="Late").length;
   const _a=_rows.filter(a=>a.status==="Absent").length;
   const _t=_p+_l+_a;
-  const _rate=_t?Math.round(100*(_p+_l)/_t):null;
+  /* 3-week rate: present-or-late days over scheduled days in the trailing
+     21 days (today included). Not-scheduled days never count. */
+  const _d0=new Date(); _d0.setHours(0,0,0,0);
+  const _iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const _from=(()=>{ const d=new Date(_d0); d.setDate(d.getDate()-20); return _iso(d); })();
+  const _to=_iso(_d0);
+  const _plDays=new Set();
+  (AllEvents||[]).forEach(a=>{ if(a.studentId===s.id&&(a.status==="Present"||a.status==="Late")&&a.date>=_from&&a.date<=_to) _plDays.add(a.date); });
+  let _sched=0;
+  for(let i=0;i<21;i++){ const d=new Date(_d0); d.setDate(d.getDate()-i); try{ if(isWorkingDayForStudent(_iso(d),s)) _sched++; }catch(e){} }
+  const _rate=_sched?Math.round(100*_plDays.size/_sched):null;
+  /* Active date controls: an explicit month pick or the compact dropdown.
+     Last action sets sdMode; records and the month-day timeline use the
+     same local-date window (no UTC conversion). */
+  const _todayD=new Date(); _todayD.setHours(0,0,0,0);
+  if(!sdMonth){ sdMonth=new Date(_todayD.getFullYear(),_todayD.getMonth(),1); }
+  let _activeFrom, _activeTo, _activeDaysIn=0;
+  if(sdMode==="range"){
+    const _t0=new Date(_todayD);
+    if(sdDatePreset==="today"){ _activeFrom=new Date(_t0); _activeTo=new Date(_t0); }
+    else if(sdDatePreset==="last7"){ _activeFrom=new Date(_t0); _activeFrom.setDate(_activeFrom.getDate()-6); _activeTo=new Date(_t0); }
+    else if(sdDatePreset==="last30"){ _activeFrom=new Date(_t0); _activeFrom.setDate(_activeFrom.getDate()-29); _activeTo=new Date(_t0); }
+    else{ _activeFrom=(sdCustomFrom?parseISO(sdCustomFrom):new Date(_t0)); _activeTo=(sdCustomTo?parseISO(sdCustomTo):_activeFrom); }
+    _activeFrom.setHours(0,0,0,0); _activeTo.setHours(0,0,0,0);
+    if(_activeFrom>_activeTo){ const _tmp=_activeFrom; _activeFrom=_activeTo; _activeTo=_tmp; }
+    _activeDaysIn=Math.round((_activeTo-_activeFrom)/(1000*60*60*24))+1;
+  }else{
+    _activeFrom=new Date(sdMonth.getFullYear(),sdMonth.getMonth(),1);
+    _activeTo=new Date(sdMonth.getFullYear(),sdMonth.getMonth()+1,0);
+    _activeDaysIn=_activeTo.getDate();
+  }
+  const monthName=_activeFrom.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const monthShort=_activeFrom.toLocaleDateString('en-GB',{month:'short',year:'numeric'});
+  const _byDate={};
+  (AllEvents||[]).forEach(a=>{ if(a.studentId===s.id&&a.date&&!_byDate[a.date]) _byDate[a.date]=a.status; });
+  const _WD=["S","M","T","W","T","F","S"];
+  const _sqCls=iso=>{ const st=_byDate[iso]; return st==="Present"?"P":st==="Late"?"L":st==="Absent"?"A":st==="Not Scheduled"?"N":"X"; };
+  let tlNums="", tlWk="", tlSq="";
+  for(let i=0;i<_activeDaysIn;i++){
+    const d=new Date(_activeFrom); d.setDate(_activeFrom.getDate()+i);
+    const iso=_iso(d), dow=d.getDay();
+    tlNums+=`<span class="sd-n">${d.getDate()}</span>`;
+    tlWk+=`<span class="sd-w">${_WD[dow]}</span>`;
+    tlSq+=`<span class="sd-cell"><i class="sd-sq ${_sqCls(iso)}"></i></span>`;
+  }
+  const _fromISO=_iso(_activeFrom), _toISO=_iso(_activeTo);
+  const _filtered=sdStatus?_allHistory.filter(a=>a.date>=_fromISO&&a.date<=_toISO&&a.status===sdStatus):_allHistory.filter(a=>a.date>=_fromISO&&a.date<=_toISO);
+  const _ordered=sdNewest?[..._filtered].reverse():_filtered;
+  const recRows=_ordered.length?_ordered.map(a=>`<tr><td>${esc(_fd(a.date))}</td><td>${esc(_ft(a.time))}</td><td class="s-${stCls(a.status)}">${esc(_stName(a.status))}${a.fixed?" · corrected":""}</td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"—")}</td><td class="act"><button type="button" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(a.date)}" data-correct-status="${esc(a.status)}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>Correct</button></td></tr>`).join(""):`<tr><td colspan="5" class="sub" style="padding:12px 0">No records. Scan results will appear here from the sensor.</td></tr>`;
   detailScroll.innerHTML=`
-    <div class="detail-card">
-      <div class="pf-head">
-        <div class="detail-photo">${photo}</div>
-        <div class="pf-id">
-          <div class="pf-title-row">
-            <div class="pf-name">${esc(s.name)}</div>
-          </div>
-          <div class="pf-sub"><span class="badge ${s.active?'present':'not-scheduled'}">${esc(s.active?"Active":"Inactive")}</span>${s.batch?`<span class="badge">${esc(s.batch)}</span>`:""}</div>
-        </div>
+    <div class="sd-top">
+    <div class="sd-headrow">
+    <div class="dh">${mono}<div><h2>${esc(s.name)}</h2><div class="sub">${esc(s.active?"Active":"Inactive")} · ${esc(s.batch||"—")}</div></div></div>
+    <div class="acts">
+      <button data-action="edit" data-id="${s.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>Edit information</button>
+      <button data-action="reenroll" data-id="${s.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Re-enroll fingerprint</button>
+      ${s.active ? `` : `<button data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
+      <button data-action="print" data-id="${s.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print profile</button>
+      <button data-correct data-correct-sid="${s.id}" data-correct-date="${esc(todayISO())}" data-correct-status="Present"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>Correct today</button>
+      ${s.active ? `<button data-action="delete" data-id="${s.id}" aria-label="Deactivate">Delete</button>` : ``}
+    </div>
+    </div>
+    <div class="facts">
+      <div><small>Today</small>${_t?`<span class="s-${_p?"P":"A"}">${_p}P · ${_l}L · ${_a}A</span>`:"No scan"}</div>
+      <div><small>Attendance, 3 weeks</small>${_rate==null?"No data":_rate+"%"}</div>
+      <div><small>Fingerprint</small>${esc(s.fid||"—")}</div>
+      <div><small>Roll</small>${esc(s.roll)}</div>
+      <div><small>Class</small>${esc(s.class)} · ${esc(s.section||"—")}</div>
+      <div><small>Parent</small>${esc(s.parent||"—")}</div>
+      <div><small>Phone</small>${esc(s.phone||"—")}</div>
+      <div><small>Address</small>${esc(s.address||"—")}</div>
+    </div>
+    <div class="sd-head">
+      <h3>Recent attendance</h3>
+      <div class="sd-month"><button type="button" id="sdPrev" aria-label="Previous month">‹</button><span>${esc(monthName)}</span><button type="button" id="sdNext" aria-label="Next month">›</button></div>
+      <select id="sdDatePreset" class="sd-range" style="width:140px" aria-label="Date range">
+        <option value="current"${sdDatePreset==="current"?" selected":""}>Current month</option>
+        <option value="today"${sdDatePreset==="today"?" selected":""}>Today</option>
+        <option value="last7"${sdDatePreset==="last7"?" selected":""}>Last 7 days</option>
+        <option value="last30"${sdDatePreset==="last30"?" selected":""}>Last 30 days</option>
+        <option value="custom"${sdDatePreset==="custom"?" selected":""}>Custom range</option>
+      </select>
+      <span class="sd-view">${sdMode==="month"?"Calendar month":"Rolling range"}</span>
+    </div>
+    <div class="sd-tl">
+      <div class="sd-tl-row"><span class="sd-tl-lab">${esc(monthShort)}</span>${tlNums}</div>
+      <div class="sd-tl-row"><span class="sd-tl-lab">Date</span>${tlWk}</div>
+      <div class="sd-tl-row"><span class="sd-tl-lab">Status</span>${tlSq}</div>
+    </div>
+    <div class="sd-legend">
+      <span><i class="sd-sq P"></i>Present</span>
+      <span><i class="sd-sq A"></i>Absent</span>
+      <span><i class="sd-sq L"></i>Late</span>
+      <span><i class="sd-sq N"></i>Not scheduled</span>
+      <span><i class="sd-sq X"></i>No record</span>
+    </div>
+    </div>
+    <div class="sd-recs">
+    <div class="sd-rec-head">
+      <h3>Attendance records</h3>
+      <select id="sdStatusFilter" aria-label="All status">
+        <option value=""${sdStatus===""?" selected":""}>All status</option>
+        <option value="Present"${sdStatus==="Present"?" selected":""}>Present</option>
+        <option value="Absent"${sdStatus==="Absent"?" selected":""}>Absent</option>
+        <option value="Late"${sdStatus==="Late"?" selected":""}>Late</option>
+        <option value="Not Scheduled"${sdStatus==="Not Scheduled"?" selected":""}>Not scheduled</option>
+      </select>
+      <div class="sd-rec-tools">
+        <button type="button" id="sdTimeToggle">Time: <span class="sd-time-word">${sdNewest?"Newest":"Oldest"}</span></button>
+        <button type="button" data-action="refresh" data-id="${s.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button>
+        <button type="button" data-action="print" data-id="${s.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
+        <button type="button" data-action="export" data-id="${s.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
       </div>
-      <div class="stat-strip" aria-label="Today's attendance summary"${_t>0?"":' style="display:none !important"'}><span class="stat-cap">Today</span>${_t>0?`<span class="stat"><span class="stat-num">${_p}</span><span class="stat-lab">Present</span></span><span class="stat"><span class="stat-num">${_l}</span><span class="stat-lab">Late</span></span><span class="stat"><span class="stat-num">${_a}</span><span class="stat-lab">Absent</span></span><span class="stat"><span class="stat-num">${_rate}%</span><span class="stat-lab">Attendance</span></span>`:`<span class="stat-note">No scans yet today</span>`}</div>
-          <div class="detail-grid">
-            <div class="detail-field"><label>Roll</label><span>${esc(s.roll)}</span></div>
-            <div class="detail-field"><label>Class</label><span>${esc(s.class)}</span></div>
-            <div class="detail-field"><label>Batch / Group</label><span>${esc(s.batch||"—")}</span></div>
-            <div class="detail-field"><label>Section</label><span>${esc(s.section||"—")}</span></div>
-            <div class="detail-field"><label>Student ID</label><span>${esc(String(s.id))}</span></div>
-            <div class="detail-field"><label>Parent</label><span>${esc(s.parent||"—")}</span></div>
-            <div class="detail-field"><label>Phone</label><span>${esc(s.phone||"—")}</span></div>
-            <div class="detail-field"><label>Address</label><span>${esc(s.address||"—")}</span></div>
-            <div class="detail-field"><label>Fingerprint</label><span><span class="stat-dot${s.fid?" live":""}"></span>${esc(s.fid||"—")} · ${s.active?"Active":"Inactive"}</span></div>
-          </div>
-          <div class="detail-actions">
-            <button class="btn primary" data-action="edit" data-id="${s.id}">Edit information</button>
-            <button class="btn" data-action="reenroll" data-id="${s.id}">Re-enroll fingerprint</button>
-            ${s.active ? `` : `<button class="btn primary" data-action="reactivate" data-id="${s.id}">Re-activate</button>`}
-            <button class="btn" data-action="print" data-id="${s.id}">Print profile</button>
-            <button class="btn" data-correct data-correct-sid="${s.id}" data-correct-date="${esc(todayISO())}" data-correct-status="Present" style="border-style:dashed">Correct today</button>
-            ${s.active ? `<button class="btn danger icon-del pf-del" data-action="delete" data-id="${s.id}" aria-label="Deactivate">${TRASH_ICON}</button>` : ``}
-          </div>
-      <div class="table-wrap"><div class="hist-title"><span>Attendance history — recent scans</span></div><div class="table-scroll large"><table><thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Fingerprint</th><th>Action</th></tr></thead><tbody>${histRows}</tbody></table></div></div>
+    </div>
+    <table class="sd-tbl">
+      <thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Finger</th><th class="act">Action</th></tr></thead>
+      <tbody>${recRows}</tbody>
+    </table>
     </div>`;
 }
-function selectStudent(id){ selectedStudentId=id; renderStudentList(); renderStudentDetail(id); }
+function selectStudent(id){ selectedStudentId=id; try{localStorage.setItem("atl_student",String(id));}catch(_){} renderStudentList(); renderStudentDetail(id); }
 // ---- render: Unified Attendance Workspace (Live Today + Historical) ----
 /* Preset → {from,to}: single truth for render/print/export.
    Academic popup override (attAcadFrom/To) applies to the live view
@@ -756,7 +1041,7 @@ async function renderAttendance(){
   if(attToDate){ attToDate.style.display = preset==="custom_range" ? "" : "none"; if(preset==="custom_range" && !attToDate.value) attToDate.value = today; }
   const {from, to} = resolveAttRange(preset, {from:attAcadFrom, to:attAcadTo});
   if(preset === "custom_range" && from > to){
-    attStats.innerHTML = `<div class="inline-error">Invalid date range — Start date must be before End date.</div>`;
+    attStats.innerHTML = `<div class="err">Invalid date range — Start date must be before End date.</div>`;
     attTableBody.innerHTML = `<tr><td colspan="7"><div class="empty"><b>Invalid range</b>Choose a valid custom date range.</div></td></tr>`;
     return;
   }
@@ -775,21 +1060,12 @@ async function renderAttendance(){
   const totalStudents = studentsInScope.length;
   const byId = new Map(Students.map(s => [s.id, s]));
 
-  // Update mode badge (text only — the old inline cssText never painted:
-  // stylesheet !important beats inline style, so the cascade owns the box)
-  if(attModeBadge){
-    if(selStudent){
-      attModeBadge.textContent = "STUDENT: " + selStudent.name.toUpperCase();
-    } else if(isToday){
-      attModeBadge.innerHTML = '<span class="att-live">Live</span> Today';
-    } else if(preset === "yesterday"){
-      attModeBadge.textContent = "Yesterday";
-    } else if(isSingleDay){
-      attModeBadge.textContent = `Date: ${from}`;
-    } else {
-      attModeBadge.textContent = `Range: ${from} → ${to} (${rangeDays(from,to)}d)`;
-    }
-  }
+  // Clear appears at the end of the filter group only while a filter is set
+  try{
+    const cb=$("attClearBrick");
+    if(cb) cb.hidden=!attFilterActive();
+  }catch(e){}
+  try{ paintTimeToggle(); }catch(e){}
 
   // Fetch events (Attendance cache is already mapped — map fresh fetches only;
   // remapping mapped rows would lose isDuplicate and break Duplicate counts)
@@ -943,95 +1219,57 @@ async function renderAttendance(){
   }
 
   // Render 9 KPI cards (date value stays concise + single-line — never wraps)
-  // Compact day fmt ("3 Jan 26") over the shared MONTHS_S table
-  const _fmtC=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1].slice(2); };
+  // Day fmt ("1 Oct 2026") + range fmt ("25 Sep – 1 Oct 2026", en dash, full year)
+  const _fmtC=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; };
   const _isoP=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?[m[1],m[2],+m[3]]:null; };
-  const _fP=p=>p?p[2]+" "+MONTHS_S[+p[1]-1]+" "+p[0].slice(2):"—";
+  const _fP=p=>p?p[2]+" "+MONTHS_S[+p[1]-1]+" "+p[0]:"—";
   let dateCardVal;
   if(isSingleDay){ dateCardVal=_fmtC(from); }
   else {
     const a=_isoP(from), b=_isoP(to);
-    if(a&&b&&a[0]===b[0]&&a[1]===b[1]) dateCardVal=`${a[2]} | ${b[2]} ${MONTHS_S[+a[1]-1]} ${a[0].slice(2)}`;
-    else if(a&&b&&a[0]===b[0]) dateCardVal=`${a[2]} ${MONTHS_S[+a[1]-1]} | ${b[2]} ${MONTHS_S[+b[1]-1]} ${a[0].slice(2)}`;
-    else dateCardVal=`${_fmtC(from)} | ${_fmtC(to)}`;
+    if(a&&b&&a[0]===b[0]&&a[1]===b[1]) dateCardVal=`${a[2]} – ${b[2]} ${MONTHS_S[+a[1]-1]} ${a[0]}`;
+    else if(a&&b&&a[0]===b[0]) dateCardVal=`${a[2]} ${MONTHS_S[+a[1]-1]} – ${b[2]} ${MONTHS_S[+b[1]-1]} ${a[0]}`;
+    else dateCardVal=`${_fmtC(from)} – ${_fmtC(to)}`;
   }
   const _curSf = (typeof attStatusFilter!=="undefined" && attStatusFilter) ? attStatusFilter.value : "";
   if(selStudent && rpt && typeof rpt === "object" && "eligible" in rpt){
     attStats.innerHTML = `
-      <div class="stat"><b>${esc(selStudent.name)}</b><label>Student</label></div>
-      <div class="stat${_curSf==="Present"?" cube-on":""}" data-f="Present"><b>${rpt.present ?? 0}</b><label>Present</label></div>
-      <div class="stat${_curSf==="Late"?" cube-on":""}" data-f="Late"><b>${rpt.late ?? 0}</b><label>Late</label></div>
-      <div class="stat${_curSf==="Absent"?" cube-on":""}" data-f="Absent"><b>${rpt.absent ?? 0}</b><label>Absent</label></div>
-      <div class="stat"><b>${rpt.eligible ?? 0}</b><label>Eligible days</label></div>
-      <div class="stat"><b>${rpt.attended ?? 0}</b><label>Attended</label></div>
-      <div class="stat"><b>${dup}</b><label>Duplicate scans</label></div>
-      <div class="stat"><b>${rpt.rate ?? 0}%</b><label>Attendance %</label></div>
-      <div class="stat"><b>${esc(dateCardVal)}</b><label>Date</label></div>`;
+      <div class="stat${_curSf===""?" sel":""}" data-f=""><small>Student</small><b>${esc(selStudent.name)}</b></div>
+      <div class="stat${_curSf==="Present"?" sel":""}" data-f="Present"><small>Present</small><b>${rpt.present ?? 0}</b></div>
+      <div class="stat${_curSf==="Late"?" sel":""}" data-f="Late"><small>Late</small><b>${rpt.late ?? 0}</b></div>
+      <div class="stat${_curSf==="Absent"?" sel":""}" data-f="Absent"><small>Absent</small><b>${rpt.absent ?? 0}</b></div>
+      <div class="stat info"><small>Eligible days</small><b>${rpt.eligible ?? 0}</b></div>
+      <div class="stat info"><small>Attended</small><b>${rpt.attended ?? 0}</b></div>
+      <div class="stat info"><small>Duplicate scans</small><b>${dup}</b></div>
+      <div class="stat info"><small>Attendance %</small><b>${rpt.rate ?? 0}%</b></div>`;
   } else {
     attStats.innerHTML = `
-      <div class="stat" data-f=""><b>${totalStudents}</b><label>Total students</label></div>
-      <div class="stat${_curSf==="Present"?" cube-on":""}" data-f="Present"><b>${present}</b><label>Present</label></div>
-      <div class="stat${_curSf==="Late"?" cube-on":""}" data-f="Late"><b>${late}</b><label>Late</label></div>
-      <div class="stat${_curSf==="Absent"?" cube-on":""}" data-f="Absent"><b>${absent}</b><label>Absent</label></div>
-      <div class="stat${_curSf==="Not Scheduled"?" cube-on":""}" data-f="Not Scheduled"><b>${notScheduledCount}</b><label>Not Scheduled</label></div>
-      <div class="stat"><b>${unks.length}</b><label>Unknown scans</label></div>
-      <div class="stat"><b>${dup}</b><label>Duplicate scans</label></div>
-      <div class="stat"><b>${pct}%</b><label>Attendance %</label></div>
-      <div class="stat"><b>${esc(dateCardVal)}</b><label>Date</label></div>`;
+      <div class="stat${_curSf===""?" sel":""}" data-f=""><small>Total students</small><b>${totalStudents}</b></div>
+      <div class="stat${_curSf==="Present"?" sel":""}" data-f="Present"><small>Present</small><b>${present}</b></div>
+      <div class="stat${_curSf==="Late"?" sel":""}" data-f="Late"><small>Late</small><b>${late}</b></div>
+      <div class="stat${_curSf==="Absent"?" sel":""}" data-f="Absent"><small>Absent</small><b>${absent}</b></div>
+      <div class="stat${_curSf==="Not Scheduled"?" sel":""}" data-f="Not Scheduled"><small>Not scheduled</small><b>${notScheduledCount}</b></div>
+      <div class="stat info"><small>Attendance %</small><b>${pct}%</b></div>
+      <div class="stat info" data-act="unknown"><small>Unknown scans</small><b>${unks.length}</b></div>
+      <div class="stat info" data-act="dup" data-f="Duplicate"><small>Duplicate scans</small><b>${dup}</b></div>`;
   }
+  const _rng=$("attRangeLabel"); if(_rng) _rng.textContent=dateCardVal;
+  const _ar=$("arange"); if(_ar) _ar.textContent={today:"Today",yesterday:"Yesterday",week:"This week",month:"This month",custom_day:"Custom date",custom_range:"Custom range",academic:"Academic year"}[preset]||"Records";
 
-  // Render Table Head
-  if(isSingleDay){
-    attTableHead.innerHTML = `<tr><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Fingerprint</th></tr>`;
-  } else {
-    attTableHead.innerHTML = `<tr><th>Date</th><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Working Day?</th></tr>`;
-  }
-
-  // Render Table Body
-  if(!rows.length){
-    attTableBody.innerHTML = `<tr><td colspan="${isSingleDay ? 6 : 7}"><div class="empty"><b>No attendance records</b>No scans recorded for this selection. Place a finger on the sensor or adjust the filter.</div></td></tr>`;
-  } else {
-    attTableBody.innerHTML = rows.map(r => {
-      const isDupeBadge = r.a.isDuplicate ? ' <span class="badge">Duplicate</span>' : '';
-      const correctBtn = `<button class="btn" data-correct data-correct-sid="${r.s.id}" data-correct-date="${esc(r.a.date || from)}" data-correct-status="${esc(r.a.status)}" style="height:20px;padding:0 6px;font-size:9px;margin-left:6px">Correct</button>`;
-      if(isSingleDay){
-        return `<tr data-student="${r.s.id}">
-          <td>${esc(r.a.time)}</td>
-          <td>${esc(r.s.name)}</td>
-          <td>${esc(r.s.roll)}</td>
-          <td>${esc(r.s.class)}</td>
-          <td><span class="badge ${r.a.status.toLowerCase().replace(" ","-")}">${esc(r.a.status)}</span>${isDupeBadge} ${correctBtn}</td>
-          <td>${esc(r.a.fingerId!=null ? "F-"+r.a.fingerId : "")}</td>
-        </tr>`;
-      } else {
-        let working = "—";
-        if(r.s && r.a.date){
-          working = isWorkingDayForStudent(r.a.date, r.s) ? "Scheduled" : "Not Scheduled";
-          if(r.a.status === "Not Scheduled") working = "Not Scheduled";
-          else if(r.a.status === "Absent" && !isWorkingDayForStudent(r.a.date, r.s)) working = "Not Scheduled";
-        }
-        return `<tr data-student="${r.s.id}">
-          <td>${esc(r.a.date)}</td>
-          <td>${esc(r.a.time)}</td>
-          <td>${esc(r.s.name)}</td>
-          <td>${esc(r.s.roll)}</td>
-          <td>${esc(r.s.class)}</td>
-          <td><span class="badge ${r.a.status.toLowerCase().replace(" ","-")}">${esc(r.a.status)}</span>${isDupeBadge} ${correctBtn}</td>
-          <td>${esc(working)}</td>
-        </tr>`;
-      }
-    }).join("");
-  }
-  const _arc = document.getElementById("attRecordCount");
-  if(_arc) _arc.textContent = rows.length + (rows.length === 1 ? " record" : " records");
+  // Render Table Body (one fixed grid for header + every row; paged, searched)
+  const _vkey=[preset,from,to,cf,bf,sf,sid,sort,attSearchQ,selStudent?selStudent.id:""].join("|");
+  if(_vkey!==attViewKey){ attViewKey=_vkey; attShowLimit=50; }
+  if(attSearchQ){ const q=attSearchQ; rows=rows.filter(r=>((r.s.name||"")+" "+(r.s.roll||"")).toLowerCase().includes(q)); }
+  attShownRows=rows;
+  paintAttTable();
 
   // Render Unknown Attempts section (view toggles live in paintAttTabs)
   if(attUnknownCount) attUnknownCount.textContent = `${unks.length} attempt${unks.length === 1 ? "" : "s"}`;
   if(attUnknownBody){
     if(unks.length && !selStudent){
-      attUnknownBody.innerHTML = unks.map(u => `<tr><td>${esc(u.time)}</td><td>${esc(u.finger)}</td><td>${esc(u.note)}</td></tr>`).join("");
+      attUnknownBody.innerHTML = unks.map(u => `<div class="ar unk"><span>${esc(attFT(u.time))}</span><span>${esc(u.finger)}</span><span>${esc(u.note)}</span></div>`).join("");
     } else if(!selStudent){
-      attUnknownBody.innerHTML = `<tr><td colspan="3"><div class="empty" style="padding:16px"><b>No unknown scan attempts</b></div></td></tr>`;
+      attUnknownBody.innerHTML = `<p class="sub" style="padding:16px 0">No unknown scan attempts.</p>`;
     }
   }
 }
@@ -1186,7 +1424,7 @@ function populateScheduleSelector(){
   if(!sel) return;
   const cur = sel.value;
   const batches = [...new Set([...(Batches||[]), ...Students.map(s=>s.batch).filter(Boolean)])].sort();
-  let html = '<option value="">Global schedule (all classes & batches)</option>';
+  let html = '<optgroup label="Everyone"><option value="">All classes and batches</option></optgroup>';
   if(Classes && Classes.length){
     html += '<optgroup label="Classes">';
     Classes.forEach(c=>{
@@ -1344,27 +1582,25 @@ async function persistCalendar(){
   }catch(e){ await glassAlert("Failed to save calendar: "+e.message); }
   return false;
 }
+function fmtD25(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; }
+function fmtT12(hhmm){ const m=/^(\d{1,2}):(\d{2})/.exec(hhmm||""); if(!m) return ""; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12; return h+":"+m[2]+" "+ap; }
+function fmtTRange(a,b){ const x=fmtT12(a), y=fmtT12(b); return x&&y?x+"–"+y:(x||y); }
 function renderHolidays(){
   const hBadge = $("holidayCountBadge"); if(hBadge) hBadge.textContent = Holidays.length;
   if(!holidayBody) return;
   if(!Holidays.length){
-    holidayBody.innerHTML=`<tr><td colspan="5"><div class="exc-empty"><div class="exc-empty-title">No holidays or vacations configured</div><div class="exc-empty-sub">Use ADD HOLIDAY below the month to schedule school-wide breaks and exam days.</div></div></td></tr>`;
+    holidayBody.innerHTML=`<p class="sub" style="padding:12px 0">No holidays or vacations configured. Use + Add holiday in Setup to schedule school-wide breaks and exam days.</p>`;
     return;
   }
   holidayBody.innerHTML=Holidays.map(h=>{
-    const typeCls = h.type === "exam" ? "exc-badge exam" : "exc-badge";
-    return `<tr>
-      <td class="exc-col-name">${esc(h.name)}</td>
-      <td class="exc-col-date exc-date">${esc(h.start)}${h.startTime?esc(" "+h.startTime):""}</td>
-      <td class="exc-col-date exc-date">${esc(h.end)}${h.endTime?esc(" "+h.endTime):""}</td>
-      <td class="exc-col-type"><span class="${typeCls}">${esc(h.type)}</span></td>
-      <td class="exc-col-act">
-        <div class="exc-act-group">
-          <button type="button" class="exc-act-btn btn" data-edit-holiday="${esc(h.start)}">Edit</button>
-          <button type="button" class="exc-act-btn danger btn" data-del-holiday="${esc(h.start)}">Remove</button>
-        </div>
-      </td>
-    </tr>`;
+    const typeTxt = h.type === "exam" ? "Exam · working" : (h.type||"Holiday");
+    const span = h.start===h.end?fmtD25(h.start):(fmtD25(h.start)+" → "+fmtD25(h.end));
+    const tm = fmtTRange(h.startTime,h.endTime);
+    return `<div class="vrow">
+      <div><span>${esc(h.name)}</span><small>${esc(span)}${tm?esc(" · "+tm):""} · ${esc(typeTxt)}</small></div>
+      <button type="button" data-edit-holiday="${esc(h.start)}">Edit</button>
+      <button type="button" data-del-holiday="${esc(h.start)}">Remove</button>
+    </div>`;
   }).join("");
   try{ renderCbTables(); }catch(e){}
 }
@@ -1372,23 +1608,17 @@ function renderOverrides(){
   const oBadge = $("overrideCountBadge"); if(oBadge) oBadge.textContent = Overrides.length;
   if(!overrideBody) return;
   if(!Overrides.length){
-    overrideBody.innerHTML=`<tr><td colspan="4"><div class="exc-empty"><div class="exc-empty-title">No date overrides configured</div><div class="exc-empty-sub">Use ADD OVERRIDE below the month for single-day schedule exceptions.</div></div></td></tr>`;
+    overrideBody.innerHTML=`<p class="sub" style="padding:12px 0">No date overrides configured. Use + Add override in Setup for single-day schedule exceptions.</p>`;
     return;
   }
   overrideBody.innerHTML=Overrides.map(o=>{
-    const statusCls = o.isWorking ? "exc-badge working" : "exc-badge";
     const statusText = o.isWorking ? "Working" : "Holiday";
-    return `<tr>
-      <td class="exc-col-date exc-date">${esc(o.date)}${fmtTimes(o)?esc(fmtTimes(o)):""}</td>
-      <td class="exc-col-type"><span class="${statusCls}">${statusText}</span></td>
-      <td class="exc-col-note">${esc(o.note || "—")}</td>
-      <td class="exc-col-act">
-        <div class="exc-act-group">
-          <button type="button" class="exc-act-btn btn" data-edit-override="${esc(o.date)}">Edit</button>
-          <button type="button" class="exc-act-btn danger btn" data-del-override="${esc(o.date)}">Remove</button>
-        </div>
-      </td>
-    </tr>`;
+    const tm = fmtTRange(o.startTime,o.endTime);
+    return `<div class="vrow">
+      <div><span>${esc(fmtD25(o.date))}${tm?esc(" · "+tm):""}</span><small>${esc(statusText)}${o.note?esc(" — "+o.note):" —"}</small></div>
+      <button type="button" data-edit-override="${esc(o.date)}">Edit</button>
+      <button type="button" data-del-override="${esc(o.date)}">Remove</button>
+    </div>`;
   }).join("");
   try{ renderCbTables(); }catch(e){}
 }
@@ -1398,7 +1628,11 @@ function renderWeekly(){
 function renderCalendarMonth(){
   if(!calendarGrid) return;
   const y=calendarMonth.getFullYear(), m=calendarMonth.getMonth();
-  calMonthLabel.textContent=calendarMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const _mn=$("mnum"), _mname=$("mname"), _myr=$("myr");
+  if(_mn) _mn.textContent=String(m+1).padStart(2,"0");
+  if(_mname) _mname.textContent=calendarMonth.toLocaleDateString('en-GB',{month:'long'});
+  if(_myr) _myr.textContent=y;
+  try{ const _t=new Date(), _tb=$("calTodayBtn"); if(_tb) _tb.classList.toggle("here", y===_t.getFullYear()&&m===_t.getMonth()); }catch(_){}
   const ctx = getScheduleContext();
   const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
   /* Weekday template row owns its own frost window ABOVE the date grid
@@ -1411,30 +1645,29 @@ function renderCalendarMonth(){
   if(selName && (selKind==="class"||selKind==="batch")) tplWd = selKind==="batch" ? getWorkingDaysForBatch(selName) : getWorkingDaysForClass(selName);
   else if(ctx.type === "class") tplWd = getWorkingDaysForClass(ctx.name);
   else if(ctx.type === "batch") tplWd = getWorkingDaysForBatch(ctx.name);
-  const tplNames=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const tplNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   let headHtml=tplNames.map((d,idx)=>{
     const on = asBool(tplWd[idx] ?? tplWd[String(idx)]);
-    const cls = on ? "weekly-day-card working" : "weekly-day-card off";
-    const status = on ? "WORKING" : "OFF";
-    return `<div class="${cls}" aria-hidden="true"><div class="w-name">${d}</div><div class="w-status">${status}</div></div>`;
+    return `<span class="${on?"":"dim"}">${d}</span>`;
   }).join("");
-  const oldTplLegend = $("calTemplateLegend");
-  if(oldTplLegend) oldTplLegend.remove();
   let html="", workCount=0;
-  for(let i=0;i<first;i++) html+=`<div class="calendar-cell" style="background:#F2F3F6"></div>`;
-  /* Last-row tag (sharp bottoms): final grid row varies by month, so
-     mark day cells sitting in it — CSS squares their bottom corners. */
-  const _rows=Math.ceil((first+last)/7), _lastRow0=(_rows-1)*7;
+  for(let i=0;i<first;i++) html+=`<div class="d empty" aria-hidden="true"></div>`;
   for(let d=1;d<=last;d++){
-    const _rl=((first+(d-1))>=_lastRow0)?" row-last":"";
     const iso=toLocalISO(new Date(y,m,d));
     const hol=isHoliday(iso), ov=getOverride(iso), todayCls=iso===todayISO()?" today":"";
     const working = isWorkingDayForContext(iso, ctx);
     if(working) workCount++;
-    const typeCls = ov ? "override" : (hol ? "holiday" : (working ? "working" : "non-working"));
-    const tag = ov ? esc(ov.note)+esc(fmtTimes(ov)) : (hol ? esc(hol.name)+esc(fmtTimes(hol)) : (working ? "WORKING" : "NON-WORKING"));
-    html+=`<div class="calendar-cell ${typeCls}${todayCls}${_rl}" data-date="${iso}"><div class="day">${d}</div><div class="tag">${tag}</div></div>`;
+    const typeCls = ov ? "ovr" : (hol ? "hol" : (working ? "" : "off"));
+    const lab = ov ? esc(ov.note)+esc(fmtTimes(ov)) : (hol ? esc(hol.name)+esc(fmtTimes(hol)) : "");
+    html+=`<div class="d${typeCls?" "+typeCls:""}${todayCls}" data-date="${iso}"${lab?` title="${lab}"`:""}><b>${d}</b>${lab?`<i>${lab}</i>`:""}</div>`;
   }
+  for(let i=0, trail=(7-((first+last)%7))%7;i<trail;i++) html+=`<div class="d empty" aria-hidden="true"></div>`;
+  const _rowsN=Math.ceil((first+last)/7);
+  /* Track floor matches the .d cell min-height in CSS (66px): with a 0
+     minimum the bounded pane squeezed tracks below cell height and cells
+     overflowed into each other (cubes touching). Floor forces scroll
+     instead of overlap. Keep in sync with .d min-height. */
+  try{ calendarGrid.style.gridTemplateRows=`repeat(${_rowsN},minmax(66px,1fr))`; }catch(_){}
   /* Month fraction readout (reference 2/4 datum): working days in the
      current view for the current context. Node persists (hidden truth
      when absent); paint only. */
@@ -1548,7 +1781,7 @@ function renderClasses(){
   if(!valid){ selKind=cubeView; selName=pool[0]||null; }
   if((selName?selKind+":"+selName:null)!==prevKey) pendingDays={};
   syncCsCtx();
-  const tile=(k,label,n)=>{ const bin=`<span class="cube-actions"><button class="btn danger icon-del" data-del-${k}="${esc(label)}" aria-label="Remove ${k}">${TRASH_ICON}</button></span>`; return `<div class="class-cube${selKind===k&&selName===label?" active":""}" data-kind="${k}" data-cube="${esc(label)}" role="tab"><span class="cube-name">${esc(label)}</span><span class="cube-count">${n}</span>${bin}</div>`; };
+  const tile=(k,label,n)=>{ const bin=`<span class="cube-actions"><button data-del-${k}="${esc(label)}" aria-label="Remove ${k}">Remove</button></span>`; return `<div class="class-cube${selKind===k&&selName===label?" active":""}" data-kind="${k}" data-cube="${esc(label)}" role="tab"><span class="cube-name">${esc(label)}</span><span class="cube-count">${n}</span>${bin}</div>`; };
   const rows=(cubeView==="batch"?allBatches:Classes).map(label=>tile(cubeView,label,Students.filter(s=>cubeView==="batch"?s.batch===label:s.class===label).length)).join("");
   grid.innerHTML=rows;
   syncMonthEditor();
@@ -1562,21 +1795,22 @@ function renderCbTables(){
   if(!cr||!br) return;
   const isActive=s=>s&&(s.active!==false&&s.active!==0);
   if($("cbClassCount")) $("cbClassCount").textContent=Classes.length;
+  const tileTxt=s=>{ const m=/\d+/.exec(s||""); return m?m[0]:((s||"").trim().charAt(0).toUpperCase()||"–"); };
   const row=(kind,key,label,n)=>{
     const sel=(selKind===kind&&selName===key)?" active":"";
     const dim=n===0?" dim":"";
-    return `<div class="cb-row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(key)}" role="button" tabindex="0"><span class="cb-dot" aria-hidden="true"></span><span class="cb-name">${esc(label)}</span><span class="cb-leader" aria-hidden="true"></span><span class="cb-num">${n}</span><button type="button" class="cb-edit" data-cb-edit-kind="${kind}" data-cb-edit-name="${esc(key)}" aria-label="Edit" title="Edit">${PENCIL_ICON}</button><button type="button" class="cb-del" data-cb-del-kind="${kind}" data-cb-del-name="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
+    return `<div class="row${sel}${dim}" data-cb-kind="${kind}" data-cb-name="${esc(key)}" role="button" tabindex="0"><span class="tile" aria-hidden="true">${esc(tileTxt(label))}</span><span class="cell"><span class="t">${esc(label)}</span><small>${n}</small></span><button type="button" data-cb-edit-kind="${kind}" data-cb-edit-name="${esc(key)}" aria-label="Edit" title="Edit">Edit</button></div>`;
   };
-  cr.innerHTML=Classes.length?Classes.map(c=>row("class",c,c,Students.filter(s=>isActive(s)&&s.class===c).length)).join(""):`<div class="cb-empty">No classes yet — use ADD CLASS in the sidebar.</div>`;
+  cr.innerHTML=Classes.length?Classes.map(c=>{ const _n=Students.filter(s=>isActive(s)&&s.class===c).length; return row("class",c,c,_n+(_n===1?" student":" students")); }).join(""):`<p class="empty-l">No classes yet — use + Add class below.</p>`;
   if(cbBatchScope&&!Classes.includes(cbBatchScope)) cbBatchScope=null;
   const bEntries=batchBoardEntries(cbBatchScope);
   if($("cbBatchCount")) $("cbBatchCount").textContent=bEntries.length;
   const scopeBtn=$("cbBatchScope");
   if(scopeBtn){
-    if(cbBatchScope){ scopeBtn.hidden=false; scopeBtn.textContent="· "+cbBatchScope+" ×"; scopeBtn.title="Show all batches"; }
+    if(cbBatchScope){ scopeBtn.hidden=false; scopeBtn.textContent=cbBatchScope+" ×"; scopeBtn.title="Show all batches"; }
     else scopeBtn.hidden=true;
   }
-  br.innerHTML=bEntries.length?bEntries.map(e=>row("batch",e.key,e.label,batchRowCount(e.key,cbBatchScope))).join(""):(cbBatchScope?`<div class="cb-empty">No batches for ${esc(cbBatchScope)} yet — use + to add one.</div>`:`<div class="cb-empty">No batches yet — use ADD BATCH in the sidebar.</div>`);
+  br.innerHTML=bEntries.length?bEntries.map(e=>{ const _n=batchRowCount(e.key,cbBatchScope); return row("batch",e.key,e.label,_n+(_n===1?" student":" students")); }).join(""):(cbBatchScope?`<p class="empty-l">No batches for ${esc(cbBatchScope)} yet — use + to add one.</p>`:`<p class="empty-l">No batches yet — use + Add batch below.</p>`);
   /* Page 2: holidays & overrides. Past entries dim so actives read
      instantly; headers carry the active (today-or-later) counts. */
   const t=todayISO();
@@ -1585,19 +1819,23 @@ function renderCbTables(){
   const rangeShort=(a,b)=>{
     if(!a) return "—"; if(!b||b===a) return dShort(a);
     const ma=/^(\d{4})-(\d{2})-(\d{2})$/.exec(a), mb=/^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
-    if(ma&&mb&&ma[1]===mb[1]&&ma[2]===mb[2]) return (+ma[3])+"→"+(+mb[3])+" "+MS[+mb[2]-1];
+    if(ma&&mb&&ma[1]===mb[1]&&ma[2]===mb[2]) return (+ma[3])+"-"+(+mb[3])+" "+MS[+mb[2]-1];
     return dShort(a)+"→"+dShort(b);
   };
   const hr=$("cbHolidayRows"), or_=$("cbOverrideRows");
   if(hr&&or_){
     const hoRow=(kind,key,label,meta,past,title)=>{
       const sel=((kind==="holiday"&&selHolidayKey===key)||(kind==="override"&&selOverrideKey===key))?" active":"";
-      return `<div class="cb-row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0"><span class="cb-dot" aria-hidden="true"></span><span class="cb-name">${esc(label)}</span><span class="cb-leader" aria-hidden="true"></span><span class="cb-num">${esc(meta)}</span><button type="button" class="cb-edit" data-ho-edit="${kind}" data-ho-key="${esc(key)}" aria-label="Edit" title="Edit">${PENCIL_ICON}</button><button type="button" class="cb-del" data-ho-del="${kind}" data-ho-key="${esc(key)}" aria-label="Remove" title="Remove">×</button></div>`;
+      const tile=kind==="holiday"
+        ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
+        :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 3"/></svg>`;
+      return `<div class="row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0" title="${esc(title||"")}"><span class="tile" aria-hidden="true">${tile}</span><span class="cell"><span class="t">${esc(label)}</span><small>${esc(meta)}</small></span><button type="button" data-ho-edit="${kind}" data-ho-key="${esc(key)}" aria-label="Edit" title="Edit">Edit</button></div>`;
     };
-    if($("cbHolidayCount")) $("cbHolidayCount").textContent=Holidays.filter(h=>h.end>=t).length+" active";
-    if($("cbOverrideCount")) $("cbOverrideCount").textContent=Overrides.filter(o=>o.date>=t).length+" active";
-    hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end)+fmtTimes(h),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+fmtTimes(h)+" ("+(h.type||"holiday")+")")).join(""):`<div class="cb-empty">No holidays yet — use ADD HOLIDAY below.</div>`;
-    or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),(o.isWorking?"WORKING":"HOLIDAY")+fmtTimes(o),o.date<t,o.date+fmtTimes(o)+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<div class="cb-empty">No overrides yet — use ADD OVERRIDE below.</div>`;
+    const _nh=Holidays.filter(h=>h.end>=t).length, _no=Overrides.filter(o=>o.date>=t).length;
+    if($("cbHolidayCount")) $("cbHolidayCount").textContent=_nh;
+    if($("cbOverrideCount")) $("cbOverrideCount").textContent=_no;
+    hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end)+fmtTimes(h),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+fmtTimes(h)+" ("+(h.type||"holiday")+")")).join(""):`<p class="empty-l">No holidays yet — use + Add holiday below.</p>`;
+    or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),dShort(o.date)+" · "+(o.isWorking?"Working":"Holiday")+fmtTimes(o),o.date<t,o.date+fmtTimes(o)+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<p class="empty-l">No overrides yet — use + Add override below.</p>`;
   }
   paintCbPage(cbPage);
 }
@@ -1623,9 +1861,8 @@ function paintCbPage(i){
 function onCbStripClick(e){
   const del=e.target.closest("[data-cb-del-kind],[data-ho-del]");
   if(del){ onCbDel(del); return; }
-  /* Row-tap editors (user order): tapping anywhere on the row
-     (name, count, leader, dot) opens the same editor as the
-     pencil; only the remove cross keeps its own action. */
+  /* Row-tap editors: tapping anywhere on the row opens the same
+     editor as the Edit button. Delete lives inside the Edit popup. */
   const ed=e.target.closest("[data-cb-edit-kind],[data-ho-edit]");
   if(ed){
     if(ed.dataset.hoEdit){
@@ -1650,15 +1887,13 @@ function onCbStripClick(e){
   }
   const ho=e.target.closest("[data-ho-kind]");
   if(ho){
-    /* Row tap opens the record's editor (user order — same as
-       the pencil). */
-    if(ho.dataset.hoKind==="holiday"){
-      selHolidayKey=ho.dataset.hoKey;
-      renderCbTables(); openHolidayEdit(selHolidayKey);
-    }else{
-      selOverrideKey=ho.dataset.hoKey;
-      renderCbTables(); openOverrideEdit(selOverrideKey);
-    }
+    /* Row tap SELECTS only — the brown tile marks where you are, exactly as
+       Classes and Batches now do. The edit window is opened by the pencil
+       button alone ([data-ho-edit] below), so tapping a row can no longer
+       throw a form over the list the user is trying to read. */
+    if(ho.dataset.hoKind==="holiday") selHolidayKey=ho.dataset.hoKey;
+    else selOverrideKey=ho.dataset.hoKey;
+    renderCbTables();
     return;
   }
   /* Class/batch row tap: preview only (no popup — the pencil opens
@@ -1743,8 +1978,19 @@ if($("cbAddHoliday")) $("cbAddHoliday").onclick=()=>openHolidayCreate();
 if($("cbAddOverride")) $("cbAddOverride").onclick=()=>openOverrideCreate();
 if($("cbEditHoliday")) $("cbEditHoliday").onclick=()=>{ if(!selHolidayKey){ glassAlert("Select a holiday in the table first."); return; } openHolidayEdit(selHolidayKey); };
 if($("cbEditOverride")) $("cbEditOverride").onclick=()=>{ if(!selOverrideKey){ glassAlert("Select an override in the table first."); return; } openOverrideEdit(selOverrideKey); };
-if($("cbStrip")){
-  $("cbStrip").addEventListener("click",(e)=>{
+/* Delegation hosts. The Setup 2 cards were moved OUT of #cbStrip into their own
+   pane when Setup 2 was created, but this handler was left bound to #cbStrip
+   alone — so inside those cards nothing worked: Edit Class/Batch/Holiday/
+   Override opened no window (verified: the modal stayed display:none even for
+   a programmatic button.click(), so it was never the pointer path), row taps
+   changed nothing, the scope/page buttons were dead, and Enter/Space did
+   nothing. Both hosts are subtrees of .app and disjoint, so binding both runs
+   the handler exactly once per click. Handler bodies are unchanged, and the
+   host is the PANE, not a list, so it survives renderCbTables() re-rendering
+   the cards. */
+const cbDelegHosts=[$("cbStrip"), $("setupLists")].filter(Boolean);
+for(const cbHost of cbDelegHosts){
+  cbHost.addEventListener("click",(e)=>{
     if(e.target.closest("#cbBatchScope")){ cbBatchScope=null; renderCbTables(); return; }
     if(e.target.closest("#cbPrev")){ paintCbPage(cbPage-1); return; }
     if(e.target.closest("#cbNext")){ paintCbPage(cbPage+1); return; }
@@ -1752,17 +1998,11 @@ if($("cbStrip")){
   });
   /* Row Enter/Space previews like a tap (user order): pencil and
      trash are native buttons with their own keyboard keys. */
-  $("cbStrip").addEventListener("keydown",(e)=>{
+  cbHost.addEventListener("keydown",(e)=>{
     if(e.target.closest("button")) return;
     if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
   });
 }
-/* Top-left (P, user order): School Information docks first in the Setup
-   toolbar — same ID, same opener binding (bound later by ID), zero new
-   IDs, zero new wiring. Markup already places it there; this is the
-   boot guard if the node ever renders from the rail. */
-{ const tb=$("setupToolbar"), osib=$("openSchoolInfoBtn");
-  if(tb&&osib&&osib.parentElement!==tb) tb.insertBefore(osib,tb.firstChild); }
 /* Inline month editor: staged days + snapshot + strip paint. Toggles
    stage into pendingDays (never persisted); Save composes staged days
    into the existing ClassSchedules/BatchSchedules entry, then runs the
@@ -1787,22 +2027,6 @@ function syncMonthEditor(){
   const grid=$("cubeGrid");
   if(grid) grid.querySelectorAll(".class-cube").forEach(t=>t.classList.toggle("active",t.dataset.kind===selKind&&t.dataset.cube===selName));
   snapshotSchedule(); paintMonthEditor(); renderCalendarMonth();
-}
-function onMeDayClick(e){
-  const b=e.target.closest("[data-me-day]"); if(!b||!selName) return;
-  if(selKind!=="class"&&selKind!=="batch") return;
-  const day=String(b.dataset.meDay), key=selKind+":"+selName;
-  const map = selKind==="batch" ? BatchSchedules : ClassSchedules;
-  const entry = map[selName];
-  let wd;
-  if(pendingDays[key]) wd={...pendingDays[key]};
-  else if(entry && typeof entry==="object" && entry.workingDays) wd={...entry.workingDays};
-  else if(entry && typeof entry==="object" && !entry.workingDays && Object.keys(entry).some(k=>k in [0,1,2,3,4,5,6])) wd={...entry};
-  else wd={...Settings.workingDays};
-  wd[day]=!asBool(wd[day] ?? wd[String(day)]);
-  wd[String(day)]=wd[day];
-  pendingDays[key]=wd;
-  renderCalendarMonth();
 }
 async function onMeSave(){
   if(!selName) return;
@@ -2022,8 +2246,8 @@ function formatAuditAction(action){
 
 function renderAudit(){
   const cc=$("auditCount"); if(cc) cc.textContent=Audit.length+(Audit.length===1?" record":" records");
-  if(!Audit.length){ auditBody.innerHTML=`<tr><td colspan="4"><div class="empty"><b>No audit history</b>Changes appear here.</div></td></tr>`; return; }
-  auditBody.innerHTML=Audit.map(a=>`<tr><td title="${esc(a.time)}">${esc(formatAuditTime(a.time))}</td><td>${esc(formatAuditAction(a.action))}</td><td>${esc(formatAuditDetails(a.details, a.action))}</td><td>${esc(a.by)}</td></tr>`).join("");
+  if(!Audit.length){ auditBody.innerHTML=`<p class="sub" style="padding:12px 0">No audit history. Changes appear here.</p>`; return; }
+  auditBody.innerHTML=Audit.map(a=>`<div class="ar audit"><span title="${esc(a.time)}">${esc(formatAuditTime(a.time))}</span><span>${esc(formatAuditAction(a.action))}</span><span>${esc(formatAuditDetails(a.details, a.action))}</span><span>${esc(a.by)}</span></div>`).join("");
 }
 function renderAll(){
   renderClassFilters();
@@ -2056,69 +2280,134 @@ async function pollEnrollProgress(stepEl, labelEl){
     if(p&&labelEl){
       const st=p.state, step=p.step||0;
       if(stepEl) stepEl.textContent=step+"/3";
-      if(st==="place") labelEl.textContent="Place your finger — press it flat on the glass";
-      else if(st==="hold") labelEl.textContent="Hold still — capturing";
-      else if(st==="capturing") labelEl.textContent="Scanning — keep still";
-      else if(st==="enroll_1") labelEl.textContent="First capture done — lift your finger";
-      else if(st==="enroll_2") labelEl.textContent="Second capture — place the same finger";
-      else if(st==="enroll_3") labelEl.textContent="Third capture — place the same finger";
+      try{
+        const steps=document.getElementById("scanSteps");
+        if(steps) Array.from(steps.querySelectorAll("i")).forEach((el,i)=>el.classList.toggle("on",i<step));
+        const sb=document.getElementById("scanStartBtn");
+        if(sb&&sb.textContent!=="Done") sb.textContent=step>=3?"Done":(step>0?("Capture "+Math.min(step+1,3)+" of 3"):"Start scan");
+      }catch(e){}
+      if(st==="place") labelEl.textContent="Place your finger on the sensor";
+      else if(st==="hold"||st==="capturing") labelEl.textContent="Place your finger on the sensor";
+      else if(st==="enroll_1") labelEl.textContent="Lift, then place the same finger again";
+      else if(st==="enroll_2") labelEl.textContent="Lift, then place it once more";
+      else if(st==="enroll_3") labelEl.textContent="Fingerprint saved";
     }
   }catch(e){}
   if(!_enrollAbort) _enrollPoll=setTimeout(()=>pollEnrollProgress(stepEl,labelEl),700);
 }
-function fingerprintScanUI(title, subtitle, onStart, onSuccess){
+function fingerprintScanUI(title, subtitle, onStart, onSuccess, summary){
   setState("ready");
   enrollTitle.textContent=title;
   enrollSub.textContent=subtitle;
+  try{ enrollModal.querySelector(".mod").classList.remove("w640"); }catch(e){}
   enrollBody.innerHTML=`
-    <div class="enroll-scan-box">
-      <div class="enroll-scan-count" id="scanCount">0 / 3</div>
-      <div class="enroll-scan-label" id="scanLabel">Place your finger on the sensor</div>
-      <div class="finger-visual"><div class="finger-line"></div></div>
-      <div class="lift-hint">Keep the same finger flat. The sensor light stays on.</div>
-      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center"><button class="btn primary" id="scanStartBtn">Start scan</button><button class="btn" id="scanCancelBtn">Cancel</button></div>
-      <div class="inline-error" id="scanErr" style="display:none"></div>
-    </div>`;
+    <div class="scan-sum">${esc(summary||"")}</div>
+    <div style="margin-top:28px"><span class="scan-cap">Captures</span><div class="scan-big" id="scanCount">0 / 3</div>
+    <div class="scan-steps" id="scanSteps"><i></i><i></i><i></i></div>
+    <div class="scan-st" id="scanLabel">Place your finger on the sensor</div>
+    <div class="scan-hint">Keep the same finger flat. The sensor light stays on.</div></div>
+    <div class="ft"><button id="scanCancelBtn">Cancel</button><button class="go" id="scanStartBtn">Start scan</button></div>
+    <div class="err scan-err" id="scanErr" style="display:none"></div>`;
   openModal(enrollModal);
   $("scanCancelBtn").onclick=()=>{ finishEnrollUi(); resumeSensorScan(); };
   $("scanStartBtn").onclick=async()=>{
     $("scanStartBtn").disabled=true;
+    $("scanStartBtn").textContent="Capture 1 of 3";
     _enrollAbort=false;
     const stepEl=$("scanCount"), labelEl=$("scanLabel");
     pollEnrollProgress(stepEl,labelEl);
     try{
       const res=await onStart();
       try{ onSuccess(res); }catch(e){}
+      const done=$("scanStartBtn"); if(done){ done.textContent="Done"; }
       returnToFrontPage();
     }catch(err){
       _enrollAbort=true;
       if(_enrollPoll) clearTimeout(_enrollPoll);
       const e=$("scanErr"); e.style.display="block";
       e.textContent=err.message||"Scan failed. Check the sensor and try again.";
-      $("scanStartBtn").disabled=false;
+      const sb=$("scanStartBtn"); sb.disabled=false; sb.textContent="Start scan";
     }
   };
 }
+/* Plain-text option rows driven by a native select's own value.
+   Buttons mirror select.options; a click writes select.value,
+   dispatches change (so dependent painters run), and repaints.
+   Selects carry data-gsel="1" so the MutationObserver skips them. */
+function dlgPaintRow(sel, box){
+  if(!sel||!box) return;
+  box.innerHTML="";
+  Array.from(sel.options).forEach(o=>{
+    const b=document.createElement("button"); b.type="button";
+    const on=o.value===sel.value;
+    b.className=on?"on":""; b.textContent=o.textContent; b.dataset.v=o.value;
+    b.setAttribute("role","radio"); b.setAttribute("aria-checked",on?"true":"false");
+    b.onclick=()=>{ sel.value=o.value; try{ sel.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){} dlgPaintRow(sel,box); };
+    box.appendChild(b);
+  });
+}
+/* Equal-width option cells: the row takes seg sN for N<=4 options so cells
+   never wrap; past 4 options the field degrades to the dropdown popover. */
+function dlgPaintSegRow(sel, box){
+  if(!sel||!box) return;
+  const n=Math.min(Math.max(sel.options.length,1),4);
+  box.classList.remove("opts","s1","s2","s3","s4");
+  box.classList.add("seg","s"+n);
+  dlgPaintRow(sel,box);
+}
+/* Class row degrades to a dropdown button past 4 options. */
+function dlgPaintClassRow(sel, box){
+  if(!sel||!box) return;
+  if(sel.options.length>4){
+    box.style.display="none"; sel.classList.remove("dlg-hidden");
+    try{ sel.removeAttribute("data-gsel"); }catch(e){}
+    try{ if(window.__ensureGsel) window.__ensureGsel(sel); }catch(e){}
+  }
+  else{ box.style.display=""; sel.classList.add("dlg-hidden"); try{ sel.setAttribute("data-gsel","1"); }catch(e){} dlgPaintSegRow(sel,box); }
+}
+/* Batch row follows the same rule as classes. */
+function dlgPaintBatchRow(sel, box){
+  if(!sel||!box) return;
+  if(sel.options.length>4){
+    box.style.display="none"; sel.classList.remove("dlg-hidden");
+    try{ sel.removeAttribute("data-gsel"); }catch(e){}
+    try{ if(window.__ensureGsel) window.__ensureGsel(sel); }catch(e){}
+  }
+  else{ box.style.display=""; sel.classList.add("dlg-hidden"); try{ sel.setAttribute("data-gsel","1"); }catch(e){} dlgPaintSegRow(sel,box); }
+}
 function openNewStudent(){
   pauseSensorScan();
-  enrollTitle.textContent="New student enrollment";
-  enrollSub.textContent="Enter the student information. Click Start scan once, then place and lift the same finger three times on the sensor.";
+  enrollTitle.textContent="New enrollment";
+  enrollSub.textContent="Add a student to the roster.";
+  try{ enrollModal.querySelector(".mod").classList.add("w640"); }catch(e){}
   enrollBody.innerHTML=`
-    <div class="form-grid">
-      <div class="form-field"><label>Full name *</label><input id="nsName" placeholder="Aarav Sharma"></div>
-      <div class="form-field"><label>Roll number *</label><input id="nsRoll" placeholder="10A-08"></div>
-      <div class="form-field"><label>Class *</label><select id="nsGrade">${Classes.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
-      <div class="form-field"><label>Batch *</label><select id="nsBatch"></select></div>
-      <div class="form-field"><label>Section</label><input id="nsSection" placeholder="A"></div>
-      <div class="form-field"><label>Parent / Guardian</label><input id="nsParent" placeholder="Parent name"></div>
-      <div class="form-field"><label>Parent phone</label><input id="nsPhone" placeholder="9876543210"></div>
-      <div class="form-field full"><label>Address</label><input id="nsAddress" placeholder="Shikrapur, Pune"></div>
-      <div class="form-field full"><label>Photo (optional, max 2MB)</label><input type="file" id="nsPhoto" accept="image/*"></div>
-      <div class="inline-error" id="nsErr" style="display:none"></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="nsCancel">Cancel</button><button class="btn primary" id="nsSave">Continue to fingerprint scan</button></div>
-    </div>`;
+    <div class="edit-grid">
+      <div class="edit-fields">
+        <div class="g2">
+          <div class="fld"><label>Full name</label><input id="nsName" placeholder="Full name"></div>
+          <div class="fld"><label>Roll number</label><input id="nsRoll" placeholder="Roll number"></div>
+          <div class="fld drop"><label>Class</label><select id="nsGrade">${Classes.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+          <div class="fld drop"><label>Section</label><input id="nsSection" placeholder="Section"></div>
+          <div class="fld w drop"><label>Batch</label><select id="nsBatch"></select></div>
+          <div class="fld"><label>Parent / Guardian</label><input id="nsParent" placeholder="Parent name"></div>
+          <div class="fld"><label>Parent phone</label><input id="nsPhone" placeholder="Phone"></div>
+          <div class="fld w"><label>Address</label><input id="nsAddress" placeholder="Address"></div>
+        </div>
+      </div>
+      <div class="edit-photo">
+        <label>Photo</label>
+        <div class="edit-photo-circle">+<span class="edit-photo-badge"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span></div>
+        <button type="button" id="nsChoosePhoto" class="edit-photo-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Choose photo</button>
+        <small>JPG, PNG up to 2MB</small>
+        <input type="file" id="nsPhoto" accept="image/*" hidden>
+      </div>
+    </div>
+    <div class="err" id="nsErr" style="display:none"></div>
+    <div class="ft"><button id="nsCancel">Cancel</button><button class="go" id="nsSave">Enroll student</button></div>`;
   openModal(enrollModal);
   $("nsCancel").onclick=()=>{ if(_enrollPoll) clearTimeout(_enrollPoll); closeModal(enrollModal); resumeSensorScan(); };
+  const nsChooseBtn=$("nsChoosePhoto");
+  if(nsChooseBtn) nsChooseBtn.onclick=(e)=>{ e.preventDefault(); const inp=$("nsPhoto"); if(inp) inp.click(); };
   /* Batch follows class (user order): only this class's batches list;
      no free text, no phantom fallback class. */
   const paintNsBatches=()=>{
@@ -2126,7 +2415,7 @@ function openNewStudent(){
     const list=classBatchNames(g);
     if($("nsBatch")) $("nsBatch").innerHTML=list.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join("");
   };
-  if($("nsGrade")) $("nsGrade").onchange=paintNsBatches;
+  if($("nsGrade")) $("nsGrade").onchange=()=>{ paintNsBatches(); };
   paintNsBatches();
   $("nsSave").onclick=()=>{
     const name=$("nsName").value.trim(), roll=$("nsRoll").value.trim(),
@@ -2141,34 +2430,51 @@ function openNewStudent(){
     const finish=(photo)=>{
       const form={name,roll,grade,batch,section,parent,phone,address,photo:photo||""};
       closeModal(enrollModal);
-  fingerprintScanUI("Enroll fingerprint — "+name, "Click Start scan once. Then place and lift the same finger three times; do not click between captures.",
+  fingerprintScanUI("Enroll fingerprint", "Press Start scan once, then place and lift the same finger three times. Don't click between captures.",
         ()=>apiEnrollStudent(form),
-        ()=>{ loadAll(); });
+        async (res)=>{ await loadAll(); try{ if(res&&res.id!=null) selectStudent(res.id); }catch(e){} toast("Student enrolled."); },
+        name+" · "+roll+" · "+grade);
     };
     readPhotoFile($("nsPhoto"), err, finish);
   };
-  try{ enhancePhotoField($("nsPhoto")); }catch(e){}
+  const nsSync=()=>{ const b=$("nsSave"); if(b) b.disabled=!($("nsName").value.trim()&&$("nsRoll").value.trim()&&$("nsGrade").value.trim()); };
+  enrollBody.oninput=nsSync; nsSync();
 }
 function openEditStudent(id){
   const s=Students.find(x=>x.id===id); if(!s) return;
   enrollTitle.textContent="Edit student information";
-  enrollSub.textContent="Changes are saved to the database (SQLite).";
+  enrollSub.textContent="Changes apply immediately.";
+  try{ enrollModal.querySelector(".mod").classList.add("w640"); }catch(e){}
   enrollBody.innerHTML=`
-    <div class="form-grid">
-      <div class="form-field"><label>Full name</label><input id="edName" value="${esc(s.name)}"></div>
-      <div class="form-field"><label>Roll</label><input id="edRoll" value="${esc(s.roll)}"></div>
-      <div class="form-field"><label>Class *</label><select id="edGrade">${Classes.map(c=>`<option ${c===s.class?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
-      <div class="form-field"><label>Batch / Group</label><select id="edBatch"></select></div>
-      <div class="form-field"><label>Section</label><input id="edSection" value="${esc(s.section||'')}"></div>
-      <div class="form-field"><label>Parent / Guardian</label><input id="edParent" value="${esc(s.parent||'')}"></div>
-      <div class="form-field"><label>Phone</label><input id="edPhone" value="${esc(s.phone)}"></div>
-      <div class="form-field full"><label>Address</label><input id="edAddress" value="${esc(s.address)}"></div>
-      <div class="form-field full"><label>Photo (max 2MB)</label><input type="file" id="edPhoto" accept="image/*"></div>
-      <div class="form-field"><label>Status</label><select id="edActive"><option value="1" ${s.active?"selected":""}>Active</option><option value="0" ${!s.active?"selected":""}>Inactive</option></select></div>
-      ${s.photo ? `<div class="form-field full" id="edPhotoPreview"><img src="${esc(s.photo)}" style="width:92px;height:92px;object-fit:cover;display:block"><div style="font-size:11px;color:var(--ink-3);margin-top:6px">Current photo</div><button class="btn" id="edClearPhoto" style="margin-top:8px">Clear photo</button></div>` : ``}
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save changes</button></div>
-      <div class="inline-error" id="edErr" style="display:none"></div>
-    </div>`;
+    <div class="edit-grid">
+      <div class="edit-fields">
+        <div class="g2">
+          <div class="fld"><label>Full name</label><input id="edName" value="${esc(s.name)}"></div>
+          <div class="fld"><label>Roll</label><input id="edRoll" value="${esc(s.roll)}"></div>
+          <div class="fld drop"><label>Class</label><select id="edGrade">${Classes.map(c=>`<option ${c===s.class?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+          <div class="fld drop"><label>Section</label><input id="edSection" value="${esc(s.section||'')}"></div>
+          <div class="fld drop"><label>Batch</label><select id="edBatch"></select></div>
+          <div class="fld"><label>Status</label><div class="seg s2" id="edActiveRow" role="radiogroup"></div><select id="edActive" data-gsel="1" class="dlg-hidden"><option value="1" ${s.active?"selected":""}>Active</option><option value="0" ${!s.active?"selected":""}>Inactive</option></select></div>
+          <div class="fld"><label>Parent / Guardian</label><input id="edParent" value="${esc(s.parent||'')}"></div>
+          <div class="fld"><label>Phone</label><input id="edPhone" value="${esc(s.phone)}"></div>
+          <div class="fld w"><label>Address</label><input id="edAddress" value="${esc(s.address)}"></div>
+        </div>
+      </div>
+      <div class="edit-photo">
+        <label>Photo</label>
+        <div class="edit-photo-circle">${esc(studentInitials(s.name))}<span class="edit-photo-badge"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span></div>
+        <button type="button" id="edChoosePhoto" class="edit-photo-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Choose photo</button>
+        <small>JPG, PNG up to 2MB</small>
+        <input type="file" id="edPhoto" accept="image/*" hidden>
+        ${s.photo ? `<div id="edPhotoPreview" class="edit-photo-preview"><img src="${esc(s.photo)}" alt=""></div>` : ``}
+      </div>
+    </div>
+    <div class="ft">
+      <button id="edDelete">Delete student</button>
+      <button id="edCancel">Cancel</button>
+      <button class="go" id="edSave">Save changes</button>
+    </div>
+    <div class="err" id="edErr" style="display:none"></div>`;
   openModal(enrollModal);
   $("edCancel").onclick=()=>closeModal(enrollModal);
   /* Batch follows class; the stored value survives even if no class
@@ -2183,18 +2489,24 @@ function openEditStudent(id){
   };
   if($("edGrade")) $("edGrade").onchange=()=>{ paintEdBatches(); };
   paintEdBatches();
+  dlgPaintRow($("edActive"),$("edActiveRow"));
   const edPhotoEl=$("edPhoto");
   if(edPhotoEl) edPhotoEl.onchange=(e)=>{
     const inp=e.target;
     if(inp.files&&inp.files[0]&&inp.files[0].size>2*1024*1024){ const er=$("edErr"); er.textContent="Photo max 2MB."; er.style.display="block"; inp.value=""; return; }
     readPhotoFile(inp, $("edErr"), (data)=>{
       if(!data) return;
+      edPhotoDirty=true; edSync();
       const prev=$("edPhotoPreview"); if(prev){ prev.style.display="block"; const img=prev.querySelector("img"); if(img) img.src=data; }
     });
   };
+  const edChooseBtn=$("edChoosePhoto");
+  if(edChooseBtn) edChooseBtn.onclick=(e)=>{ e.preventDefault(); const inp=$("edPhoto"); if(inp) inp.click(); };
+  const edDeleteBtn=$("edDelete");
+  if(edDeleteBtn) edDeleteBtn.onclick=async()=>{ try{ await deleteStudent(id); closeModal(enrollModal); }catch(e){} };
   let edClearRequested=false;
   const edClearBtn=$("edClearPhoto");
-  if(edClearBtn) edClearBtn.onclick=(e)=>{ e.preventDefault(); edClearRequested=true; const prev=$("edPhotoPreview"); if(prev){ const img=prev.querySelector("img"); if(img) img.src=""; prev.style.display="none"; } const inp=$("edPhoto"); if(inp) inp.value=""; };
+  if(edClearBtn) edClearBtn.onclick=(e)=>{ e.preventDefault(); edClearRequested=true; edPhotoDirty=true; edSync(); const prev=$("edPhotoPreview"); if(prev){ const img=prev.querySelector("img"); if(img) img.src=""; prev.style.display="none"; } const inp=$("edPhoto"); if(inp) inp.value=""; };
   $("edSave").onclick=async()=>{
     const err=$("edErr");
     const name=$("edName").value.trim(), roll=$("edRoll").value.trim(), grade=$("edGrade").value.trim(),
@@ -2214,26 +2526,22 @@ function openEditStudent(id){
       doSave(photoData==="" ? (edClearRequested?"":null) : photoData);
     });
   };
-  try{
-    enhancePhotoField($("edPhoto"));
-    const _ec=$("edClearPhoto"); if(_ec) _ec.addEventListener('click',()=>{ const _i=$("edPhoto"); if(_i&&_i._photoRefresh) setTimeout(_i._photoRefresh,0); });
-  }catch(e){}
+  const edOrig={name:s.name||"",roll:s.roll||"",grade:s.class||"",batch:s.batch||"",section:s.section||"",parent:s.parent||"",phone:s.phone||"",address:s.address||"",active:s.active?"1":"0"};
+  let edPhotoDirty=false;
+  const edSync=()=>{ const b=$("edSave"); if(!b) return;
+    const cur={name:$("edName").value.trim(),roll:$("edRoll").value.trim(),grade:$("edGrade").value.trim(),batch:$("edBatch").value.trim(),section:$("edSection").value.trim(),parent:$("edParent").value.trim(),phone:$("edPhone").value.trim(),address:$("edAddress").value.trim(),active:$("edActive").value};
+    const same=Object.keys(edOrig).every(k=>String(cur[k])===String(edOrig[k]))&&!edPhotoDirty&&!edClearRequested;
+    b.disabled=!(cur.name&&cur.roll&&!same); };
+  enrollBody.oninput=edSync; enrollBody.onchange=edSync; edSync();
 }
 function openReEnroll(id){
   const s=Students.find(x=>x.id===id); if(!s) return;
   pauseSensorScan();
-  fingerprintScanUI("Re-enroll fingerprint — "+s.name, "Click Start scan once. Then place and lift the same finger three times; do not click between captures.",
+  fingerprintScanUI("Re-enroll fingerprint", "Press Start scan once, then place and lift the same finger three times. Don't click between captures.",
     ()=>api("/api/students/"+id+"/reenroll",{method:"POST",body:"{}"}),
-    ()=>{ loadAll(); });
+    ()=>{ loadAll(); },
+    s.name+" · "+s.roll+" · "+s.class);
 }
-/* Shared outline trash glyph (stroke=currentColor → ink-aware by construction) */
-const TRASH_ICON='<svg class="del-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><rect x="6" y="7" width="12" height="13" rx="1.5"/><path d="M10 11v6M14 11v6"/></svg>';
-/* Shared outline pencil glyph (feather edit-2 language, same 1.6
-   stroke as TRASH_ICON → same weight by construction) */
-const PENCIL_ICON='<svg class="edit-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
-/* Shared hand-drawn tick glyph (same path/weight as the popup
-   Save ticks → one tick language by construction) */
-const TICK_ICON='<svg class="tick-ic" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 C 8.5 15.5, 10.5 17.5, 12 19 C 15.5 13, 19 8.5, 23.5 5"/></svg>';
 async function deleteStudent(id){
   const s=Students.find(x=>x.id===id); if(!s) return;
   if(!(await glassConfirm("Deactivate "+s.name+"? Their fingerprint slot is freed and roll is released. History is kept.",{title:"Deactivate student",okText:"Deactivate",danger:true}))) return;
@@ -2278,7 +2586,7 @@ function printHTML(htmlContent, docTitle){
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #181A20;
-      background: #F2F3F6;
+      background: #FFFFFF;
       padding: 24px;
       max-width: 900px;
       margin: 0 auto;
@@ -2343,7 +2651,8 @@ function printHTML(htmlContent, docTitle){
       letter-spacing: -0.02em !important;
       line-height: 1.2 !important;
     }
-    .stat label {
+    .stat label,
+    .stat small {
       display: block !important;
       font-size: 8.5px !important;
       font-weight: 600 !important;
@@ -2561,21 +2870,45 @@ async function openAdmin(){
   };
   if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
   adminLayer.classList.add("open"); renderAll();
-  setTimeout(()=>{ updateTabs(); }, 80);
+  try{ repaintFades(); }catch(e){}
+  /* Synchronous tab switch (was 80ms deferred): the deferred switch
+     flashed the wrong pane/rail on every refresh before settling. */
+  updateTabs();
+  scrollToPane(currentTab);
 }
-function updateTabs(){
-  document.querySelectorAll(".admin-pane").forEach(p=>p.classList.add("hidden"));
-  let tab = currentTab;
-  if(tab === "calendar" || tab === "settings") tab = "setup";
-  const pane = document.getElementById("pane-" + tab);
-  if(pane){ pane.classList.remove("hidden"); pane.style.opacity = ""; }
-  /* Nav highlight follows the tab too, so a refresh-restored tab does
-     not show the wrong active button (clicks set it directly). */
+/* Section switching helpers: the page keeps all sections on the document;
+   clicks and restore paths jump to their section, the observer tracks
+   manual scrolling. */
+function adminScroller(){ try{ return document.querySelector("#adminLayer .app"); }catch(_){ return null; } }
+function setSpyTab(tab){
+  currentTab = tab;
   try{
     const navBtns=document.querySelectorAll("#adminNav button[data-tab]");
-    const setupAlias=(currentTab==="calendar"||currentTab==="settings")?"setup":null;
-    navBtns.forEach(b=>b.classList.toggle("active", b.dataset.tab===currentTab||b.dataset.tab===setupAlias));
+    const setupAlias=(tab==="calendar"||tab==="settings")?"setup":null;
+    navBtns.forEach(b=>b.classList.toggle("on", b.dataset.tab===tab||b.dataset.tab===setupAlias));
   }catch(e){}
+}
+function scrollToPane(tab){
+  /* Click-to-section: instant jump (zero-motion rule), landing the section
+     top just under the sticky bar. offsetTop is relative to .app (the only
+     positioned ancestor), which is also the scroller. */
+  let t=tab;
+  if(t==="calendar"||t==="settings") t="setup";
+  if(["students","attendance","setup","backup"].indexOf(t)<0) return;
+  const sc=adminScroller();
+  const pane=document.getElementById("pane-"+t);
+  if(!sc||!pane) return;
+  let rh=0; try{ const r=sc.querySelector(".rail"); rh=r?r.offsetHeight:0; }catch(_){}
+  try{ sc.scrollTop=Math.max(0, pane.offsetTop - rh); }catch(_){}
+  spyFromScroll();
+}
+function updateTabs(){
+  /* Stacked page: every section stays on the document (never hidden), so
+     the page scrolls continuously and clicks jump to a section. */
+  document.querySelectorAll(".admin-pane").forEach(p=>{ p.classList.remove("hidden"); p.style.opacity=""; });
+  let tab = currentTab;
+  if(tab === "calendar" || tab === "settings") tab = "setup";
+  setSpyTab(currentTab);
   /* Sidebar context follows the tab: only the active page's secondary
      controls stay visible (Phase 2: students, Phase 3: attendance).
      Nodes are pre-moved in markup; this just toggles the section.
@@ -2595,20 +2928,20 @@ function updateTabs(){
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent = titles[currentTab] || "Admin";
+  /* Paint-first tab switch (user order): visibility already toggled above
+     so the new pane appears instantly; heavy re-renders run on the next
+     frame against cached data, then refresh. */
+  const _defer=fn=>{ try{ requestAnimationFrame(()=>{ try{fn();}catch(e){} }); }catch(e){ try{fn();}catch(_){} } };
   if(tab === "attendance"){
     if(currentTab === "attendance" && attDatePreset && !attDatePreset.value) attDatePreset.value = "today";
-    renderAttendance();
+    _defer(renderAttendance);
   }
   if(tab === "setup"){
-    populateScheduleSelector();
-    renderClasses();
-    renderWeekly();
-    renderHolidays();
-    renderOverrides();
-    renderCalendarMonth();
+    _defer(()=>{ populateScheduleSelector(); renderClasses(); renderWeekly(); renderHolidays(); renderOverrides(); renderCalendarMonth(); });
   }
-  if(tab === "backup"){ renderAudit(); loadBackupManagerStatus(); }
+  if(tab === "backup"){ _defer(()=>{ renderAudit(); loadBackupManagerStatus(); }); }
   else { try{ if(typeof stopGDrivePolling==="function") stopGDrivePolling(); }catch(e){} }
+  _defer(()=>{ try{ repaintFades(); }catch(e){} });
 }
 document.getElementById("openAdminBtn").onclick=openAdmin;
 const _frontEnrollBtn=document.getElementById("openEnrollBtn"); if(_frontEnrollBtn) _frontEnrollBtn.onclick=openNewStudent;
@@ -2634,8 +2967,639 @@ adminNav.onclick=(e)=>{
     if(attDatePreset) attDatePreset.value = "today";
   }
   updateTabs();
+  scrollToPane(currentTab);
 };
-// CSV import (backend) — posts the file to /api/import/csv (field "file")
+/* Section-entry micro-animation (user order): a 150ms fade + 4px settle as a
+   section enters the viewport. Deliberately small and self-contained:
+     - opacity/transform only (see the CSS) → no reflow, so row heights, the
+       sticky column headers and the tables never move.
+     - one-shot per entry: the class is removed on animationend so no
+       transform lingers. That is not cosmetic — a pane holding any transform,
+       even translateY(0), becomes the containing block for the fixed
+       dropdowns inside it (.gsel-pop, .dt-pop), which would jump.
+     - re-armed only when the section leaves the viewport, so a fast scroll
+       cannot stack repeats, and a re-entry inside 600ms is ignored to avoid
+       flicker on a flick-scroll that re-crosses the same section.
+     - sidebar clicks need no special case: the jump lands, the observer
+       fires on its own. No existing handler or ID is touched.
+   Skipped entirely under prefers-reduced-motion (the CSS drops the
+   animation, and the observer stops adding the class at all). */
+(function(){
+  const sc=adminScroller();
+  if(!sc || !("IntersectionObserver" in window)) return;
+  const reduce=window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  if(reduce && reduce.matches) return;
+  const COOLDOWN=600, seen=new WeakMap();
+  function play(pane){
+    if(!pane || pane.classList.contains("is-entering")) return;
+    const now=Date.now();
+    if(now-(seen.get(pane)||0) < COOLDOWN) return;
+    seen.set(pane, now);
+    /* Dismiss any open popover BEFORE the transform goes on. A pane carrying a
+       transform becomes the containing block for its position:fixed children
+       (.gsel-pop, .dt-pop), so a dropdown left open across an entry snaps to
+       the pane instead of the viewport and flies across the screen (measured:
+       a fixed child 1562px out of place). Same dismissal openModal() already
+       performs before it shows a dialog. */
+    try{ if(window.__closeGselPop) window.__closeGselPop(); }catch(_){}
+    try{ if(typeof closeDtPops==="function") closeDtPops(); }catch(_){}
+    pane.classList.add("is-entering");
+    /* Belt and braces: if the animation never fires (background tab, reduced
+       motion turned on mid-session) the class must still not survive. */
+    const clear=()=>{ pane.classList.remove("is-entering"); pane.removeEventListener("animationend", clear); };
+    pane.addEventListener("animationend", clear, {once:true});
+    setTimeout(clear, 600);
+  }
+  try{
+    const io=new IntersectionObserver((entries)=>{
+      for(const en of entries){
+        if(en.isIntersecting && en.intersectionRatio>=0.25) play(en.target);
+      }
+    }, {root:sc, threshold:[0, 0.25, 0.6]});
+    const scan=()=>{ document.querySelectorAll("#adminLayer .admin-pane").forEach(p=>{ if(!p.__io){ p.__io=true; io.observe(p); } }); };
+    scan();
+    /* Sections are rebuilt by renders, so re-scan as the app works. */
+    if(window.MutationObserver){ new MutationObserver(scan).observe(sc, {childList:true, subtree:true}); }
+    window.addEventListener("resize", scan, {passive:true});
+  }catch(_){}
+})();
+/* Scroll-spy: mark the section that actually occupies the window.
+   Deterministic probe line just below the sticky bar — the last section
+   whose top has passed the line is the one on screen. Chosen over
+   IntersectionObserver because at a section boundary the observer reports
+   two panes intersecting at once and the "which one" answer flips. */
+function spyFromScroll(){
+  const sc=adminScroller();
+  if(!sc) return;
+  try{ if(!document.querySelector("#adminLayer").classList.contains("open")) return; }catch(_){ return; }
+  let rh=0; try{ const r=sc.querySelector(".rail"); rh=r?r.offsetHeight:0; }catch(_){}
+  const line=sc.scrollTop + rh + 8;
+  let cur=null;
+  ["students","attendance","setup","backup"].forEach(t=>{
+    const p=document.getElementById("pane-"+t);
+    if(p && p.offsetTop<=line) cur=t;
+  });
+  if(cur) setSpyTab(cur);
+}
+try{
+  const _spyRoot=adminScroller();
+  if(_spyRoot) _spyRoot.addEventListener("scroll", spyFromScroll, {passive:true});
+}catch(_){}
+/* Page scroll indicator — a real control, not decoration. All native
+   scrollbars are hidden file-wide, so this is the single scroll affordance.
+   One 14px grip strip on the right edge holding a 6px thumb:
+     - click the strip  -> page jumps so that point becomes the top
+     - drag the thumb   -> scrolls (pointer capture survives leaving strip)
+     - wheel over strip -> forwards deltaY to .app. Required: the strip is a
+       SIBLING of .app, so wheel events over it never reach the scroller.
+     - shows while scrolling and on hover, hides when idle; keyboard arrows /
+       PageUp-Down / Home / End also work.
+   Length is CAPPED (MAX_THUMB) so it stays a short marker, not a long bar.
+   All motion instant — no transitions, per the zero-motion rule. */
+(function(){
+  const track=$("scrollTrack"), ind=$("scrollInd");
+  const sc=adminScroller();
+  if(!track||!ind||!sc) return;
+  const IDLE=900, MAX_THUMB=110, MIN_THUMB=40;
+  let hideT=null, dragging=false, dragId=null, grabDelta=0;
+
+  /* Page-only (user order): the far-right strip is the PAGE's bar. Bounded
+     inner windows now carry their own mini bar, so this one no longer has to
+     stand in for them. */
+  /* The strip belongs to the CONTENT column, not the window: anchored at the top
+   of the window it ran beside whatever right-aligned control sat at that
+   height (CLOSE in the nav, Export CSV in the Attendance toolbar) and read as
+   part of that control. The nav is not a fixed height — it measures 109px once
+   the search box and Close stack — so fit the strip to the real rail instead of
+   hardcoding a number that is wrong half the time. getBoundingClientRect is in
+   the same rendered units that `top`/`height` resolve against here, and zoom
+   does not scale a fixed element's offsets, so no ratio correction is needed. */
+  const rail=document.getElementById("adminNav");
+  const navEl=rail?rail.closest(".rail"):null;
+  let fitted=-1;
+  function fitTrack(){
+    let h=0;
+    try{ if(navEl && navEl.offsetParent!==null) h=navEl.offsetHeight; }catch(_){}
+    /* Runs on every paint, so it must be cheap AND must self-correct: at init
+       the admin layer is still closed, the rail has no box, and the strip would
+       otherwise stay window-height until a resize happened to arrive. Bail when
+       the value has not changed so a scroll does not force layout each frame. */
+    if(h===fitted) return;
+    fitted=h;
+    track.style.top=h+"px";
+    track.style.height="calc(100% - "+h+"px)";
+  }
+  fitTrack();
+
+  /* th = the TRACK's own height (it stops below the nav, so it is shorter than
+     the scroller); ch = the SCROLLER's client height, which is what the scroll
+     range is measured against. Visual travel uses th, scroll arithmetic uses ch
+     — mixing them up puts the thumb outside the track. */
+  const metrics=()=>{ const ch=sc.clientHeight, sh=sc.scrollHeight;
+    return {ch:ch, sh:sh, th:track.clientHeight||ch, on:sh>ch+1}; };
+  function paint(){
+    fitTrack();
+    const ch=sc.clientHeight, sh=sc.scrollHeight, st=sc.scrollTop;
+    const th=track.clientHeight||ch;
+    /* Dead strip must not intercept clicks on a page that cannot scroll. */
+    track.classList.toggle("dead", !(sh>ch+1));
+    if(!(sh>ch+1)){ ind.style.height="0px"; return; }
+    const h=Math.min(MAX_THUMB, Math.max(MIN_THUMB, Math.round(th*th/sh)));
+    const room=th-h;
+    const top=room>0 ? Math.round((st/(sh-ch))*room) : 0;
+    ind.style.height=h+"px";
+    ind.style.top=top+"px";
+    track.setAttribute("aria-valuenow", String(Math.round(st)));
+    track.setAttribute("aria-valuemax", String(Math.max(0, sh-ch)));
+  }
+  function show(){ if(hideT){ clearTimeout(hideT); hideT=null; } track.classList.add("on"); paint(); }
+  function idle(){
+    if(hideT) clearTimeout(hideT);
+    hideT=setTimeout(()=>{ if(!dragging) track.classList.remove("on"); hideT=null; }, IDLE);
+  }
+  /* Map a pointer y on the strip to scrollTop (1:1 across the full range).
+     EVERYTHING here is client space (rects + clientY). The admin layer is
+     scaled (zoom:.9), so style px and client px are NOT the same units:
+     mixing a scaled rect difference with style/offset values made the thumb
+     lag the cursor by ~50px and even travel backwards on a small drag.
+     grabY = clientY at grab, minus the thumb's own client top, so the thumb
+     keeps the exact spot under the pointer (no re-centring on first move). */
+  function jumpTo(clientY, grabY){
+    const m=metrics();
+    if(!m.on) return;
+    const tr=track.getBoundingClientRect();
+    const ir=ind.getBoundingClientRect();
+    const thumbH=ir.height || parseFloat(ind.style.height) || MIN_THUMB;
+    const room=Math.max(0, tr.height-thumbH);
+    /* Bare click: centre the thumb under the pointer. Drag: keep the grab. */
+    const anchor=(grabY!=null) ? (clientY-grabY) : (clientY-thumbH/2);
+    const topWanted=anchor-tr.top;
+    const frac=room>0 ? Math.max(0, Math.min(1, topWanted/room)) : 0;
+    sc.scrollTop=Math.round(frac*(m.sh-m.ch));
+  }
+
+  sc.addEventListener("scroll", ()=>{ show(); idle(); }, {passive:true});
+  window.addEventListener("resize", ()=>{ fitTrack(); paint(); });
+  track.addEventListener("mouseenter", show);
+  track.addEventListener("mouseleave", ()=>{ idle(); });
+  /* The strip is only fitted inside paint(), and paint() only runs once the
+     strip is shown (scroll / hover). So when the nav height changes and Admin
+     opens, the strip could sit at top:0 — its 14px hit zone under the bar —
+     until the first scroll. Re-fit whenever the layer opens or closes, and on
+     any rail resize, so the strip always starts below the bar. */
+  try{
+    const layer=document.getElementById("adminLayer");
+    if(layer && window.MutationObserver) new MutationObserver(()=>{ fitTrack(); paint(); }).observe(layer, {attributes:true, attributeFilter:["class"]});
+    const bar=navEl;
+    if(bar && "ResizeObserver" in window) new ResizeObserver(()=>{ fitTrack(); paint(); }).observe(bar);
+  }catch(_){}
+
+  /* Wheel on the strip drives the page (it sits outside every scroll region, so
+     the page would not move on its own). */
+  track.addEventListener("wheel",(e)=>{
+    const m=metrics(); if(!m.on) return;
+    e.preventDefault();
+    sc.scrollTop+=e.deltaY;
+    show(); idle();
+  }, {passive:false});
+
+  track.addEventListener("pointerdown",(e)=>{
+    show();
+    if(e.target===ind){
+      /* Where inside the thumb the grab started, in CLIENT space (the thumb's
+         own client rect, not style.top — style px and client px differ under
+         the admin layer's zoom, which is what made the drag drift). */
+      grabDelta = e.clientY - ind.getBoundingClientRect().top;
+      dragging=true; dragId=e.pointerId;
+      track.classList.add("drag");
+      try{ track.setPointerCapture(e.pointerId); }catch(_){}
+      e.preventDefault();
+      return;
+    }
+    jumpTo(e.clientY, null);   /* bare strip click = centre thumb here */
+    idle();
+  });
+  track.addEventListener("pointermove",(e)=>{
+    if(!dragging) return;
+    jumpTo(e.clientY, grabDelta);
+    show();
+  });
+  function endDrag(e){
+    if(!dragging) return;
+    dragging=false;
+    track.classList.remove("drag");
+    try{ track.releasePointerCapture(dragId); }catch(_){}
+    dragId=null;
+    idle();
+  }
+  track.addEventListener("pointerup", endDrag);
+  track.addEventListener("pointercancel", endDrag);
+
+  track.addEventListener("keydown",(e)=>{
+    const m=metrics(); if(!m.on) return;
+    const page=m.ch*0.9;
+    let d=0;
+    if(e.key==="ArrowDown") d=60;
+    else if(e.key==="ArrowUp") d=-60;
+    else if(e.key==="PageDown") d=page;
+    else if(e.key==="PageUp") d=-page;
+    else if(e.key==="Home"){ sc.scrollTop=0; show(); idle(); e.preventDefault(); return; }
+    else if(e.key==="End"){ sc.scrollTop=m.sh; show(); idle(); e.preventDefault(); return; }
+    else return;
+    sc.scrollTop+=d;
+    e.preventDefault();
+    show(); idle();
+  });
+
+  paint();   /* sized but hidden until first scroll or hover */
+})();
+
+/* Page-only wheel (user order): the wheel belongs to the main UI, never to
+   the bounded lists. Classes, Batches, Holidays, Overrides, the student
+   records and the audit history are competing windows: while they also took
+   the wheel, one gesture scrolled a list AND the page, and the UI felt stuck
+   between them. Now the wheel scrolls the page only, and those lists are
+   driven by their own thin bar (drag, wheel-over-the-strip, or keyboard when
+   focused) — plus touch, which is untouched and still swipes a list natively.
+   The page is moved by hand because overscroll-behavior:contain on the lists
+   blocks the browser's own chaining, which is what made the page feel stuck.
+   Overlays are excluded: a dialog must keep scrolling itself. */
+(function(){
+  const sc=adminScroller();
+  if(!sc) return;
+  const OVERLAY=".scrim,.pv,.gsel-pop,.dt-pop,.gconfirm,.gconfirm-ov,.cmd-pal";
+  document.addEventListener("wheel",(e)=>{
+    if(e.ctrlKey) return;                        /* pinch-zoom */
+    if(Math.abs(e.deltaX)>Math.abs(e.deltaY)) return;  /* horizontal pan stays native */
+    if(e.target && e.target.closest && e.target.closest(OVERLAY)) return;
+    if(!e.target || !sc.contains(e.target)) return;  /* kiosk side keeps its own wheel */
+    /* The page takes every wheel inside Admin, wherever the cursor is. Inner
+       lists are never consulted, so one gesture moves exactly one thing. */
+    e.preventDefault();
+    const max=sc.scrollHeight-sc.clientHeight;
+    sc.scrollTop=Math.max(0, Math.min(max, sc.scrollTop + e.deltaY));
+  }, {passive:false});
+})();
+
+/* Mini scrollbars for the bounded inner windows (user order). The project
+   hides every native scrollbar, so a list that scrolls gave no sign at all and
+   read as a dead end; each such window now carries its own small bar sized by
+   its own content. Built in JS so no per-region markup is hand-edited, and
+   only attached where it earns its place: a visible, actually-scrolling
+   region tall enough to be usable. */
+(function(){
+  const sc=adminScroller();
+  if(!sc) return;
+  /* .main-col is deliberately NOT a region. It holds the month calendar;
+     a bar pinned to its edge would double the page strip a few px away.
+     The data lists live in Setup 2 and carry their own bars. */
+  const REGIONS=".ros,.sd-recs,.rows,.bk,#auditBody,#gdriveFilesBody";
+  /* MIN_THUMB is a usability floor: with 500 audit rows the honest ratio is
+   493x493/39000 = 6px, which is invisible and undraggable. The floor keeps the
+   control grabbable for a mouse; it is clamped to the visible track height so
+   a short region can never grow a thumb larger than its own track. Touch
+   needs no floor: the bar is hidden on hover:none, where swipe scrolls. */
+  const MIN_REGION_H=120, MIN_THUMB=32, MAX_THUMB=96;
+  /* Every bar must repaint when the PAGE scrolls, not just when its own
+     region scrolls: a region's visible box moves with the page, so a bar
+     measured earlier goes stale (this is what left the audit bar sized for
+     an off-screen position and overflowing its panel). */
+  const repaints=[];
+  sc.addEventListener("scroll", ()=>{ for(let i=0;i<repaints.length;i++) repaints[i](); }, {passive:true});
+
+  function build(region){
+    /* Only real scroll containers get a bar. A plain flow container (Backup
+       now that it no longer scrolls) must never show one — a bar that cannot
+       scroll anything is a lie. */
+    if(!/(auto|scroll)/.test(getComputedStyle(region).overflowY)) return;
+    if(region.__minibar) return;
+    region.__minibar=true;
+    const bar=document.createElement("div");
+    bar.className="minibar";
+    bar.setAttribute("role","scrollbar");
+    bar.setAttribute("aria-orientation","vertical");
+    bar.tabIndex=0;
+    const thumb=document.createElement("span");
+    thumb.className="minibar-t";
+    bar.appendChild(thumb);
+    /* The bar is positioned against the region's own box. */
+    if(getComputedStyle(region).position==="static") region.style.position="relative";
+    region.appendChild(bar);
+
+    let grabDelta=0, dragging=false, pid=null;
+    /* Resolved once: the ancestors that can CLIP this region. geom() used to walk
+       the tree and read getComputedStyle on each node on every scroll event; the
+       ancestor chain does not change while the bar exists (a data render replaces
+       the region's CHILDREN, never its ancestors), so this is safe to cache. */
+    const clipAncestors=[];
+    (function(){
+      let n=region.parentElement;
+      while(n && n!==document.body){
+        if(n===sc) break;
+        try{ if(/(auto|scroll|hidden|clip)/.test(getComputedStyle(n).overflowY)) clipAncestors.push(n); }catch(_){}
+        n=n.parentElement;
+      }
+    })();
+    /* Last values written, so paint() stops re-assigning identical style
+       properties. Assigning bar.style.top/height and thumb.style.top/height on
+       every scroll event re-invalidated style for the whole subtree each time;
+       skipping the no-op writes is most of the per-frame cost. */
+    const lastBar={h:null,t:null}, lastThumb={h:null,t:null};
+    /* Audit-list-only switch. The bar geometry and hover branch below are shared
+       by every list, so anything audit-specific has to be gated on this. */
+    const isAudit=(region.id==="auditBody");
+
+    const metrics=()=>({
+      ch:region.clientHeight,
+      sh:region.scrollHeight,
+      st:region.scrollTop,
+      on:region.scrollHeight>region.clientHeight+1
+    });
+    /* Geometry: the bar covers only the part of the region that is actually
+     visible. Clamping to the window alone was not enough — a region inside a
+     clipping column was drawn past that column, which is what put the audit
+     bar outside its panel and made dragging useless. So intersect with every
+     clipping ancestor as well. The thumb is also CAPPED, because a region that
+     overflows only slightly would otherwise produce a near-full-height bar
+     (513x513/550 = 478px) that reads as a plain rule, not a scrollbar. */
+  function geom(){
+    const m=metrics();
+    const r=region.getBoundingClientRect();
+    let top=r.top, bot=r.bottom;
+    /* clipAncestors is resolved ONCE at build time (see above). Walking the
+       tree and calling getComputedStyle on every ancestor inside geom() forced a
+       style recalc on EVERY scroll event, and paint() runs on every scroll event
+       for every bar in the document. Measuring rects is cheap by comparison —
+       getBoundingClientRect does not invalidate style. */
+    for(let i=0;i<clipAncestors.length;i++){
+      const nr=clipAncestors[i].getBoundingClientRect();
+      if(nr.top>top) top=nr.top;
+      if(nr.bottom<bot) bot=nr.bottom;
+    }
+    top=Math.max(0, top);
+    bot=Math.min(window.innerHeight, bot);
+    return {m:m, rTop:r.top, vTop:top, vH:Math.max(0, bot-top)};
+  }
+  function paint(){
+    const g=geom(), m=g.m;
+    /* A bar exists only where it can work: the region must actually overflow
+       AND be tall enough on screen to grab. A bar on content that already
+       fits is a lie — it painted a full-height grey column over the
+       right-aligned action buttons. A short dark thumb means there IS more
+       below. Regions too small or off-screen get no bar (a bar on a sliver
+       is noise). */
+    bar.hidden = !(g.vH>=MIN_REGION_H && m.on);
+    if(bar.hidden) return;
+    /* Only write a style property when the value actually changed (see the
+       lastBar/lastThumb note at build time). Re-assigning an identical value
+       still re-invalidates style for the bar's subtree, and paint() runs on
+       every scroll event of every bar. */
+    const barH=g.vH+"px";
+    if(lastBar.h!==barH){ bar.style.height=barH; lastBar.h=barH; }
+    /* Region-local top (the bar is inside the scroller, so add scrollTop). */
+    /* The audit bar is NOT rounded (user order). Because the bar is a CHILD of
+       the scroller, its top is (constant viewport offset + scrollTop), and the
+       audit scrub writes FRACTIONAL scrollTop — so rounding that sum left up to
+       half a pixel of error that changed every frame the list moved, and the
+       strip visibly jittered. Fractional costs nothing here: the bar is pinned
+       to the scrollport, not to a cursor, and device-pixel snapping happens on
+       paint anyway. Every other list keeps its Math.round. */
+    const barTop=g.vTop - g.rTop + m.st;
+    const barT=(isAudit ? barTop : Math.round(barTop))+"px";
+    if(lastBar.t!==barT){ bar.style.top=barT; lastBar.t=barT; }
+    const h=Math.max(MIN_THUMB, Math.min(MAX_THUMB, g.vH, Math.round(g.vH*g.vH/m.sh)));
+    const room=g.vH-h;
+    /* Sub-pixel on purpose: scrollTop is fractional here, so rounding the
+       thumb to whole px quantised its travel to 1/RANGE of the scroll — 2.2px
+       per step on a short list — and a 1:1 drag visibly stepped. The thumb now
+       follows the pointer continuously. (The BAR above stays rounded: it is
+       pinned to the viewport, not to the cursor, so a fraction there only
+       buys shimmer.) */
+    const top=room>0 ? (m.st/(m.sh-m.ch))*room : 0;
+    const thH=h+"px", thT=top+"px";
+    if(lastThumb.h!==thH){ thumb.style.height=thH; lastThumb.h=thH; }
+    if(lastThumb.t!==thT){ thumb.style.top=thT; lastThumb.t=thT; }
+    bar.setAttribute("aria-valuenow", String(Math.round(m.st)));
+    bar.setAttribute("aria-valuemax", String(Math.max(0, m.sh-m.ch)));
+  }
+  /* Client space only (see the page strip): the admin layer is scaled, so
+     style px and client px are different units. Mixing them drifted the thumb
+     a few px behind the pointer.
+     scrollFor() is that mapping, UNCHANGED, returning the scroll position
+     instead of assigning it. jumpTo() writes it (click and drag — untouched,
+     still one write per event, still 1:1), and the eased hover below uses it
+     as a target it approaches without jumping. One mapping, two consumers, so
+     they can never disagree about where a given y points. */
+  function scrollFor(clientY, grabOff){
+    const g=geom(), m=g.m;
+    if(!(m.on && g.vH>=MIN_REGION_H)) return null;
+    const br=bar.getBoundingClientRect();
+    const tr=thumb.getBoundingClientRect();
+    const thumbH=tr.height || parseFloat(thumb.style.height) || MIN_THUMB;
+    const room=Math.max(0, br.height-thumbH);
+    const anchor=(grabOff!=null) ? (clientY-grabOff) : (clientY-thumbH/2);
+    const frac=room>0 ? Math.max(0, Math.min(1, (anchor-br.top)/room)) : 0;
+    return frac*(m.sh-m.ch);
+  }
+  function jumpTo(clientY, grabOff){
+    const v=scrollFor(clientY, grabOff);
+    if(v!=null) region.scrollTop=v;
+  }
+
+    region.addEventListener("scroll", paint, {passive:true});
+    window.addEventListener("resize", paint, {passive:true});
+    /* Content grows/shrinks with every data render — keep the bar honest. */
+    try{
+      const ro=new ResizeObserver(()=>paint());
+      ro.observe(region);
+      for(let k=0;k<region.children.length && k<3;k++) ro.observe(region.children[k]);
+    }catch(_){}
+    /* A data render replaces the region's children (innerHTML), which detaches
+       the bar that lives inside it. Without this the region keeps its
+       __minibar flag with no bar in the DOM and can never get one back — that
+       is why the audit list, the student list and the Setup lists had NO bar at
+       all on the real device (build() saw the flag and skipped them).
+       Re-append the same node; appending here fires no loop because the
+       isConnected check settles it. */
+    if(window.MutationObserver){
+      new MutationObserver(()=>{
+        if(region.__minibar && !bar.isConnected) region.appendChild(bar);
+        paint();
+      }).observe(region, {childList:true});
+    }
+    repaints.push(paint);
+
+    bar.addEventListener("pointerdown",(e)=>{
+      const m=metrics();
+      if(!(m.on && m.ch>=MIN_REGION_H)) return;
+      /* A running ease would keep writing under the press, so the click or the
+         grab starts from a still list. */
+      stopHover();
+      if(e.target===thumb){
+        /* Grab offset inside the thumb, measured in client space. */
+        grabDelta=e.clientY - thumb.getBoundingClientRect().top;
+        dragging=true; pid=e.pointerId;
+        bar.classList.add("drag");
+        try{ bar.setPointerCapture(e.pointerId); }catch(_){}
+        e.preventDefault();
+        return;
+      }
+      jumpTo(e.clientY, null);   /* bare lane click = centre thumb here */
+      e.preventDefault();
+    });
+    bar.addEventListener("pointermove",(e)=>{ if(!dragging) return; jumpTo(e.clientY, grabDelta); });
+
+    /* Magnetic hover-scrub (user order): no click and no drag needed — move
+       the cursor vertically inside the lane and the list follows it.
+
+       Setup 2 EASES toward the cursor; every other pane keeps the old direct
+       write, so nothing about them changes this step (flip `eased` to apply
+       the easing everywhere — it is one flag, deliberately).
+
+       Why easing: a direct write snaps the whole distance into a single
+       frame, so a 2px hand tremor teleported the list 1-2 rows and the row you
+       were aiming at was gone before you could stop. Each frame now closes
+       18% of the remaining gap, which is smooth to the eye but still arrives.
+
+       Notes:
+         - The TARGET is computed once per pointermove from scrollFor(); the
+           loop then touches nothing but scrollTop. Running geom() every frame
+           would walk every clipping ancestor with getComputedStyle at 60Hz,
+           which is itself stutter.
+         - No overshoot is possible: cur + (target-cur)*EASE is monotonic, the
+           gap shrinks by 0.82 per frame and never changes sign.
+         - DEAD zone: sub-3px cursor jitter updates nothing at all. (Scroll
+           offsets also snap to device pixels — 1.11px under zoom .9 — so
+           without this, tremor was being amplified into visible jumps.)
+         - EASE_EPS snaps the last half pixel so the list lands exactly on the
+           target instead of crawling toward it forever.
+         - refused while a real drag owns the motion, for anything that is not
+           a mouse, and on (hover:none) screens, where there is no hover at
+           all: there, swipe and the drag handle remain how you scroll.
+         - stopHover() kills the loop on pointerleave, on a press (so a click
+           or a drag starts from a still list) and when a drag ends. */
+    const canHover=window.matchMedia ? window.matchMedia("(hover:hover)") : null;
+    /* Easing stays opt-in via #setupLists. It was TRIED for the audit strip and
+       measured a hard accuracy failure: the list landed on 18% of the target
+       (0.14/0.16/0.17/0.18 of expected at four cursor positions — exactly the
+       EASE factor), i.e. the ease ran one step and stopped. Smooth-but-lands-in
+       the-wrong-place is worse than the snap it replaced, so the direct write is
+       kept and only the DEAD filter below is applied to the audit list. */
+    const eased=!!region.closest("#setupLists");
+    const EASE=0.18, EASE_EPS=0.5, DEAD=3;
+    let scrubY=null, scrubRaf=0, hTarget=null, hLastY=null, hRaf=0, hBlocked=false;
+    function step(){
+      if(hTarget==null){ hRaf=0; return; }
+      const cur=region.scrollTop, d=hTarget-cur;
+      if(Math.abs(d)<=EASE_EPS){ region.scrollTop=hTarget; hTarget=null; hRaf=0; return; }
+      region.scrollTop=cur+d*EASE;
+      /* Scroll offsets snap to DEVICE pixels — 1.11px under zoom .9 — so once
+         the remaining gap is under ~3px the 18% step is smaller than half a
+         pixel and the write lands back on the value it already had. Without
+         this guard the ease sat there forever: a 2px correction, or a 5px
+         cursor move, never moved the list at all. If a frame cannot move it,
+         finish on the target now. Small corrections therefore land in one
+         frame and only real jumps ease. */
+      if(region.scrollTop===cur){ region.scrollTop=hTarget; hTarget=null; hRaf=0; return; }
+      hRaf=requestAnimationFrame(step);
+    }
+    function hover(e){
+      if(dragging || e.pointerType!=="mouse") return;
+      if(canHover && !canHover.matches) return;
+      if(!eased){
+        /* Other panes: one rAF write straight to the target, as before. The audit
+           list keeps a DEAD guard of its own — without it a 1px hand tremor was
+           enough (measured 11 distinct scrollTop values and an 86px jump from a
+           motionless finger), because this branch has no sub-3px filter. */
+        if(isAudit){
+          if(hLastY!=null && Math.abs(e.clientY-hLastY)<DEAD) return;
+          hLastY=e.clientY;
+        }
+        scrubY=e.clientY;
+        if(scrubRaf) return;
+        scrubRaf=requestAnimationFrame(()=>{
+          scrubRaf=0;
+          const y=scrubY; scrubY=null;
+          if(y!=null) jumpTo(y, null);
+        });
+        return;
+      }
+      /* A finished drag leaves the thumb at the grab offset, not centred, so
+         resuming hover under a still cursor would snap it. Stay off until the
+         cursor leaves the lane. */
+      if(hBlocked) return;
+      if(hLastY!=null && Math.abs(e.clientY-hLastY)<DEAD) return;
+      hLastY=e.clientY;
+      hTarget=scrollFor(e.clientY, null);
+      if(hTarget==null) return;
+      if(hRaf) return;
+      hRaf=requestAnimationFrame(step);
+    }
+    function stopHover(){
+      scrubY=null; hTarget=null; hLastY=null; hBlocked=false;
+      if(scrubRaf){ cancelAnimationFrame(scrubRaf); scrubRaf=0; }
+      if(hRaf){ cancelAnimationFrame(hRaf); hRaf=0; }
+    }
+    bar.addEventListener("pointerenter", hover);
+    bar.addEventListener("pointermove", hover);
+    bar.addEventListener("pointerleave", stopHover);
+
+    function endDrag(){
+      if(!dragging) return;
+      dragging=false;
+      bar.classList.remove("drag");
+      /* Hover stays off until the cursor leaves the lane: after a drag the
+         thumb sits at the grab offset, and "thumb centred under the cursor"
+         would yank the list to a different position. */
+      if(eased){ hBlocked=true; if(hRaf){ cancelAnimationFrame(hRaf); hRaf=0; } hTarget=null; }
+      try{ bar.releasePointerCapture(pid); }catch(_){}
+    }
+    bar.addEventListener("pointerup", endDrag);
+    bar.addEventListener("pointercancel", endDrag);
+    bar.addEventListener("keydown",(e)=>{
+      const m=metrics();
+      if(!(m.on && m.ch>=MIN_REGION_H)) return;
+      const step=60, page=m.ch*0.9;
+      let d=0;
+      if(e.key==="ArrowDown") d=step;
+      else if(e.key==="ArrowUp") d=-step;
+      else if(e.key==="PageDown") d=page;
+      else if(e.key==="PageUp") d=-page;
+      else if(e.key==="Home"){ region.scrollTop=0; paint(); e.preventDefault(); return; }
+      else if(e.key==="End"){ region.scrollTop=m.sh; paint(); e.preventDefault(); return; }
+      else return;
+      region.scrollTop+=d;
+      paint();
+      e.preventDefault();
+    });
+    paint();
+  }
+
+  function attach(){
+    /* No visibility gate here. At script load the admin layer is still closed,
+       so every region has no box and the old offsetParent check skipped them
+       all — which is why the audit list had NO bar at all on the real device
+       until a reload happened with Admin already open. build() gates on real
+       scrollability and paint() hides any bar whose visible height is too
+       small, so attaching while hidden is safe. */
+    document.querySelectorAll("#adminLayer "+REGIONS).forEach(build);
+    /* Regions built earlier still need a repaint: opening the admin layer
+       changes their visible box without changing the DOM. */
+    for(let i=0;i<repaints.length;i++) repaints[i]();
+  }
+  attach();
+  /* Rows/lists appear after data renders, so re-scan as the app works. */
+  if(window.MutationObserver){
+    const mo=new MutationObserver(()=>attach());
+    mo.observe(sc, {childList:true, subtree:true});
+    /* Opening/closing Admin changes no children, only a class — without this
+       the bars stayed unbuilt for the whole session. */
+    const layer=document.getElementById("adminLayer");
+    if(layer) new MutationObserver(()=>attach()).observe(layer, {attributes:true, attributeFilter:["class"]});
+  }
+  window.addEventListener("resize", attach, {passive:true});
+})();
+// CSV import (backend) — posts the body to /api/import/csv (field "file")
 (function(){
   const toolbar = document.querySelector('#pane-students .tab-toolbar');
   if(!toolbar) return;
@@ -2718,12 +3682,18 @@ const handleAttendancePrint = () => {
     </div>`;
 
   const stats = (attStats && attStats.children.length) ? `<div class="stats-row">${attStats.innerHTML}</div>` : "";
-  const mainTbl = document.querySelector('#pane-attendance .table-wrap:first-of-type');
-  const tblHtml = mainTbl ? mainTbl.outerHTML : "";
+  /* Read the rows the table actually painted. lastAttRender.rows is the
+     pre-search snapshot and is still the empty default until the async
+     renderAttendance finishes — printing it alone yields a header + stats
+     with no records. attShownRows is the filtered set paintAttTable draws. */
+  const lr = (attShownRows && attShownRows.length) ? attShownRows
+    : ((typeof lastAttRender!=="undefined" && lastAttRender && lastAttRender.rows) ? lastAttRender.rows : []);
+  const lrSingle = (typeof lastAttRender!=="undefined" && lastAttRender) ? !!lastAttRender.isSingleDay : true;
+  const tblHtml = lr.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Time</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th><th>Fingerprint</th></tr></thead><tbody>${lr.map(r=>`<tr><td>${esc(r.a.date||"")}</td><td>${esc(r.a.time||"")}</td><td>${esc(r.s.name||"")}</td><td>${esc(r.s.roll||"")}</td><td>${esc(r.s.class||"")}</td><td>${esc(r.a.status||"")}${r.a.isDuplicate?" (Duplicate)":""}</td><td>${esc(r.a.fingerId!=null?"F-"+r.a.fingerId:"")}</td></tr>`).join("")}</tbody></table></div>` : "";
 
   let unknownsHtml = "";
-  const unkRows = attUnknownBody ? attUnknownBody.querySelectorAll("tr") : [];
-  const hasUnks = unkRows.length && !attUnknownBody.querySelector(".empty") && !stu;
+  const unkRows = attUnknownBody ? attUnknownBody.querySelectorAll(".ar") : [];
+  const hasUnks = unkRows.length>0 && !stu;
   if(hasUnks){
     unknownsHtml = `
       <div class="report-section">
@@ -2788,7 +3758,11 @@ const handleAttendanceExport = async () => {
   } catch(e){}
 
   // Fallback / offline frontend CSV export (from last render data, never DOM)
-  const lr = (lastAttRender && lastAttRender.rows && lastAttRender.rows.length) ? lastAttRender : {rows:[], isSingleDay, from, to};
+  /* Same source as the print: the rows the table paints, so the CSV honours
+     the active filters/search instead of the pre-search snapshot. */
+  const lrRows = (attShownRows && attShownRows.length) ? attShownRows
+    : ((lastAttRender && lastAttRender.rows) ? lastAttRender.rows : []);
+  const lr = {rows:lrRows, isSingleDay:(lastAttRender?lastAttRender.isSingleDay:isSingleDay), from:(lastAttRender&&lastAttRender.from)||from, to:(lastAttRender&&lastAttRender.to)||to};
   const rows = [["Date", "Time", "Student", "Roll", "Class", "Batch", "Status", "Fingerprint"]];
   for(const r of lr.rows){
     if(!r || !r.s) continue;
@@ -2836,11 +3810,79 @@ if(attBatchFilter) attBatchFilter.addEventListener("change", () => {
 });
 if(attStudentFilter) attStudentFilter.addEventListener("change", renderAttendance);
 if(attStatusFilter) attStatusFilter.addEventListener("change", renderAttendance);
+if($("attSearch")) $("attSearch").addEventListener("input",()=>{ try{ attSearchQ=$("attSearch").value.trim().toLowerCase(); }catch(e){ attSearchQ=""; } renderAttendance(); });
+/* Near-bottom paging (user order): next 50 rows without refetching. */
+(function(){
+  const rv=$("attRecordsView"); if(!rv||rv._moreWired) return; rv._moreWired=true;
+  rv.addEventListener("scroll",()=>{
+    try{
+      if(attShowLimit>=((lastAttRender.rows||[]).length)) return;
+      if(rv.scrollHeight-rv.scrollTop-rv.clientHeight>400) return;
+      attShowLimit+=50; paintAttTable();
+    }catch(e){}
+  },{passive:true});
+})();
+/* Empty-state Clear filters (user order): same full reset as the brick. */
+if(attTableBody && !attTableBody._clearWired){ attTableBody._clearWired=true; attTableBody.addEventListener("click",(e)=>{ if(e.target&&e.target.closest&&e.target.closest("[data-clear-filters]")){ try{ clearAttendanceSection(); }catch(err){} } }); }
 if(attSort) attSort.addEventListener("change", renderAttendance);
+/* Time sort toggle (user order): the only sort control — flips newest/oldest
+   through the existing attSort select so all sort machinery keeps working. */
+function paintTimeToggle(){ const b=$("attTimeToggle"); if(!b) return; const v=(attSort&&attSort.value)||"time_desc"; b.textContent=v==="time_asc"?"Time: oldest":"Time: newest"; }
+if($("attTimeToggle")) $("attTimeToggle").onclick=()=>{ if(!attSort) return; attSort.value=(attSort.value==="time_asc")?"time_desc":"time_asc"; try{ attSort.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){} paintTimeToggle(); };
 /* Board tabs (user order): records / unknown share one fixed board.
    Static nodes (only tbody refills), so one binding holds. Instant
    channel swap, no motion. */
 let attBoardTab = "records";
+/* Table paging + search state (user order): first 50 rows, next 50 near the
+   bottom; search narrows name + roll live. lastAttRender keeps FULL rows for
+   print/export; attShownRows is what the table paints. */
+let attShowLimit=50, attViewKey="", attSearchQ="", attShownRows=[];
+function attFD(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; }
+function attFT(t){ if(t==="23:59:59"||t==="00:00:00") return "—"; const m=/^(\d{1,2}):(\d{2})/.exec(t||""); if(!m) return "—"; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12; return h+":"+m[2]+" "+ap; }
+function attFS(a){ return a==="Not Scheduled"?"Not scheduled":a; }
+function attFW(w){ return w==="Not Scheduled"?"Not scheduled":w; }
+function attWorkOf(r,from){
+  let working="—";
+  if(r.s && (r.a.date||from)){
+    const d=r.a.date||from;
+    working = isWorkingDayForStudent(d, r.s) ? "Scheduled" : "Not Scheduled";
+    if(r.a.status === "Not Scheduled") working = "Not Scheduled";
+    else if(r.a.status === "Absent" && !isWorkingDayForStudent(d, r.s)) working = "Not Scheduled";
+  }
+  return working;
+}
+function attFilterActive(){ try{ return !!((attClassFilter&&attClassFilter.value)||(attBatchFilter&&attBatchFilter.value)||(attStudentFilter&&attStudentFilter.value)||(attStatusFilter&&attStatusFilter.value)||attSearchQ); }catch(e){ return false; } }
+function attRowHTML(r,from){
+  const stL2=s=>({Present:"P",Late:"L",Absent:"A"})[s]||"X";
+  const isDupe = r.a.isDuplicate ? `<span>Dup</span>` : ``;
+  const correctBtn = `<button data-correct data-correct-sid="${r.s.id}" data-correct-date="${esc(r.a.date || from)}" data-correct-status="${esc(r.a.status)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>Correct</button>`;
+  const working=attWorkOf(r,from);
+  return `<div class="ar" data-student="${r.s.id}">
+    <span>${esc(attFD(r.a.date||from))}</span>
+    <span>${esc(attFT(r.a.time))}</span>
+    <span>${esc(r.s.name)}</span>
+    <span>${esc(r.s.roll)}</span>
+    <span>${esc(r.s.class)}</span>
+    <span class="s-${stL2(r.a.status)}">${esc(attFS(r.a.status))}${isDupe}</span>
+    <span>${esc(attFW(working))}</span>
+    ${correctBtn}
+  </div>`;
+}
+function paintAttTable(){
+  try{
+    const L=lastAttRender, all=attShownRows||[];
+    const drows=all.slice(0,attShowLimit);
+    if(!all.length){
+      const clear=attFilterActive()?` <button type="button" data-clear-filters>Clear filters</button>`:"";
+      attTableBody.innerHTML=`<div class="att-empty">No attendance records.${clear}</div>`;
+    } else {
+      attTableBody.innerHTML=drows.map(r=>attRowHTML(r,L.from)).join("");
+    }
+    const rc=document.getElementById("attRecordCount");
+    if(rc) rc.textContent=all.length+(all.length===1?" record":" records");
+    paintFadeBottom($("attRecordsView"));
+  }catch(e){}
+}
 /* Last rendered attendance rows (data, not DOM) — feeds the offline CSV fallback */
 let lastAttRender = {rows:[], isSingleDay:true, from:"", to:""};
 function paintAttTabs(){
@@ -2851,8 +3893,11 @@ function paintAttTabs(){
     b.setAttribute("aria-selected", on ? "true" : "false");
   });
   const rv = $("attRecordsView"), uv = $("attUnknownView");
-  if(rv) rv.hidden = unk;
-  if(uv) uv.hidden = !unk;
+  const rw = $("attRecordsWrap"), uw = $("attUnknownWrap");
+  if(rw) rw.hidden = unk;
+  if(uw) uw.hidden = !unk;
+  if(rv) rv.hidden = false;
+  if(uv) uv.hidden = false;
   const rc = $("attRecordCount"), uc = $("attUnknownCount");
   if(rc) rc.hidden = unk;
   if(uc) uc.hidden = !unk;
@@ -2860,15 +3905,25 @@ function paintAttTabs(){
 document.querySelectorAll('#attRecordsBoard .att-tab').forEach(b=>{
   b.addEventListener("click", ()=>{ attBoardTab = b.dataset.attab || "records"; paintAttTabs(); });
 });
-/* KPI filter cubes (user order): taps drive the existing attStatusFilter
-   (no new mechanism) — set value, fire change, renderAttendance runs.
-   Delegated on #attStats (persists; cubes regenerate every render).
-   Tap a status filters; tap Total or the active cube clears. */
+/* Stat cells (user order): the five status cells filter the records table
+   through the existing attStatusFilter (no new mechanism) — tap a status
+   filters, tap Total or the active cell clears. Unknown scans opens the
+   unknown tab (tap again to return); Duplicate scans filters duplicates. */
 if(attStats && !attStats.dataset.cubes){
   attStats.dataset.cubes = "1";
   attStats.addEventListener("click", (e)=>{
+    const t=(e.target && e.target.closest) ? e.target.closest(".stat[data-act]") : null;
+    if(t && attStats.contains(t)){
+      const act=t.getAttribute("data-act");
+      if(act==="unknown"){
+        attBoardTab=(attBoardTab==="unknown")?"records":"unknown";
+        try{ paintAttTabs(); }catch(_){}
+        return;
+      }
+    }
     const c = (e.target && e.target.closest) ? e.target.closest(".stat[data-f]") : null;
     if(!c || !attStats.contains(c) || !attStatusFilter) return;
+    if(attBoardTab!=="records"){ attBoardTab="records"; try{ paintAttTabs(); }catch(_){} }
     const v = c.getAttribute("data-f") || "";
     const next = (v && v === attStatusFilter.value) ? "" : v;
     if(attStatusFilter.value !== next){
@@ -2889,6 +3944,7 @@ function clearAttendanceSection(){
   ["attClassFilter","attBatchFilter","attStudentFilter","attStatusFilter"].forEach(id=>{
     try{ const el=$(id); if(el) el.value=""; }catch(e){ console.error(e); }
   });
+  try{ attSearchQ=""; const si=$("attSearch"); if(si) si.value=""; attShowLimit=50; }catch(e){ console.error(e); }
   try{ if(attSort) attSort.value="time_desc"; }catch(e){ console.error(e); }
   try{ populateAttStudents(); }catch(e){ console.error(e); }
   try{ _dtCommitPreset("today"); }catch(e){ console.error(e); }
@@ -2909,18 +3965,18 @@ if($("setupToolbar")) $("setupToolbar").addEventListener("click",(e)=>{
   const b=e.target.closest("[data-calview]"); if(!b) return;
   calEmphasis = b.dataset.calview;
   document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+  try{ $("monthViewResetBtn").setAttribute("aria-pressed","false"); }catch(_){}
   const g=$("calendarGrid"); if(!g) return;
-  g.classList.toggle("cal-dim-working", calEmphasis==="working");
-  g.classList.toggle("cal-dim-nonworking", calEmphasis==="non-working");
-  g.classList.toggle("cal-dim-override", calEmphasis==="override");
+  g.dataset.v=calEmphasis==="working"?"working":calEmphasis==="non-working"?"nonworking":calEmphasis==="override"?"overrides":calEmphasis==="holiday"?"holidays":"month";
 });
 /* Month View reset: clears the sticky legend emphasis back to the full
    month (the only way back — re-pressing a filter keeps it). */
 if($("monthViewResetBtn")) $("monthViewResetBtn").onclick=()=>{
   calEmphasis=null;
   document.querySelectorAll("#setupToolbar [data-calview]").forEach(x=>x.setAttribute("aria-pressed","false"));
+  try{ $("monthViewResetBtn").setAttribute("aria-pressed","true"); }catch(_){}
   const g=$("calendarGrid"); if(!g) return;
-  g.classList.remove("cal-dim-working","cal-dim-nonworking","cal-dim-override");
+  g.dataset.v="month";
 };
 /* Day window is read-only resolved display — tables own all holiday /
    override editing. Resolution read ONLY from the shared truth
@@ -2971,12 +4027,12 @@ async function undoSetupRemove(){
     if(await persistCalendar()){ renderHolidays(); renderOverrides(); renderCbTables(); renderCalendarMonth(); }
   }catch(e){}
 }
-function _dsOutside(e){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")&&!(e.target&&e.target.closest&&e.target.closest("#daySheetModal .modal-card"))) closeDaySheet(); }catch(_){} }
+function _dsOutside(e){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")&&!(e.target&&e.target.closest&&e.target.closest("#daySheetModal .mod"))) closeDaySheet(); }catch(_){} }
 function _dsScrollShut(){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")) closeDaySheet(); }catch(_){} }
 function _dsReposition(){ try{ if(daySheetModal&&daySheetModal.classList.contains("open")) positionDaySheet(); }catch(_){} }
 function closeDaySheet(){ try{ document.removeEventListener("pointerdown",_dsOutside,true); document.removeEventListener("scroll",_dsScrollShut,true); window.removeEventListener("resize",_dsReposition); }catch(e){} _dsAnchor=null; closeModal(daySheetModal); }
 function positionDaySheet(){
-  const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
+  const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".mod"):null;
   if(!card||!_dsAnchor||!_dsAnchor.getBoundingClientRect) return;
   const GAP=10, M=8, vw=window.innerWidth, vh=window.innerHeight;
   const r=_dsAnchor.getBoundingClientRect();
@@ -2995,51 +4051,22 @@ function positionDaySheet(){
   tx=Math.max(22,Math.min(tx,bw-22));
   card.style.left=left+"px"; card.style.top=top+"px";
   try{ card.dataset.tail=tail; }catch(e){}
-  try{ card.style.setProperty("--tail-x",tx+"px"); }catch(e){}
-  dsSilhouette();
-}
-/* Single-silhouette outline (user order): one SVG path = sharp
-   rect grown into its tail, one 3px stroke, no seam. Square 90°
-   corners (R=0) with miter joins; tail apex already straight
-   segments. Redrawn from the measured box on every position. */
-function dsSilhouette(){
-  try{
-    const card=(typeof daySheetModal!=="undefined"&&daySheetModal)?daySheetModal.querySelector(".modal-card"):null;
-    if(!card||!card.offsetWidth) return;
-    const W=card.offsetWidth, H=card.offsetHeight;
-    const tail=card.dataset.tail||"top";
-    let tx=parseFloat((card.style.getPropertyValue("--tail-x")||"").replace("px",""));
-    if(!isFinite(tx)) tx=W/2;
-    const R=0, B=17, T=21, o=1.5;
-    const f=n=>Math.round(n*10)/10;
-    let d;
-    if(tail==="bottom"){
-      d=`M ${f(o+R)} ${f(o)} L ${f(W-o-R)} ${f(o)} Q ${f(W-o)} ${f(o)} ${f(W-o)} ${f(o+R)} L ${f(W-o)} ${f(H-o-R)} Q ${f(W-o)} ${f(H-o)} ${f(W-o-R)} ${f(H-o)} L ${f(tx+B)} ${f(H-o)} L ${f(tx)} ${f(H-o+T)} L ${f(tx-B)} ${f(H-o)} L ${f(o+R)} ${f(H-o)} Q ${f(o)} ${f(H-o)} ${f(o)} ${f(H-o-R)} L ${f(o)} ${f(o+R)} Q ${f(o)} ${f(o)} ${f(o+R)} ${f(o)} Z`;
-    }else{
-      d=`M ${f(o+R)} ${f(o)} L ${f(tx-B)} ${f(o)} L ${f(tx)} ${f(o-T)} L ${f(tx+B)} ${f(o)} L ${f(W-o-R)} ${f(o)} Q ${f(W-o)} ${f(o)} ${f(W-o)} ${f(o+R)} L ${f(W-o)} ${f(H-o-R)} Q ${f(W-o)} ${f(H-o)} ${f(W-o-R)} ${f(H-o)} L ${f(o+R)} ${f(H-o)} Q ${f(o)} ${f(H-o)} ${f(o)} ${f(H-o-R)} L ${f(o)} ${f(o+R)} Q ${f(o)} ${f(o)} ${f(o+R)} ${f(o)} Z`;
-    }
-    const NS="http://www.w3.org/2000/svg";
-    let svg=card.querySelector(":scope > svg.ds-sil");
-    if(!svg){ svg=document.createElementNS(NS,"svg"); svg.setAttribute("class","ds-sil"); svg.setAttribute("aria-hidden","true"); card.insertBefore(svg,card.firstChild); }
-    svg.setAttribute("width",W); svg.setAttribute("height",H);
-    svg.style.cssText="position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:-1;pointer-events:none;";
-    let p=svg.querySelector("path");
-    if(!p){ p=document.createElementNS(NS,"path"); svg.appendChild(p); }
-    p.setAttribute("d",d);
-    p.setAttribute("fill","#F4EEE1"); p.setAttribute("stroke","#141414");
-    p.setAttribute("stroke-width","3"); p.setAttribute("stroke-linejoin","miter");
-  }catch(e){}
 }
 function openDaySheet(iso, cell){
   const ctx=getScheduleContext();
   const src=daySheetSource(iso, ctx);
   const dt=new Date(iso+"T00:00:00");
   const ov=getOverride(iso), hol=isHoliday(iso);
-  daySheetTitle.textContent=dt.toLocaleDateString("en-GB",{weekday:"long"})+", "+_fmtShort(iso);
+  daySheetTitle.textContent=dt.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"short",year:"numeric"});
+  const dsBadge=ov?((ov.note||"Override")+" · "+(ov.isWorking?"Working":"Holiday")):(hol?((hol.name||"Holiday")+" · "+(String(hol.type||"holiday").toLowerCase()==="exam"?"Working":"Holiday")):src.badge);
+  const dsMk=ov?(hol?"both":"ovr"):(hol?"hol":"");
+  const dsWeek=dt.toLocaleDateString("en-GB",{weekday:"long"});
+  const dsShort=dt.getDate()+" "+MONTHS_S[dt.getMonth()]+" "+dt.getFullYear();
   daySheetBody.innerHTML=
-    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="setup-legend-context">${esc(src.badge)}</span></div>`+
-    `<div style="font-size:11px;color:var(--ink-2);line-height:1.5;">${esc(src.text)}</div>`+
-    `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="btn" id="dsClose">Close</button>${ov?`<button class="btn icon-del" id="dsDelOv" aria-label="Remove override">${TRASH_ICON}</button>`:""}${(!ov&&hol)?`<button class="btn icon-del" id="dsDelHol" aria-label="Remove holiday">${TRASH_ICON}</button>`:""}<button class="btn" id="dsAddOv">Add override for this date…</button></div>`;
+    `<div class="mk${dsMk?" "+dsMk:""}"></div><div class="eye">${esc(dsBadge)}</div>`+
+    `<div class="d1">${esc(dsWeek)}</div><div class="d2">${esc(dsShort)}</div>`+
+    `<div class="src">${esc(src.text)}</div>`+
+    `<div class="ft"><button class="act m" id="dsClose">Close</button>${ov?`<button class="act del" id="dsDelOv" aria-label="Remove override">Delete</button>`:""}${(!ov&&hol)?`<button class="act del" id="dsDelHol" aria-label="Remove holiday">Delete</button>`:""}<button class="act p" id="dsAddOv">Add override for this date</button></div>`;
   openModal(daySheetModal);
   _dsAnchor=(typeof cell!=="undefined"&&cell)||null;
   try{
@@ -3070,16 +4097,24 @@ function openDaySheet(iso, cell){
   };
   $("dsAddOv").onclick=()=>{
     closeDaySheet();
-    $("overrideModalBody").innerHTML=`<div class="form-grid">
-      <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(iso)}"></div>
-      <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
-      <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
-      <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
-      <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
-      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
-      <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
+    $("overrideModalBody").innerHTML=`<div class="g2">
+      <div class="fld"><label>Date</label><input type="date" id="overrideDate" value="${esc(iso)}"></div>
+      <div class="fld"><label>Becomes</label><div class="seg two" id="overrideWorkingRow" role="radiogroup"></div><select id="overrideWorking" data-gsel="1" class="dlg-hidden"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
+      <div class="fld"><label>Start time</label><input type="time" id="overrideStartTime"></div>
+      <div class="fld"><label>End time</label><input type="time" id="overrideEndTime"></div>
+      <div class="fld w"><label>Note</label><input id="overrideNote" autocomplete="off" spellcheck="false" placeholder="Special working Saturday"></div>
+      <div class="ft"><span class="form-pair"><button id="overrideCancel">Cancel</button><button class="go" id="overrideSave">Save override</button></span></div>
+      <div class="err" id="overrideErr" style="display:none"></div></div>`;
     openModal(overrideModal);
     $("overrideCancel").onclick=()=>closeModal(overrideModal);
+    dlgPaintRow($("overrideWorking"),$("overrideWorkingRow"));
+    const ovrSync0=()=>{ const b=$("overrideSave"); if(!b) return;
+      const d=$("overrideDate").value, n=$("overrideNote").value.trim();
+      const stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+      b.disabled=!(d&&!n.includes("@")&&(!stm||isHHMM(stm))&&(!etm||isHHMM(etm))); };
+    $("overrideModalBody").addEventListener("input",ovrSync0);
+    $("overrideModalBody").addEventListener("change",ovrSync0);
+    ovrSync0();
     $("overrideSave").onclick=async()=>{
       const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
       if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
@@ -3091,6 +4126,7 @@ function openDaySheet(iso, cell){
       Overrides.push({date,isWorking:$("overrideWorking").value==="1",note,startTime:stm,endTime:etm});
       if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); }
     };
+    $("overrideModalTitle").textContent="Add override";
     $("overrideNote").focus();
   };
 }
@@ -3153,17 +4189,26 @@ if($("calClassSelect")) $("calClassSelect").onchange=()=>{
 };
 /* Reset-week retired: template editing lives in the solid schedule editor. */
 function openHolidayCreate(){
-  $("holidayModalBody").innerHTML=`<div class="form-grid">
-    <div class="form-field full"><label>Name</label><input id="holidayName" placeholder="Diwali vacation"></div>
-    <div class="form-field"><label>Start date</label><input type="date" id="holidayStart"></div>
-    <div class="form-field"><label>End date</label><input type="date" id="holidayEnd"></div>
-    <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime"></div>
-    <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime"></div>
-    <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday">Holiday</option><option value="vacation">Vacation</option><option value="exam">Exam day (working)</option></select></div>
-    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></span></div>
-    <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
+  $("holidayModalTitle").textContent="Add holiday";
+  $("holidayModalBody").innerHTML=`<div class="g2">
+    <div class="fld w"><label>Name</label><input id="holidayName" autocomplete="off" spellcheck="false" placeholder="Diwali vacation"></div>
+    <div class="fld"><label>Start date</label><input type="date" id="holidayStart"></div>
+    <div class="fld"><label>End date</label><input type="date" id="holidayEnd"></div>
+    <div class="fld"><label>Start time</label><input type="time" id="holidayStartTime"></div>
+    <div class="fld"><label>End time</label><input type="time" id="holidayEndTime"></div>
+    <div class="fld w"><label>Type</label><div class="seg" id="holidayTypeRow" role="radiogroup"></div><select id="holidayType" data-gsel="1" class="dlg-hidden"><option value="holiday">Holiday</option><option value="vacation">Vacation</option><option value="exam">Exam day</option></select></div>
+    <div class="ft"><span class="form-pair"><button id="holidayCancel">Cancel</button><button class="go" id="holidaySave">Save holiday</button></span></div>
+    <div class="err" id="holidayErr" style="display:none"></div></div>`;
   openModal(holidayModal);
   $("holidayCancel").onclick=()=>closeModal(holidayModal);
+  dlgPaintRow($("holidayType"),$("holidayTypeRow"));
+  const holSync=()=>{ const b=$("holidaySave"); if(!b) return;
+    const n=$("holidayName").value.trim(), s=$("holidayStart").value, e=$("holidayEnd").value||s;
+    const stm=$("holidayStartTime").value, etm=$("holidayEndTime").value;
+    b.disabled=!(n&&!n.includes("@")&&s&&e&&s<=e&&(!stm||isHHMM(stm))&&(!etm||isHHMM(etm))); };
+  $("holidayModalBody").addEventListener("input",holSync);
+  $("holidayModalBody").addEventListener("change",holSync);
+  holSync();
   $("holidaySave").onclick=async()=>{
     const name=$("holidayName").value.trim(), start=$("holidayStart").value, end=$("holidayEnd").value||start, err=$("holidayErr");
     if(!name||!start||!end||start>end){ err.textContent="Name and a valid date range are required."; err.style.display="block"; return; }
@@ -3176,16 +4221,25 @@ function openHolidayCreate(){
   };
 }
 function openOverrideCreate(){
-  $("overrideModalBody").innerHTML=`<div class="form-grid">
-    <div class="form-field"><label>Date</label><input type="date" id="overrideDate"></div>
-    <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
-    <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime"></div>
-    <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime"></div>
-    <div class="form-field full"><label>Note</label><input id="overrideNote" placeholder="Special working Saturday"></div>
-    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
-    <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
+  $("overrideModalTitle").textContent="Add override";
+  $("overrideModalBody").innerHTML=`<div class="g2">
+    <div class="fld"><label>Date</label><input type="date" id="overrideDate"></div>
+    <div class="fld"><label>Becomes</label><div class="seg two" id="overrideWorkingRow" role="radiogroup"></div><select id="overrideWorking" data-gsel="1" class="dlg-hidden"><option value="1">Working day</option><option value="0">Holiday</option></select></div>
+    <div class="fld"><label>Start time</label><input type="time" id="overrideStartTime"></div>
+    <div class="fld"><label>End time</label><input type="time" id="overrideEndTime"></div>
+    <div class="fld w"><label>Note</label><input id="overrideNote" autocomplete="off" spellcheck="false" placeholder="Special working Saturday"></div>
+    <div class="ft"><span class="form-pair"><button id="overrideCancel">Cancel</button><button class="go" id="overrideSave">Save override</button></span></div>
+    <div class="err" id="overrideErr" style="display:none"></div></div>`;
   openModal(overrideModal);
   $("overrideCancel").onclick=()=>closeModal(overrideModal);
+  dlgPaintRow($("overrideWorking"),$("overrideWorkingRow"));
+  const ovrSync=()=>{ const b=$("overrideSave"); if(!b) return;
+    const d=$("overrideDate").value, n=$("overrideNote").value.trim();
+    const stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+    b.disabled=!(d&&!n.includes("@")&&(!stm||isHHMM(stm))&&(!etm||isHHMM(etm))); };
+  $("overrideModalBody").addEventListener("input",ovrSync);
+  $("overrideModalBody").addEventListener("change",ovrSync);
+  ovrSync();
   $("overrideSave").onclick=async()=>{
     const date=$("overrideDate").value, note=$("overrideNote").value.trim(), err=$("overrideErr");
     if(!date){ err.textContent="A date is required."; err.style.display="block"; return; }
@@ -3207,9 +4261,7 @@ function paintPbDays(){
   if(!schedModalBody) return;
   schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
     const on=!!_pbDays[b.dataset.pbDay];
-    b.classList.toggle("working",on);
-    b.classList.toggle("off",!on);
-    const st=b.querySelector(".w-status"); if(st) st.textContent=on?"WORKING":"OFF";
+    b.classList.toggle("on",on);
     b.setAttribute("aria-pressed",on?"true":"false");
   });
 }
@@ -3223,23 +4275,31 @@ function openSchedPopup(kind, name, forClass){
   for(let i=0;i<7;i++) _pbDays[i]=asBool(srcWd[i]??srcWd[String(i)]);
   const kindWord=kind==="global"?"Schedule":(kind==="class"?"Class":"Batch");
   schedModalTitle.textContent=isEdit?("Edit schedule"+(ctx.type==="global"?" — Global":" — "+ctx.name)):("Add "+kindWord.toLowerCase());
+  try{ const _eye=$("schedModalEye"); if(_eye) _eye.textContent=kindWord; }catch(e){}
   /* Sub explains what the screen controls (user order): no names
      (title + SCHEDULE FOR already carry them), no dev words. */
   schedModalSub.textContent=!isEdit?(kind==="class"?"Name the class and set its weekly schedule. The calendar switches to it on save.":"Name the batch and set its weekly schedule. The calendar switches to it on save."):(ctx.type==="batch"?"Set which days this batch meets, and when scans count as on-time or late.":ctx.type==="global"?"Set which days the school meets, and when scans count as on-time or late.":"Set which days this class meets, and when scans count as on-time or late.");
-  const names=["SUN","MON","TUE","WED","THU","FRI","SAT"];
-  schedModalBody.innerHTML=`<div class="form-grid">
-    <div class="form-field full sched-name"><label>${isEdit?"Schedule for":kindWord+" name"}</label><input id="pbName" placeholder="${kind==="batch"?"Batch Morning":"Grade 11-A"}" value="${isEdit?esc(ctx.type==="global"?"Global":ctx.name):""}" ${(isEdit&&ctx.type==="global")?"disabled":""}></div>
-    ${forClass?`<div class="form-field full"><div style="font-size:11px;opacity:.75">New batch will belong to ${esc(forClass)} — other classes are unaffected.</div></div>`:""}
-    <div class="form-field full sched-days"><label>Working days</label><div class="pb-days">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="weekly-day-card ${on?"working":"off"}" data-pb-day="${idx}" aria-pressed="${on}"><div class="w-name">${d}</div><div class="w-status">${on?"WORKING":"OFF"}</div></button>`;}).join("")}</div></div>
-    <div class="form-field sched-cut"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
-    <div class="form-field sched-cut"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
-    <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end">${name?`<button type="button" class="btn" id="pbDel" aria-label="Delete this schedule">${TRASH_ICON}</button>`:""}<span class="form-pair"><button class="btn" id="pbCancel">Cancel</button><button class="btn primary" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></span></div>
-    <div class="inline-error" id="pbErr" style="display:none"></div></div>`;
+  const names=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  schedModalBody.innerHTML=`<div class="g2">
+    <div class="fld w sched-name"><label>${isEdit?"Schedule for":kindWord+" name"}</label><input id="pbName" autocomplete="off" spellcheck="false" placeholder="${kind==="batch"?"Batch Morning":"Grade 11-A"}" value="${isEdit?esc(ctx.type==="global"?"Global":ctx.name):""}" ${(isEdit&&ctx.type==="global")?"disabled":""}></div>
+    ${forClass?`<div class="fld w"><div style="font-size:11px;opacity:.75">New batch will belong to ${esc(forClass)} — other classes are unaffected.</div></div>`:""}
+    <div class="fld w sched-days"><label>Working days</label><div class="opts">${names.map((d,idx)=>{const on=!!_pbDays[idx];return `<button type="button" class="${on?"on":""}" data-pb-day="${idx}" aria-pressed="${on}">${d}</button>`;}).join("")}</div></div>
+    <div class="fld sched-cut"><label>Present cutoff</label><input type="time" id="pbPresent" value="${esc(timing.presentCutoff)}"></div>
+    <div class="fld sched-cut"><label>Late cutoff</label><input type="time" id="pbLate" value="${esc(timing.lateCutoff)}"></div>
+    <div class="ft">${name?`<button type="button" class="del" id="pbDel" aria-label="Delete this schedule">Delete</button>`:""}<span class="form-pair"><button id="pbCancel">Cancel</button><button class="go" id="pbSave">${isEdit?"Save schedule":"Add "+kindWord.toLowerCase()}</button></span></div>
+    <div class="err" id="pbErr" style="display:none"></div></div>`;
   openModal(schedModal);
   schedModalBody.querySelectorAll("[data-pb-day]").forEach(b=>{
     b.onclick=()=>{ _pbDays[b.dataset.pbDay]=!_pbDays[b.dataset.pbDay]; paintPbDays(); };
   });
   $("pbCancel").onclick=()=>closeModal(schedModal);
+  const pbSync=()=>{ const b=$("pbSave"); if(!b) return;
+    const p=$("pbPresent").value, l=$("pbLate").value;
+    const n=(($("pbName")||{}).value||"").trim();
+    b.disabled=!(p&&l&&p<=l&&(isEdit||n)); };
+  schedModalBody.addEventListener("input",pbSync);
+  schedModalBody.addEventListener("change",pbSync);
+  pbSync();
   /* Edit-mode trash (user order): the board × flow, reused verbatim
      (confirm + API + batch guard live in onCbDel — nothing new). */
   const pbDel=$("pbDel");
@@ -3475,19 +4535,28 @@ $("holidayBody").addEventListener("click",async(e)=>{
 function openHolidayEdit(startKey){
   const h=Holidays.find(x=>x.start===startKey); if(!h) return;
     try{ closeModal($("holidayViewModal")); }catch(e){}
-    $("holidayModalBody").innerHTML=`<div class="form-grid">
-      <div class="form-field full"><label>Name</label><input id="holidayName" value="${esc(h.name)}"></div>
-      <div class="form-field"><label>Start date</label><input type="date" id="holidayStart" value="${esc(h.start)}"></div>
-      <div class="form-field"><label>End date</label><input type="date" id="holidayEnd" value="${esc(h.end)}"></div>
-      <div class="form-field"><label>Start time</label><input type="time" id="holidayStartTime" value="${esc(h.startTime||"")}"></div>
-      <div class="form-field"><label>End time</label><input type="time" id="holidayEndTime" value="${esc(h.endTime||"")}"></div>
-      <div class="form-field"><label>Type</label><select id="holidayType"><option value="holiday" ${h.type==="holiday"?"selected":""}>Holiday</option><option value="vacation" ${h.type==="vacation"?"selected":""}>Vacation</option><option value="exam" ${h.type==="exam"?"selected":""}>Exam day (working)</option></select></div>
-      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="holidayDel" aria-label="Delete this holiday">${TRASH_ICON}</button><span class="form-pair"><button class="btn" id="holidayCancel">Cancel</button><button class="btn primary" id="holidaySave">Save holiday</button></span></div>
-      <div class="inline-error" id="holidayErr" style="display:none"></div></div>`;
+    $("holidayModalTitle").textContent="Edit holiday";
+    $("holidayModalBody").innerHTML=`<div class="g2">
+      <div class="fld w"><label>Name</label><input id="holidayName" autocomplete="off" spellcheck="false" value="${esc(h.name)}"></div>
+      <div class="fld"><label>Start date</label><input type="date" id="holidayStart" value="${esc(h.start)}"></div>
+      <div class="fld"><label>End date</label><input type="date" id="holidayEnd" value="${esc(h.end)}"></div>
+      <div class="fld"><label>Start time</label><input type="time" id="holidayStartTime" value="${esc(h.startTime||"")}"></div>
+      <div class="fld"><label>End time</label><input type="time" id="holidayEndTime" value="${esc(h.endTime||"")}"></div>
+      <div class="fld w"><label>Type</label><div class="seg" id="holidayTypeRow" role="radiogroup"></div><select id="holidayType" data-gsel="1" class="dlg-hidden"><option value="holiday" ${h.type==="holiday"?"selected":""}>Holiday</option><option value="vacation" ${h.type==="vacation"?"selected":""}>Vacation</option><option value="exam" ${h.type==="exam"?"selected":""}>Exam day</option></select></div>
+      <div class="ft"><button type="button" class="del" id="holidayDel" aria-label="Delete this holiday">Delete</button><span class="form-pair"><button id="holidayCancel">Cancel</button><button class="go" id="holidaySave">Save holiday</button></span></div>
+      <div class="err" id="holidayErr" style="display:none"></div></div>`;
     const origStart=h.start;
     Holidays=Holidays.filter(x=>x.start!==origStart);
     openModal(holidayModal);
     $("holidayCancel").onclick=()=>{ Holidays.push(h); closeModal(holidayModal); renderHolidays(); renderCalendarMonth(); };
+    dlgPaintRow($("holidayType"),$("holidayTypeRow"));
+    const holSyncE=()=>{ const b=$("holidaySave"); if(!b) return;
+      const n=$("holidayName").value.trim(), s=$("holidayStart").value, e=$("holidayEnd").value||s;
+      const stm=$("holidayStartTime").value, etm=$("holidayEndTime").value;
+      b.disabled=!(n&&!n.includes("@")&&s&&e&&s<=e&&(!stm||isHHMM(stm))&&(!etm||isHHMM(etm))); };
+    $("holidayModalBody").addEventListener("input",holSyncE);
+    $("holidayModalBody").addEventListener("change",holSyncE);
+    holSyncE();
     /* Edit-mode trash (user order): the record is already staged out —
        delete just commits that (board-× parity: direct, no confirm). */
     $("holidayDel").onclick=async()=>{ closeModal(holidayModal); if(await persistCalendar()){ renderHolidays(); renderCbTables(); renderCalendarMonth(); } };
@@ -3512,18 +4581,27 @@ $("overrideBody").addEventListener("click",async(e)=>{
 function openOverrideEdit(dateKey){
   const o=Overrides.find(x=>x.date===dateKey); if(!o) return;
     try{ closeModal($("overrideViewModal")); }catch(e){}
-    $("overrideModalBody").innerHTML=`<div class="form-grid">
-      <div class="form-field"><label>Date</label><input type="date" id="overrideDate" value="${esc(o.date)}"></div>
-      <div class="form-field"><label>Becomes</label><select id="overrideWorking"><option value="1" ${o.isWorking?"selected":""}>Working day</option><option value="0" ${!o.isWorking?"selected":""}>Holiday</option></select></div>
-      <div class="form-field"><label>Start time</label><input type="time" id="overrideStartTime" value="${esc(o.startTime||"")}"></div>
-      <div class="form-field"><label>End time</label><input type="time" id="overrideEndTime" value="${esc(o.endTime||"")}"></div>
-      <div class="form-field full"><label>Note</label><input id="overrideNote" value="${esc(o.note)}"></div>
-      <div class="form-field full form-actions" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="overrideDel" aria-label="Delete this override">${TRASH_ICON}</button><span class="form-pair"><button class="btn" id="overrideCancel">Cancel</button><button class="btn primary" id="overrideSave">Save override</button></span></div>
-      <div class="inline-error" id="overrideErr" style="display:none"></div></div>`;
+    $("overrideModalTitle").textContent="Edit override";
+    $("overrideModalBody").innerHTML=`<div class="g2">
+      <div class="fld"><label>Date</label><input type="date" id="overrideDate" value="${esc(o.date)}"></div>
+      <div class="fld"><label>Becomes</label><div class="seg two" id="overrideWorkingRow" role="radiogroup"></div><select id="overrideWorking" data-gsel="1" class="dlg-hidden"><option value="1" ${o.isWorking?"selected":""}>Working day</option><option value="0" ${!o.isWorking?"selected":""}>Holiday</option></select></div>
+      <div class="fld"><label>Start time</label><input type="time" id="overrideStartTime" value="${esc(o.startTime||"")}"></div>
+      <div class="fld"><label>End time</label><input type="time" id="overrideEndTime" value="${esc(o.endTime||"")}"></div>
+      <div class="fld w"><label>Note</label><input id="overrideNote" value="${esc(o.note)}"></div>
+      <div class="ft"><button type="button" class="del" id="overrideDel" aria-label="Delete this override">Delete</button><span class="form-pair"><button id="overrideCancel">Cancel</button><button class="go" id="overrideSave">Save override</button></span></div>
+      <div class="err" id="overrideErr" style="display:none"></div></div>`;
     const orig=o.date;
     Overrides=Overrides.filter(x=>x.date!==orig);
     openModal(overrideModal);
     $("overrideCancel").onclick=()=>{ Overrides.push(o); closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); };
+    dlgPaintRow($("overrideWorking"),$("overrideWorkingRow"));
+    const ovrSyncE=()=>{ const b=$("overrideSave"); if(!b) return;
+      const d=$("overrideDate").value, n=$("overrideNote").value.trim();
+      const stm=$("overrideStartTime").value, etm=$("overrideEndTime").value;
+      b.disabled=!(d&&!n.includes("@")&&(!stm||isHHMM(stm))&&(!etm||isHHMM(etm))); };
+    $("overrideModalBody").addEventListener("input",ovrSyncE);
+    $("overrideModalBody").addEventListener("change",ovrSyncE);
+    ovrSyncE();
     /* Edit-mode trash (user order): staged-out record commits deleted. */
     $("overrideDel").onclick=async()=>{ closeModal(overrideModal); if(await persistCalendar()){ renderOverrides(); renderCbTables(); renderCalendarMonth(); } };
     $("overrideSave").onclick=async()=>{
@@ -3538,85 +4616,10 @@ function openOverrideEdit(dateKey){
       if(await persistCalendar()){ closeModal(overrideModal); renderOverrides(); renderCalendarMonth(); } else Overrides.push(o);
     };
 }
-/* Class tiles + inline month editor: tiles live in #cubeGrid, day
-   toggles in the month headers, cutoffs in the strip below the grid.
-   Tile select clears staged edits and repaints for the new item. */
-async function onCubesClick(e){
-  const delBtn = e.target.closest("[data-del-class]");
-  if(delBtn){
-    const c = delBtn.dataset.delClass;
-    if(!(await glassConfirm(`Remove class "${c}"?`,{title:"Remove class",okText:"Remove",danger:true}))) return;
-    try{
-      const next = Classes.filter(x=>x!==c);
-      await api("/api/settings",{method:"POST",body:JSON.stringify({classes:next})});
-      await loadClassesHolidaysSettings();
-      renderAll();
-    }catch(err){ await glassAlert("Failed to remove class: "+err.message); }
-    return;
-  }
-  /* Batch remove mirrors class remove exactly: same confirm, same
-     settings POST ({batches}), same refresh. Names carried only by
-     student records live outside the Batches list and cannot be
-     removed here — say so instead of silently no-opping. */
-  const delBatch = e.target.closest("[data-del-batch]");
-  if(delBatch){
-    const bName = delBatch.dataset.delBatch;
-    if(!(await glassConfirm(`Remove batch "${bName}"?`,{title:"Remove batch",okText:"Remove",danger:true}))) return;
-    try{
-      if(!(Batches||[]).some(b=>b===bName)){ await glassAlert(`"${bName}" is carried by student records and cannot be removed here.`); return; }
-      const next = (Batches||[]).filter(x=>x!==bName);
-      await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
-      await loadClassesHolidaysSettings();
-      renderAll();
-    }catch(err){ await glassAlert("Failed to remove batch: "+err.message); }
-    return;
-  }
-  /* Tile select: same context sync as the row jumps — staged edits
-     clear, then the inline month editor repaints for the new item. */
-  const tile = e.target.closest("#cubeGrid .class-cube");
-  if(tile){
-    selKind=tile.dataset.kind||"class"; selName=tile.dataset.cube; syncCsCtx();
-    pendingDays={};
-    const sel=$("calClassSelect");
-    if(sel){
-      sel.value = selKind==="class"?`class:${selName}`:`batch:${selName}`;
-      if(selKind==="class"&&!sel.value) sel.value=selName;
-      renderWeekly();
-    }
-    syncMonthEditor(); return;
-  }
-}
-if(classCubes) classCubes.addEventListener("click", onCubesClick);
-if($("calendarGrid")) $("calendarGrid").addEventListener("click", onMeDayClick);
 wireSchedEditor();
-/* Batch rows retired from the class pane (batches live in their
-   own left stack) — selection travels through the tiles only. */
-$("addClassBtn").onclick=async()=>{
-  const input=$("newClassName"), name=input.value.trim();
-  if(!name) return;
-  if(Classes.some(c=>c.toLowerCase()===name.toLowerCase())){ await glassAlert("That class already exists."); return; }
-  try{ await api("/api/settings",{method:"POST",body:JSON.stringify({classes:Classes.concat(name)})}); input.value=""; await loadClassesHolidaysSettings(); renderAll(); }
-  catch(e){ await glassAlert("Failed to add class: "+e.message); }
-};
-/* Left-list view tabs + left-bar batch add. Static nodes â€” wire once. */
+/* Left-list view tabs + left-bar batch add. Static nodes — wire once. */
 if($("cubeTabClasses")) $("cubeTabClasses").onclick=()=>setCubeView("class");
 if($("cubeTabBatches")) $("cubeTabBatches").onclick=()=>setCubeView("batch");
-if($("addBatchBtn")) $("addBatchBtn").onclick=()=>submitBatchName($("newBatchName")?$("newBatchName").value:"", $("newBatchName"));
-/* Left-bar batch add: single persist path â€” same validators,
-   same POST, same refresh. New names surface in the BATCHES tab
-   until a student carries them into a class. */
-async function submitBatchName(name, inputEl){
-  name = (name||"").trim();
-  if(!name) return;
-  if((Batches||[]).some(b=>b.toLowerCase()===name.toLowerCase())){ await glassAlert("That batch already exists."); return; }
-  try{
-    const next = (Batches||[]).concat(name);
-    await api("/api/settings",{method:"POST",body:JSON.stringify({batches:next})});
-    if(inputEl) inputEl.value="";
-    await loadClassesHolidaysSettings();
-    renderAll();
-  }catch(e){ await glassAlert("Failed to add batch: "+e.message); }
-}
 $("settingsSaveBtn").onclick=async()=>{
   try{
     const start=$("setAttendanceStart")?$("setAttendanceStart").value:"";
@@ -3714,8 +4717,8 @@ function renderDeviceCodeBox(df){
 }
 
 /* Uniform 3-row service rows (user order): Row-1 head, Row-2 optional
-   detail, Row-3 primary/secondary actions. Wiring/IDs untouched — this
-   only swaps the black primary pill onto the state-correct button and
+   detail, Row-3 text actions. Wiring/IDs untouched — this
+   only swaps the state-correct emphasis onto the state-correct button and
    collapses an empty optional detail line. */
 function setPrimary(btn, on){
   if(!btn) return;
@@ -3727,15 +4730,15 @@ function applyDestRowState(){
     const usb = _destStates.usb || {};
     const gdReady = !!gd.authenticated;
     const usbReady = !!(usb.connected && usb.enabled && usb.lastStatus !== "ERROR");
-    // Drive: not-ready -> Pair is the primary; ready -> send is primary.
+    // Drive: not-ready -> Pair is emphasized; ready -> send is emphasized.
     setPrimary($("gdriveDeviceStartBtn"), !gdReady);
     setPrimary($("gdriveBackupRowBtn"), gdReady);
-    // Telegram: primary is always the send action (user: actions always visible).
+    // Telegram: text actions always visible (user: actions always visible).
     setPrimary($("telegramBackupNowBtn"), true);
     // USB: not-ready -> Check USB is the primary; ready -> backup is primary.
     setPrimary($("usbRefreshBtn"), !usbReady);
     setPrimary($("usbBackupNowBtn"), usbReady);
-    // USB Row-2 collapses when the drive is not ready — the status pill
+    // USB Row-2 collapses when the drive is not ready — the status line
     // + Check USB are the one message (the line always carries static
     // Mount/Space text, so an emptiness check could never fire).
     const usbLine = $("usbDetailLine");
@@ -3841,6 +4844,7 @@ let _schedEnabledState = true;
 function paintSchedToggle(){
   const b = $("backupSchedToggleBtn");
   if(b) b.textContent = _schedEnabledState ? "ON" : "OFF";
+  if(b) b.classList.toggle("on", !!_schedEnabledState);
 }
 function renderUnifiedSchedule(sched){
   _schedEnabledState = sched.enabled !== false;
@@ -3856,18 +4860,42 @@ function renderUnifiedSchedule(sched){
 }
 
 function updateUnifiedScheduleVisibility(){
-  const freq = $("backupSchedFreq") ? $("backupSchedFreq").value : "daily";
-  const intervalWrap = $("backupSchedIntervalWrap");
-  const daysWrap = $("backupSchedDaysWrap");
-  /* Interval slot reserves like the days strip (user order): switching
-     Frequency never moves the buttons below. */
-  if(intervalWrap) intervalWrap.style.visibility = (freq === "interval") ? "visible" : "hidden";
-  /* Days strip reserves its slot (user order): visibility only, so
-     switching Frequency never moves the buttons below. */
-  if(daysWrap){
-    const on = (freq === "weekdays");
-    daysWrap.style.visibility = on ? "visible" : "hidden";
-    try{ daysWrap.setAttribute("aria-hidden", on ? "false" : "true"); }catch(e){}
+  /* No frequency switch on screen (user order): Time, Interval and
+     Weekdays are always printed together. The hidden select only
+     carries the derived mode for the save payload. */
+  const sel=$("backupSchedFreq");
+  if(sel) sel.value=deriveSchedFreq();
+  const intervalWrap=$("backupSchedIntervalWrap");
+  if(intervalWrap){ intervalWrap.style.display=""; intervalWrap.style.visibility="visible"; }
+  const daysWrap=$("backupSchedDaysWrap");
+  if(daysWrap){ daysWrap.style.display=""; daysWrap.style.visibility="visible"; try{daysWrap.setAttribute("aria-hidden","false");}catch(e){} }
+  try{ paintSchedMode(); }catch(e){}
+}
+/* Mode follows the fields: a narrowed week wins, else an interval
+   above 1 day, else daily. */
+function deriveSchedFreq(){
+  const all=[0,1,2,3,4,5,6].every(d=>_unifiedActiveWeekdays.includes(d));
+  if(!all) return "weekdays";
+  const iv=parseInt((($("backupSchedInterval")||{}).value||"1"),10)||1;
+  return iv>1?"interval":"daily";
+}
+/* Plain-language readout of the derived mode (user order): one fixed
+   line under the fields, repainted on every edit. */
+function paintSchedMode(){
+  const el=$("backupSchedMode"); if(!el) return;
+  const raw=(($("backupSchedTime")||{}).value||"18:30");
+  const m=/^(\d{1,2}):(\d{2})/.exec(raw||""); let t=raw||"18:30";
+  if(m){ let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12; t=h+":"+m[2]+" "+ap; }
+  const f=deriveSchedFreq();
+  if(f==="weekdays"){
+    const names={1:"Mon",2:"Tue",3:"Wed",4:"Thu",5:"Fri",6:"Sat",0:"Sun"};
+    const days=[1,2,3,4,5,6,0].filter(d=>_unifiedActiveWeekdays.includes(d)).map(d=>names[d]);
+    el.textContent="Runs "+days.join(", ")+" at "+t;
+  } else if(f==="interval"){
+    const iv=parseInt((($("backupSchedInterval")||{}).value||"1"),10)||1;
+    el.textContent="Runs every "+iv+" day"+(iv===1?"":"s")+" at "+t;
+  } else {
+    el.textContent="Runs daily at "+t;
   }
 }
 
@@ -3878,16 +4906,15 @@ function updateUnifiedWeekdayButtons(){
   btns.forEach(btn => {
     const day = parseInt(btn.dataset.day, 10);
     if(_unifiedActiveWeekdays.includes(day)){
-      btn.classList.add("primary");
+      btn.classList.add("on");
     } else {
-      btn.classList.remove("primary");
+      btn.classList.remove("on");
     }
   });
 }
 
 async function loadBackupManagerStatus(){
   if(!$("backupManagerCard")) return;
-  try{ if(window.__ensureGsel) window.__ensureGsel($("backupSchedFreq")); }catch(e){}
   try{
     const [gdRes, tgRes, usbRes] = await Promise.allSettled([
       api("/api/backup/gdrive/status"),
@@ -3909,14 +4936,14 @@ async function loadBackupManagerStatus(){
     const gdActionBox = $("gdriveActionBox");
     if(gdStatus){
       if(!gd){
-        gdStatus.textContent = "Offline"; gdStatus.className = "pill";
+        gdStatus.textContent = "Offline"; gdStatus.className = "";
         if(gdActionBox) gdActionBox.style.display = "none";
       } else if(!gd.enabled){
-        gdStatus.textContent = "Disabled"; gdStatus.className = "pill";
+        gdStatus.textContent = "Disabled"; gdStatus.className = "";
         if(gdAuthBox) gdAuthBox.style.display = "none";
         if(gdActionBox) gdActionBox.style.display = "none";
       } else if(!gd.configured){
-        gdStatus.textContent = "Setup needed"; gdStatus.className = "pill";
+        gdStatus.textContent = "Setup needed"; gdStatus.className = "";
         if(gdActionBox) gdActionBox.style.display = "none";
         // Unconfigured: pairing is the only way forward — the Pair
         // row visibility resolves in the shared paint line below.
@@ -3925,7 +4952,7 @@ async function loadBackupManagerStatus(){
         renderDeviceCodeBox(gd.deviceFlow || null);
         if(gd.deviceFlow && !_gdrivePollTimer) startGDrivePolling(gd.deviceFlow.interval || 5);
       } else if(!gd.authenticated){
-        gdStatus.textContent = "Not connected"; gdStatus.className = "pill danger";
+        gdStatus.textContent = "Not connected"; gdStatus.className = "bad";
         if(gdActionBox) gdActionBox.style.display = "none";
         if(gd.deviceFlow){
           if(gdAuthBox) gdAuthBox.style.display = "block";
@@ -3936,7 +4963,7 @@ async function loadBackupManagerStatus(){
           renderDeviceCodeBox(null);
         }
       } else {
-        gdStatus.textContent = "Ready"; gdStatus.className = "pill active";
+        gdStatus.textContent = "Ready"; gdStatus.className = "ok";
         if(gdAuthBox) gdAuthBox.style.display = "none";
         if(gdActionBox){
           gdActionBox.style.display = "block";
@@ -3956,15 +4983,15 @@ async function loadBackupManagerStatus(){
     const tgStatus = $("destStatusTelegram");
     if(tgStatus){
       if(!tg){
-        tgStatus.textContent = "Offline"; tgStatus.className = "pill";
+        tgStatus.textContent = "Offline"; tgStatus.className = "";
       } else if(!tg.enabled){
-        tgStatus.textContent = "Disabled"; tgStatus.className = "pill";
+        tgStatus.textContent = "Disabled"; tgStatus.className = "";
       } else if(!tg.configured){
-        tgStatus.textContent = "Not configured"; tgStatus.className = "pill";
+        tgStatus.textContent = "Not configured"; tgStatus.className = "";
       } else if(tg.lastStatus === "ERROR"){
-        tgStatus.textContent = "Error"; tgStatus.className = "pill danger";
+        tgStatus.textContent = "Error"; tgStatus.className = "bad";
       } else {
-        tgStatus.textContent = "Ready"; tgStatus.className = "pill active";
+        tgStatus.textContent = "Ready"; tgStatus.className = "ok";
       }
     }
     if($("telegramChatId")){
@@ -3978,15 +5005,15 @@ async function loadBackupManagerStatus(){
     const usbStatus = $("destStatusUsb");
     if(usbStatus){
       if(!usb){
-        usbStatus.textContent = "Offline"; usbStatus.className = "pill";
+        usbStatus.textContent = "Offline"; usbStatus.className = "";
       } else if(!usb.connected){
-        usbStatus.textContent = "Not connected"; usbStatus.className = "pill danger";
+        usbStatus.textContent = "Not connected"; usbStatus.className = "bad";
       } else if(!usb.enabled){
-        usbStatus.textContent = "Disabled"; usbStatus.className = "pill";
+        usbStatus.textContent = "Disabled"; usbStatus.className = "";
       } else if(usb.lastStatus === "ERROR"){
-        usbStatus.textContent = "Error"; usbStatus.className = "pill danger";
+        usbStatus.textContent = "Error"; usbStatus.className = "bad";
       } else {
-        usbStatus.textContent = "Ready"; usbStatus.className = "pill active";
+        usbStatus.textContent = "Ready"; usbStatus.className = "ok";
       }
     }
     if($("usbMountPath")){
@@ -4041,7 +5068,23 @@ if($("backupSchedDays")) $("backupSchedDays").addEventListener("click", (e) => {
     _unifiedActiveWeekdays.push(day);
   }
   updateUnifiedWeekdayButtons();
+  try{ updateUnifiedScheduleVisibility(); }catch(e){}
 });
+
+if($("backupSchedInterval")) $("backupSchedInterval").addEventListener("input", ()=>{ try{ updateUnifiedScheduleVisibility(); }catch(e){} });
+/* Interval steppers (user order): the native spinner arrows are too
+   small — big −/+ boxes drive the same input (1–30 clamped) and fire
+   input so the mode derivation runs. */
+function stepSchedInterval(d){
+  const inp=$("backupSchedInterval"); if(!inp) return;
+  const cur=parseInt(inp.value,10)||1;
+  inp.value=Math.min(30,Math.max(1,cur+d));
+  try{ inp.dispatchEvent(new Event("input",{bubbles:true})); }catch(e){}
+  try{ updateUnifiedScheduleVisibility(); }catch(e){}
+}
+holdRepeat($("intervalMinus"),()=>stepSchedInterval(-1));
+holdRepeat($("intervalPlus"),()=>stepSchedInterval(1));
+if($("backupSchedTime")) $("backupSchedTime").addEventListener("input", ()=>{ try{ paintSchedMode(); }catch(e){} });
 
 if($("backupSchedSaveBtn")) $("backupSchedSaveBtn").onclick = async () => {
   const btn = $("backupSchedSaveBtn");
@@ -4095,6 +5138,7 @@ function paintDestToggles(){
     const st = (typeof _destStates === "object" && _destStates) ? _destStates[b.dataset.dest] : null;
     const on = !st || st.enabled !== false;
     b.textContent = on ? "ON" : "OFF";
+    try{ b.classList.toggle("on", on); }catch(e){}
   });
 }
 document.querySelectorAll('#pane-backup .dest-toggle[data-dest]').forEach(b=>{
@@ -4105,6 +5149,7 @@ document.querySelectorAll('#pane-backup .dest-toggle[data-dest]').forEach(b=>{
     try{
       await api(_DEST_TOGGLE_URL[dest], {method: "POST", body: JSON.stringify({enabled: want})});
       b.textContent = want ? "ON" : "OFF";
+      try{ b.classList.toggle("on", !!want); }catch(e){}
     }catch(e){
       await glassAlert("Failed to toggle: " + (e.message || "error"));
     }
@@ -4168,6 +5213,17 @@ if($("backupNowBtn")) $("backupNowBtn").onclick = async () => {
   btn.textContent = "Back Up Now";
 };
 
+// Instant audit jumps (user order): the audit list is long and now lives in
+// its own bounded window, so these jump the LIST (Top -> 0, Bottom -> end),
+// not the surrounding section. No animation — the wall allows zero motion.
+function bkAuditJump(toBottom){
+  const c=$("auditBody"); if(!c) return;
+  c.scrollTop = toBottom ? c.scrollHeight : 0;
+}
+if($("bkJumpTop")) $("bkJumpTop").onclick=()=>bkAuditJump(false);
+if($("bkJumpBottom")) $("bkJumpBottom").onclick=()=>bkAuditJump(true);
+document.querySelectorAll('[data-bk-jump]').forEach(b=>{ b.onclick=()=>bkAuditJump(b.getAttribute("data-bk-jump")==="bottom"); });
+
 // Refresh Button
 if($("backupRefreshBtn")) $("backupRefreshBtn").onclick = async () => {
   const btn = $("backupRefreshBtn");
@@ -4209,19 +5265,18 @@ async function loadGDriveList() {
     const res = await api("/api/backup/gdrive/list");
     const files = (res && res.files) || [];
     if(!files.length) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--ink-3);padding:6px;font-size:10px">No cloud snapshots found</td></tr>';
+      tbody.innerHTML = '<p class="sub" style="padding:6px 0">No cloud snapshots found</p>';
       return;
     }
     tbody.innerHTML = files.map(f => {
       const sz = f.size ? `${(f.size / 1024).toFixed(1)} KB` : "";
-      return `<tr>
-        <td style="font-size:10px;padding:3px 6px">${esc(f.name)}</td>
-        <td style="font-size:10px;color:var(--ink-2);padding:3px 6px">${sz}</td>
-        <td style="padding:3px 6px"><button class="btn" style="padding:1px 6px;font-size:9px" data-gdrive-restore="${esc(f.id)}" data-gdrive-name="${esc(f.name)}">Restore</button></td>
-      </tr>`;
+      return `<div class="vrow small">
+        <div><span>${esc(f.name)}</span><small>${sz}</small></div>
+        <button data-gdrive-restore="${esc(f.id)}" data-gdrive-name="${esc(f.name)}">Restore</button>
+      </div>`;
     }).join("");
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--danger);padding:6px;font-size:10px">Failed to list: ${esc(e.message || "error")}</td></tr>`;
+    tbody.innerHTML = `<p class="sub" style="color:var(--red);padding:6px 0">Failed to list: ${esc(e.message || "error")}</p>`;
   }
 }
 
@@ -4349,6 +5404,7 @@ function checkAdminRoute(){
       btn.classList.add("active");
       currentTab="backup";
       updateTabs();
+      scrollToPane("backup");
     }
   }
 }
@@ -4380,14 +5436,134 @@ detailScroll.addEventListener("click",(e)=>{
   else if(action==="delete") deleteStudent(id);
   else if(action==="reactivate") reactivateStudent(id);
   else if(action==="print"){
+    /* Print-only markup (user order): the profile used to clone
+       #detailScroll's live DOM, so the interactive panel landed on paper
+       unstyled — native selects visible, the 31-column timeline collapsed
+       into one run of text, legend spans stacked. Built from the same
+       data instead, using the print vocabulary printHTML already styles. */
     const s=Students.find(x=>x.id===id); if(!s) return;
-    const card=document.querySelector('#detailScroll .detail-card');
-    const hist=document.querySelector('#detailScroll .table-wrap');
-    const hdr=`<h1>${esc(s.name)} — ${esc(s.roll)} — ${esc(s.class)}${s.batch?` — ${esc(s.batch)}`:""}</h1><p style="font-size:11px;color:#6B6B6B">${esc(s.phone||"")} — ${esc(s.address||"")}</p>`;
-    printHTML(hdr+(card?card.outerHTML:"")+(hist?hist.outerHTML:""));
+    const _fd=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?(+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]:(iso||"—"); };
+    const _ft=t=>{ if(t==="23:59:59"||t==="00:00:00") return "—"; const m=/^(\d{1,2}):(\d{2})/.exec(t||""); if(!m) return "—"; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12; return h+":"+m[2]+" "+ap; };
+    /* _stName is local to renderStudentDetail — define the same mapping here. */
+    const _psName=st=>st==="Not Scheduled"?"Not scheduled":st;
+    /* Fingerprint shown in the table (from the records) is the same source the
+       card uses, so the two can never disagree. */
+    const _hist=(AllEvents||[]).filter(a=>a.studentId===s.id);
+    const _recs=_hist.slice(-40).reverse();
+    const generated=new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+    const _field=(l,v)=>`<div class="detail-field"><label>${esc(l)}</label><span>${esc(v||"—")}</span></div>`;
+    const _fid=s.fingerId!=null?"F-"+s.fingerId:(_recs.find(a=>a.fingerId!=null)?"F-"+_recs.find(a=>a.fingerId!=null).fingerId:"");
+    const hdr=`<div class="report-header">
+        <h1>Student profile</h1>
+        <div class="report-subtitle">
+          <div><strong>${esc(s.name)}</strong> &nbsp;·&nbsp; Roll ${esc(s.roll||"—")} &nbsp;·&nbsp; ${esc(s.class||"—")}${s.batch?" &nbsp;·&nbsp; "+esc(s.batch):""}</div>
+          <div><span class="report-meta-tag">Generated: ${esc(generated)}</span></div>
+        </div>
+      </div>`;
+    /* Minimal: plain field pairs, no photo block, no stat row — identity then
+       records. */
+    const fields=`<div class="report-section">
+        <div class="detail-grid">
+          ${_field("Status", s.active===false?"Inactive":"Active")}
+          ${_field("Fingerprint", _fid)}
+          ${_field("Phone", s.phone)}
+          ${_field("Parent", s.parent)}
+          ${_field("Section", s.section)}
+          ${_field("Address", s.address)}
+        </div>
+      </div>`;
+    const tbl=_recs.length?`<div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Fingerprint</th></tr></thead>
+        <tbody>${_recs.map(a=>`<tr><td>${esc(_fd(a.date))}</td><td>${esc(_ft(a.time))}</td><td>${esc(_psName(a.status))}</td><td>${esc(a.fingerId!=null?"F-"+a.fingerId:"—")}</td></tr>`).join("")}</tbody>
+      </table></div>`
+      :`<div class="empty">No attendance records for this student.</div>`;
+    printHTML(hdr+fields+tbl, `${s.name} — Student profile`);
+  }
+  else if(action==="refresh"){ loadHistory().then(()=>{ try{ renderStudentDetail(selectedStudentId); }catch(e){} }); }
+  else if(action==="export"){ exportStudentCSV(id); }
+});
+detailScroll.addEventListener("click",(e)=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.id==="sdPrev"||b.id==="sdNext"){
+    if(!sdMonth){ const _t3=new Date(); sdMonth=new Date(_t3.getFullYear(),_t3.getMonth(),1); }
+    sdMonth=new Date(sdMonth.getFullYear(), sdMonth.getMonth()+(b.id==="sdNext"?1:-1), 1);
+    sdMode="month";
+    try{ _dtCloseOpts=null; closeDtPops(); }catch(e){}
+    try{ renderStudentDetail(selectedStudentId); }catch(e){}
+  } else if(b.id==="sdTimeToggle"){ sdNewest=!sdNewest; try{ renderStudentDetail(selectedStudentId); }catch(e){} }
+});
+/* Month arrows hold to repeat (user order): a tap steps one month, holding
+   runs through the months. Delegated on detailScroll because
+   renderStudentDetail recreates #sdPrev/#sdNext on every step — a direct
+   holdRepeat would lose its capture with the discarded node. Slower floor
+   (~110ms) than the number steppers: each tick rebuilds the whole detail
+   panel, so this stays smooth without hammering the Pi. */
+if(detailScroll) holdRepeatDelegate(detailScroll,
+  (e)=>{ const b=e.target&&e.target.closest?e.target.closest("button"):null; return (b&&(b.id==="sdPrev"||b.id==="sdNext"))?b:null; },
+  (t)=>{
+    if(!t) return;
+    if(!sdMonth){ const _t3=new Date(); sdMonth=new Date(_t3.getFullYear(),_t3.getMonth(),1); }
+    sdMonth=new Date(sdMonth.getFullYear(), sdMonth.getMonth()+(t.id==="sdNext"?1:-1), 1);
+    sdMode="month";
+    try{ _dtCloseOpts=null; closeDtPops(); }catch(e){}
+    try{ renderStudentDetail(selectedStudentId); }catch(e){}
+  },
+  {floorMs:110});
+detailScroll.addEventListener("change",(e)=>{
+  if(e.target && e.target.id==="sdStatusFilter"){ sdStatus=e.target.value||""; try{ renderStudentDetail(selectedStudentId); }catch(e){} return; }
+  if(e.target && e.target.id==="sdDatePreset"){
+    const _prev=sdDatePreset;
+    sdDatePreset=e.target.value;
+    if(sdDatePreset==="current"){
+      const _now=new Date(); sdMonth=new Date(_now.getFullYear(),_now.getMonth(),1); sdMode="month"; try{ _dtCloseOpts=null; closeDtPops(); }catch(e){} try{ renderStudentDetail(selectedStudentId); }catch(e){} return;
+    }
+    if(sdDatePreset==="custom"){
+      openSdCustomRange(_prev);
+    }else{
+      sdMode="range";
+      try{ _dtCloseOpts=null; closeDtPops(); }catch(e){}
+      try{ renderStudentDetail(selectedStudentId); }catch(e){}
+    }
   }
 });
-studentListEl.addEventListener("click",(e)=>{ const row=e.target.closest(".student-row"); if(!row) return; const id=parseInt(row.dataset.id); if(id) selectStudent(id); });
+function openSdCustomRange(prev){
+  const _now=new Date(); const _today=_iso(_now.getFullYear(),_now.getMonth()+1,_now.getDate());
+  if(!sdCustomFrom) sdCustomFrom=_today;
+  if(!sdCustomTo) sdCustomTo=_today;
+  let _applied=false;
+  const _anchorEl=(document.querySelector('#sdDatePreset') && document.querySelector('#sdDatePreset').closest('.gsel') && document.querySelector('#sdDatePreset').closest('.gsel').querySelector('.gsel-btn')) || document.getElementById('sdDatePreset');
+  /* Capture the trigger rect NOW while the DOM is live. openRangePop()
+     closes any existing popup first, and that close can re-render the
+     detail panel (detaching this anchor) — measuring later yields a
+     0,0 rect and drops the calendar at the top-left corner. */
+  let _rect=null;
+  try{ const _rr=_anchorEl&&_anchorEl.getBoundingClientRect?_anchorEl.getBoundingClientRect():null; if(_rr&&(_rr.width>0||_rr.height>0)) _rect={left:_rr.left,top:_rr.top,right:_rr.right,bottom:_rr.bottom,width:_rr.width,height:_rr.height}; }catch(_){}
+  /* Discard any pending cancel from a previous custom-range popup
+     BEFORE opening: letting it fire would revert sdDatePreset and
+     re-render (detaching the anchor) mid-open. */
+  try{ _dtCloseOpts=null; closeDtPops(); }catch(_){}
+  openRangePop(_anchorEl,{key:"R:sdCustom",_rect:_rect,from:sdCustomFrom,to:sdCustomTo,onApply:(f,t)=>{ sdCustomFrom=f; sdCustomTo=t; sdDatePreset="custom"; sdMode="range"; _applied=true; try{ renderStudentDetail(selectedStudentId); }catch(_){}} ,onClear:()=>{ sdCustomFrom=""; sdCustomTo=""; } ,onCancel:()=>{ if(!_applied){ sdDatePreset=prev; try{ renderStudentDetail(selectedStudentId); }catch(_){} } }});
+}
+/* Re-pick safety: a native select fires change only when its value
+   CHANGES, so re-picking "Custom range" while it is already selected
+   (after Apply, or after returning from another section) opens nothing.
+   Catch that option click directly. The key guard skips it when the
+   change path already opened the calendar. */
+document.addEventListener("click",(e)=>{
+  const o=e.target&&e.target.closest?e.target.closest('.gsel-opt[data-v="custom"]'):null;
+  if(!o) return;
+  const pop=o.closest?o.closest('.gsel-pop'):null;
+  if(!pop||pop.dataset.for!=="sdDatePreset") return;
+  if(typeof _dtOpenFor!=="undefined"&&_dtOpenFor==="R:sdCustom") return;
+  openSdCustomRange(sdDatePreset);
+});
+function exportStudentCSV(id){
+  const s=Students.find(x=>x.id===id); if(!s) return;
+  const rows=[["Date","Time","Status","Finger"]];
+  AllEvents.filter(a=>a.studentId===s.id).slice().reverse().forEach(a=>rows.push([a.date||"", a.time||"", a.status||"", a.fingerId!=null?"F-"+a.fingerId:""]));
+  exportCSV(rows, (s.name||"student").replace(/\s+/g,"_")+"_attendance.csv");
+}
+studentListEl.addEventListener("click",(e)=>{ const row=e.target.closest(".ri"); if(!row) return; const id=parseInt(row.dataset.id); if(id) selectStudent(id); });
 searchInput.addEventListener("input",()=>{ Timers.clear("search"); Timers.set("search", setTimeout(renderStudentList,260)); });
 /* Roster-local search writes through the shared input (no input event,
    so the command palette stays shut) and re-renders the list. */
@@ -4489,6 +5665,94 @@ document.addEventListener("pointerdown",(e)=>{
 classFilter.addEventListener("change",renderStudentList);
 if(batchFilter) batchFilter.addEventListener("change",renderStudentList);
 if(studentStatusFilter) studentStatusFilter.addEventListener("change",renderStudentList);
+/* Roster filter row (filters spec): plain text buttons drive the hidden
+   native selects (truth for renderStudentList/renderClassFilters).
+   Selecting applies, closes, and selects the first student in result. */
+let fltOpen="";
+function paintFlt(){
+  const cf=classFilter?classFilter.value:"", bf=batchFilter?batchFilter.value:"", sf=studentStatusFilter?studentStatusFilter.value:"all";
+  const bc=$("fltClass"), bb=$("fltBatch"), ba=$("fltActive"), cl=$("fltClear");
+  if(bc){ bc.textContent=cf||"All classes"; bc.classList.toggle("set",!!cf); }
+  if(bb){ bb.textContent=bf||"All batches"; bb.classList.toggle("set",!!bf); }
+  if(ba){ ba.classList.toggle("set",sf==="active"); }
+  if(cl) cl.classList.toggle("show",!!(cf||bf||sf!=="all"));
+}
+function fltApply(){
+  renderStudentList(); paintFlt();
+  const first=studentListEl.querySelector(".ri");
+  if(first) selectStudent(+first.dataset.id);
+}
+function fltClose(){ fltOpen=""; const pv=$("fltPop"); if(pv) pv.hidden=true; }
+function fltPop(kind,btn){
+  const pv=$("fltPop"); if(!pv) return;
+  if(fltOpen===kind){ fltClose(); return; }
+  fltOpen=kind;
+  const isC=kind==="c";
+  const items=isC?[...(Classes||[])]:[...new Set([...(Batches||[]),...Students.map(s=>s.batch).filter(Boolean)])].sort();
+  const cur=isC?(classFilter&&classFilter.value):(batchFilter&&batchFilter.value);
+  const cnt=v=>Students.filter(s=>isC?s.class===v:(s.batch||"")===v).length;
+  pv.innerHTML=`<div class="pv-head"><h4>${isC?"All classes":"All batches"}</h4><span>${Students.length} total</span></div><div class="pv-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pvSearch" placeholder="Search ${isC?"classes":"batches"}..." aria-label="Search ${isC?"classes":"batches"}" autocomplete="off" spellcheck="false"></div><div class="pv-list">`+
+    `<button class="o${cur?"":" on"}" data-v=""><span>${isC?"All classes":"All batches"}</span><small>${Students.length}</small></button><div class="cap">${isC?"Classes":"Batches"}</div>`+
+    items.map(v=>`<button class="o${cur===v?" on":""}" data-v="${esc(v)}"><span>${esc(v)}</span><small>${cnt(v)}</small></button>`).join("")+`</div>`;
+  const si=pv.querySelector(".pv-search input"); if(si) si.addEventListener("input",()=>{ const q=si.value.trim().toLowerCase(); pv.querySelectorAll(".o").forEach(b=>{ const t=(b.querySelector("span")||b).textContent.toLowerCase(); const hide=!!q && !t.includes(q); b.hidden=hide; b.style.display=hide?"none":""; }); pv.querySelectorAll(".cap").forEach(c=>{ c.hidden=!!q; c.style.display=q?"none":""; }); });
+  pv.style.left=btn.offsetLeft+"px"; pv.style.top=(btn.offsetTop+btn.offsetHeight+8)+"px"; pv.hidden=false;
+  try{ const ro=btn.closest(".ro"); const maxLeft=Math.max(0,(ro?ro.clientWidth:pv.parentElement.clientWidth)-pv.offsetWidth-4); if(btn.offsetLeft>maxLeft) pv.style.left=maxLeft+"px"; }catch(e){}
+  pv.querySelectorAll(".o").forEach(o=>o.onclick=()=>{ const sel=isC?classFilter:batchFilter; if(sel) sel.value=o.dataset.v; fltClose(); fltApply(); });
+}
+if($("fltClass")) $("fltClass").onclick=function(){ fltPop("c",this); };
+if($("fltBatch")) $("fltBatch").onclick=function(){ fltPop("b",this); };
+if($("enrollClose")) $("enrollClose").onclick=()=>{ const m=$("enrollModal"); if(m) m.classList.remove("open"); };
+if($("fltActive")) $("fltActive").onclick=function(){ if(studentStatusFilter) studentStatusFilter.value=(studentStatusFilter.value==="active")?"all":"active"; fltClose(); fltApply(); };
+if($("fltClear")) $("fltClear").onclick=function(){ if(classFilter) classFilter.value=""; if(batchFilter) batchFilter.value=""; if(studentStatusFilter) studentStatusFilter.value="all"; fltClose(); fltApply(); };
+/* Sort by opens on hover like the gsel triggers (user order): the button is
+   a label, not a toggle — entering its wrap opens the menu, leaving the
+   wrap closes it, and the menu's own pick handler dismisses it deliberately.
+   Click-to-toggle is retired here for the same reason it was in enhance():
+   on touch the tap's synthetic mouseleave closed the menu before a choice
+   could land. Keyboard Enter/Space still opens via the keydown handler.
+   Close discipline mirrors the gsel lifecycle exactly (user order): leave
+   only *schedules* a close 160ms out, and the timer re-checks the live
+   pointer position against BOTH rects before hiding — so crossing the 8px
+   gap between trigger and panel can never kill the menu mid-journey. */
+if($("roSort")){ const _roWrap=$("roSort").closest(".ro-sort-wrap"); if(_roWrap){ const _roList=$("roSortMenu");
+  const RO_DELAY=160;
+  let _roTimer=null, _roX=-1, _roY=-1, _roTracked=false;
+  function _roCancel(){ if(_roTimer){ clearTimeout(_roTimer); _roTimer=null; } }
+  function _roIn(x,y){
+    if(!_roWrap||!_roList||_roList.hidden) return false;
+    const wr=_roWrap.getBoundingClientRect();
+    if(x>=wr.left-1&&x<=wr.right+1&&y>=wr.top-1&&y<=wr.bottom+1) return true;
+    const pr=_roList.getBoundingClientRect();
+    if(x>=pr.left-1&&x<=pr.right+1&&y>=pr.top-1&&y<=pr.bottom+1) return true;
+    return false;
+  }
+  function _roTrack(e){ _roX=e.clientX; _roY=e.clientY; }
+  function _roTrackLeave(e){ if(e&&e.relatedTarget===null){ _roX=_roY=-1; } }
+  function _roWatch(on){
+    if(on&&!_roTracked){ _roTracked=true; document.addEventListener("pointermove",_roTrack,true); document.addEventListener("mouseleave",_roTrackLeave,true); }
+    if(!on&&_roTracked){ _roTracked=false; document.removeEventListener("pointermove",_roTrack,true); document.removeEventListener("mouseleave",_roTrackLeave,true); }
+  }
+  function _roOpen(){ if(_roList&&_roList.hidden){ _roList.hidden=false; $("roSort").setAttribute("aria-expanded","true"); _roWatch(true); } }
+  function _roClose(){ _roCancel(); _roWatch(false); if(_roList&&!_roList.hidden){ _roList.hidden=true; $("roSort").setAttribute("aria-expanded","false"); } }
+  function _roSoon(){
+    _roCancel();
+    if(!_roList||_roList.hidden) return;
+    _roTimer=setTimeout(()=>{ _roTimer=null; if(_roIn(_roX,_roY)) return; _roClose(); },RO_DELAY);
+  }
+  _roWrap.addEventListener("mouseenter",()=>{ _roCancel(); _roOpen(); });
+  _roWrap.addEventListener("mouseleave",_roSoon);
+  if(_roList){ _roList.addEventListener("mouseenter",_roCancel); _roList.addEventListener("mouseleave",_roSoon); }
+  $("roSort").addEventListener("focus",_roCancel);
+  $("roSort").addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); _roCancel(); _roOpen(); } });
+} }
+if($("roSortMenu")) $("roSortMenu").addEventListener("click", function(e){ const b=e.target.closest("button[data-sort]"); if(!b) return; sdStudentSort=b.dataset.sort; const lbl=$("roSortLabel"); if(lbl){ const labelMap={name:"Name",name_desc:"Name",roll:"Roll",class:"Class",active:"Active first"}; lbl.textContent=labelMap[sdStudentSort]||"Name"; } const m=$("roSortMenu"); if(m) m.hidden=true; const r=$("roSort"); if(r) r.setAttribute("aria-expanded","false"); renderStudentList(); });
+/* roSortMenu is a raw panel like #fltPop — it was missing the outside-close
+   + Escape handlers, so it stayed open when the user clicked elsewhere. */
+document.addEventListener("click",(e)=>{ const m=$("roSortMenu"); if(!m||m.hidden) return; const inside=e.target&&e.target.closest&&(e.target.closest("#roSortMenu")||e.target.closest("#roSort")); if(!inside){ m.hidden=true; const r=$("roSort"); if(r) r.setAttribute("aria-expanded","false"); } });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ const m=$("roSortMenu"); if(m&&!m.hidden){ m.hidden=true; const r=$("roSort"); if(r) r.setAttribute("aria-expanded","false"); } } });
+document.addEventListener("click",(e)=>{ if(fltOpen&&!(e.target.closest&&((e.target.closest("#fltPop"))||(e.target.closest("#flt"))))) fltClose(); });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"&&fltOpen) fltClose(); });
+try{ paintFlt(); }catch(e){}
 const handleTableClick = (e)=>{
   const corr = e.target.closest("[data-correct]");
   if(corr){
@@ -4497,7 +5761,7 @@ const handleTableClick = (e)=>{
     openCorrection(sid, date, old);
     return;
   }
-  const tr=e.target.closest("tr"); if(!tr) return; const sid=parseInt(tr.dataset.student);
+  const tr=e.target.closest(".ar"); if(!tr) return; const sid=parseInt(tr.dataset.student);
   if(sid){ adminNav.querySelector('[data-tab="students"]').click(); setTimeout(()=>selectStudent(sid),120); }
 };
 if(attTableBody) attTableBody.addEventListener("click", handleTableClick);
@@ -4507,23 +5771,29 @@ function openCorrection(studentId, date, oldStatus){
   if(!s) return;
   const body=$("correctionModalBody");
   if(!body) return;
+  const _dm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(date||"");
+  const _dd=_dm?(+_dm[3])+" "+MONTHS_S[+_dm[2]-1]+" "+_dm[1]:date;
+  const _stTxt={PRESENT:"Present",LATE:"Late",ABSENT:"Absent",NOT_SCHEDULED:"Not scheduled"}[String(oldStatus||"").toUpperCase()]||oldStatus||"—";
   body.innerHTML=`
-    <div class="form-grid">
-      <div class="form-field"><label>Student</label><input value="${esc(s.name)} — ${esc(s.roll)} — ${esc(s.class)}" disabled></div>
-      <div class="form-field"><label>Date</label><input value="${esc(date)}" disabled></div>
-      <div class="form-field"><label>Current status</label><input value="${esc(oldStatus||"—")}" disabled></div>
-      <div class="form-field"><label>New status *</label><select id="corrStatus"><option value="PRESENT">Present</option><option value="LATE">Late</option><option value="ABSENT">Absent</option><option value="NOT_SCHEDULED">Not Scheduled</option></select></div>
-      <div class="form-field full"><label>Reason * (3-300 chars)</label><textarea id="corrReason" placeholder="e.g., Late arrival verified, fingerprint misread"></textarea></div>
-      <div class="form-field full" style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="corrCancel">Cancel</button><button class="btn primary" id="corrSave">Save correction</button></div>
-      <div class="inline-error" id="corrErr" style="display:none"></div>
+    <div>
+      <div class="msum">${esc(s.name)} · ${esc(s.roll)} · ${esc(s.class)}</div>
+      <div class="msum2">${esc(_dd)} · Currently ${esc(_stTxt)}</div>
+      <div class="fld" style="margin-top:28px"><label>New status</label><div class="seg s4" id="corrOpts" role="radiogroup"></div><select id="corrStatus" class="corr-hidden" data-gsel="1" tabindex="-1" aria-hidden="true"><option value="PRESENT">Present</option><option value="LATE">Late</option><option value="ABSENT">Absent</option><option value="NOT_SCHEDULED">Not scheduled</option></select></div>
+      <div class="fld" style="margin-top:28px"><label for="corrReason">Reason</label><textarea id="corrReason" rows="3" maxlength="300" placeholder="e.g. Arrived late, fingerprint misread"></textarea><p class="cnt" id="corrCount">0 / 300</p></div>
+      <div class="ft"><button id="corrCancel">Cancel</button><button class="go" id="corrSave" disabled>Save correction</button></div>
+      <div class="err" id="corrErr" style="display:none"></div>
     </div>`;
   // preselect oldStatus if matches
   try{ const sel=$("corrStatus"); if(sel && oldStatus) { const up=String(oldStatus).toUpperCase(); for(let o of sel.options){ if(o.value===up) sel.value=o.value; } } }catch(e){}
+  /* Plain-text status options, driven by the same select value the
+     save handler reads. The native select stays hidden (no gsel
+     enhancement here); the option row mirrors + writes its value. */
+  const _cs2=$("corrStatus"), _base=_cs2?_cs2.value:"", _box=$("corrOpts"), _rs=$("corrReason"), _sv=$("corrSave"), _ct=$("corrCount");
+  function paintCorrOpts(){ if(!_box||!_cs2) return; _box.innerHTML=""; Array.from(_cs2.options).forEach(o=>{ const b=document.createElement("button"); b.type="button"; const on=o.value===_cs2.value; b.className=on?"on":""; b.textContent=o.textContent; b.dataset.v=o.value; b.setAttribute("role","radio"); b.setAttribute("aria-checked",on?"true":"false"); b.onclick=()=>{ _cs2.value=o.value; paintCorrOpts(); syncCorrSave(); }; _box.appendChild(b); }); }
+  function syncCorrSave(){ const r=_rs?_rs.value:""; if(_ct) _ct.textContent=r.length+" / 300"; const t=r.trim(); const ok=_cs2&&_cs2.value!==_base&&t.length>=3&&t.length<=300; if(_sv) _sv.disabled=!ok; }
+  if(_rs) _rs.addEventListener("input",syncCorrSave);
+  paintCorrOpts(); syncCorrSave();
   openModal(correctionModal);
-  try{
-    const _cs = document.getElementById("corrStatus");
-    if(_cs && window.__ensureGsel) window.__ensureGsel(_cs);
-  }catch(e){}
   $("corrCancel").onclick=()=>closeModal(correctionModal);
   $("corrSave").onclick=async()=>{
     const newStatus=$("corrStatus").value, reason=$("corrReason").value.trim(), err=$("corrErr");
@@ -4581,7 +5851,10 @@ document.addEventListener("keydown",(e)=>{
 // ---- init ----
 function bootFail(e){ console.error(e); document.body.insertAdjacentHTML("afterbegin",'<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#8A3A3A;color:#fff;font:12px sans-serif;padding:8px 12px">Boot failed: '+String((e&&e.message)||e)+'</div>'); }
 cacheLoad();
-try{ renderAll(); }catch(e){ bootFail(e); }
+const _liveBoot=(()=>{ try{return new URLSearchParams(location.search).get("live")==="1";}catch(e){return false;} })();
+/* Dev loop: ?live=1 skips the cached first paint so a refresh never
+   flashes stale rows; loadAll() repaints fresh right after. */
+if(!_liveBoot){ try{ renderAll(); }catch(e){ bootFail(e); } }
 setState("ready");
 loadAll().then(()=>{
   setTimeout(sensorScanLoop,300);
@@ -4591,10 +5864,48 @@ loadAll().then(()=>{
   try{
     const q=new URLSearchParams(location.search);
     const t=q.get("tab");
+    const live=q.get("live")==="1";
+    let auto=false;
     if(t&&["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(t)>=0){
       currentTab=t;
       try{localStorage.setItem("atl_admin_tab",t);}catch(_){}
-      openAdmin();
+      openAdmin(); auto=true;
+    }
+    /* Dev loop (user order): ?live=1 restores the last open position
+       (admin panel + tab + selected student) after every auto-refresh.
+       Production boot without the param is untouched (kiosk stays idle). */
+    else if(live){ try{ openAdmin(); auto=true; }catch(e){} }
+    if(auto){ try{ const sid=parseInt(localStorage.getItem("atl_student")||""); if(sid&&Students.some(x=>x.id===sid)) selectStudent(sid); }catch(e){} }
+  }catch(e){}
+  /* Live-reload for UI testing (user order): ?tab=X&live=1 keeps the page
+     fresh while you edit. CSS-only changes hot-swap live with zero state
+     loss (open modals, scroll, typed inputs all survive); JS changes still
+     need a full reload, and ?live=1 restores your tab + student after it.
+     Inert without the param. */
+  try{
+    const q2=new URLSearchParams(location.search);
+    if(q2.get("live")==="1"){
+      const hash=s=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return h;};
+      let first=null;
+      const timer=setInterval(async()=>{
+        if(document.hidden) return;
+        try{
+          const r=await fetch(location.pathname+"?devping="+Date.now(),{cache:"no-store"});
+          const t=await r.text();
+          const a=t.indexOf("<style>"), b=t.indexOf("</style>");
+          const c=t.indexOf("<script>"), d=t.lastIndexOf("<\/script>");
+          const css=(a>=0&&b>a)?t.slice(a+7,b):"";
+          const js=(c>=0&&d>c)?t.slice(c+8,d):"";
+          const cur={c:hash(css),j:hash(js)};
+          if(!first){first=cur;return;}
+          if(cur.j!==first.j){clearInterval(timer);location.reload();return;}
+          if(cur.c!==first.c){
+            first.c=cur.c;
+            const st=document.querySelector("style");
+            if(st){ try{ st.textContent=css; }catch(_){} }
+          }
+        }catch(e){}
+      },800);
     }
   }catch(e){}
 }, bootFail);
@@ -4605,6 +5916,15 @@ setInterval(()=>{
 // alias used by the injected backend bridge
 function saveStorage(){ return cacheSave(); }
 /* Glass confirm/alert — frosted replacement for native confirm()/alert() (Promise-based) */
+function toast(msg){
+  try{
+    document.querySelectorAll(".toast-live").forEach(n=>n.remove());
+    if(window._toastTimer){ clearTimeout(window._toastTimer); window._toastTimer=null; }
+    const t=document.createElement("div"); t.className="toast toast-live"; t.textContent=msg;
+    document.body.appendChild(t);
+    window._toastTimer=setTimeout(()=>{ try{ t.remove(); }catch(e){} window._toastTimer=null; },2600);
+  }catch(e){}
+}
 function glassDialog(opts){
   opts=opts||{};
   return new Promise((resolve)=>{
@@ -4645,7 +5965,7 @@ function glassPrompt(message,defaultValue,opts){
     const h=document.createElement('h3'); h.textContent=opts.title||'Enter Value'; card.appendChild(h);
     if(message){ const p=document.createElement('p'); p.textContent=message; card.appendChild(p); }
     const inp=document.createElement('input'); inp.type='text'; inp.className='setup-input-compact';
-    inp.style.cssText='width:100%;margin:12px 0 16px;background:rgba(242,243,246,0.06);border:1px solid var(--frost-line);color:inherit;padding:8px 10px;border-radius:6px;font-size:13px;outline:none;box-sizing:border-box;';
+    inp.style.cssText='width:100%;margin:12px 0 0;background:rgba(242,243,246,0.06);border:1px solid var(--frost-line);color:inherit;padding:8px 10px;border-radius:0;font-size:13px;outline:none;box-sizing:border-box;';
     inp.value=defaultValue||'';
     if(opts.placeholder) inp.placeholder=opts.placeholder;
     card.appendChild(inp);
@@ -4677,16 +5997,18 @@ function fmtPhotoSize(bytes){
 function enhancePhotoField(input){
   if(!input||input.tagName!=='INPUT'||input.type!=='file'||input.dataset.ph) return;
   input.dataset.ph='1';
+  if(!input._mono) input._mono='+';
+  const monoHtml=()=>{ const sp=document.createElement('span'); sp.textContent=input._mono||'+'; return sp; };
   const drop=document.createElement('div'); drop.className='photo-drop';
   input.parentNode.insertBefore(drop,input); drop.appendChild(input);
   try{ input.tabIndex=-1; }catch(e){}
-  const thumb=document.createElement('div'); thumb.className='photo-thumb'; thumb.innerHTML='<span>Photo</span>';
+  const thumb=document.createElement('div'); thumb.className='photo-thumb'; thumb.appendChild(monoHtml());
   const meta=document.createElement('div'); meta.className='photo-meta';
   const nm=document.createElement('div'); nm.className='photo-name'; nm.textContent='No photo yet';
-  const sz=document.createElement('div'); sz.className='photo-sub'; sz.textContent='Optional · max 2MB · drag & drop';
+  const sz=document.createElement('div'); sz.className='photo-sub'; sz.textContent='Optional. Up to 2 MB. Drag and drop.';
   meta.appendChild(nm); meta.appendChild(sz);
   const acts=document.createElement('div'); acts.className='photo-acts';
-  const choose=document.createElement('button'); choose.type='button'; choose.className='photo-choose'; choose.textContent='Choose';
+  const choose=document.createElement('button'); choose.type='button'; choose.className='photo-choose'; choose.textContent='Choose photo';
   const rm=document.createElement('button'); rm.type='button'; rm.className='photo-remove'; rm.textContent='Remove'; rm.style.display='none';
   acts.appendChild(choose); acts.appendChild(rm);
   drop.appendChild(thumb); drop.appendChild(meta); drop.appendChild(acts);
@@ -4698,7 +6020,7 @@ function enhancePhotoField(input){
       try{ objUrl=URL.createObjectURL(f); thumb.innerHTML=''; const im=document.createElement('img'); im.alt=''; im.src=objUrl; thumb.appendChild(im); }catch(e){}
       nm.textContent=f.name; sz.textContent=fmtPhotoSize(f.size)+' · kept on save'; rm.style.display='';
     }else{
-      thumb.innerHTML='<span>Photo</span>'; nm.textContent='No photo yet'; sz.textContent='Optional · max 2MB · drag & drop'; rm.style.display='none';
+      thumb.innerHTML=''; thumb.appendChild(monoHtml()); nm.textContent='No photo yet'; sz.textContent='Optional. Up to 2 MB. Drag and drop.'; rm.style.display='none';
     }
   };
   const changed=()=>refresh();
@@ -4732,18 +6054,7 @@ const RAIL_REVEAL_DX=12;
 const RAIL_REVEAL_MS=160;
 function _revealFromRail(el){
   if(!el) return;
-  try{
-    el.style.transition="none";
-    el.style.opacity="0";
-    el.style.transform="translateX("+RAIL_REVEAL_DX+"px)";
-    void el.offsetWidth;
-    el.style.transition="transform "+RAIL_REVEAL_MS+"ms cubic-bezier(0.16,1,0.3,1), opacity 140ms ease";
-    el.style.opacity="1";
-    el.style.transform="translateX(0px)";
-    _railBridge(el);
-  }catch(e){
-    try{ el.style.opacity="1"; el.style.transform=""; }catch(_){}
-  }
+  try{ el.style.transition="none"; el.style.opacity="1"; el.style.transform=""; _railBridge(el); }catch(e){}
 }
 /* 1px hairline stub bridging the 8px rail gap at trigger height, so the
    popup reads as emerging from the owning row. Child of the popup, so
@@ -4791,9 +6102,24 @@ function _railBridge(popEl){
   function maybeCloseSoon(){
     cancelClose();
     if(!openWrap || !popEl) return;
+    /* Never hover-close while the user is TYPING in the popup's search field
+       (user report: "the popup disappears after two or three words").
+       inWrapOrPop() re-measures the popup's CURRENT rect, and the filter hides
+       non-matching rows, so typing SHRINKS the popup under a cursor that never
+       moved: the point falls outside the new rect, mouseleave fires, and the
+       pop closed mid-word.
+       popEl.__typing is set by the input listener below and is NOT implied by
+       focus: the search field is auto-focused the moment the popup opens, so a
+       bare focus test would disable hover-close for as long as the popup is
+       open. Only real typing suppresses it; Escape, an outside click and
+       picking a row all still close as before. */
+    try{ if(popEl.contains(document.activeElement) && popEl.__typing) return; }catch(e){}
     closeTimer=setTimeout(()=>{
       closeTimer=null;
       if(inWrapOrPop(lastPointerX,lastPointerY)) return;
+      /* Re-check after the grace period: the field can gain focus, or the user
+         can start typing, inside those CLOSE_DELAY ms. */
+      try{ if(popEl && popEl.__typing && popEl.contains(document.activeElement)) return; }catch(e){}
       closePop(false);
     },CLOSE_DELAY);
   }
@@ -4833,6 +6159,11 @@ function _railBridge(popEl){
   }
   function onKeyDown(e){
     if(!openWrap || !popEl) return;
+    /* Never steal keys from real fields: while typing in an input,
+       textarea or select (e.g. a modal form under a stuck hover popover),
+       only Escape may act — arrows/space/enter stay with the field. */
+    const tag=(e.target&&e.target.tagName)||"";
+    if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"){ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); closePop(true); } return; }
     if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); closePop(true); }
     else if(e.key==='ArrowDown'){ e.preventDefault(); e.stopPropagation(); setHi(hiIdx+1); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); e.stopPropagation(); setHi(hiIdx-1); }
@@ -4858,6 +6189,7 @@ function _railBridge(popEl){
   function syncBtn(sel,btn){
     const lab=btn.querySelector('.gsel-lab'); if(lab) lab.textContent=labelOf(sel);
     btn.disabled=!!sel.disabled;
+    try{ btn.classList.toggle("set",sel.selectedIndex>0); }catch(e){}
   }
   function openPop(wrap,sel,btn){
     /* Sibling-switch reuse: if a sidebar gsel popup is already open
@@ -4888,8 +6220,13 @@ function _railBridge(popEl){
     document.body.appendChild(popEl);
     popEl.addEventListener('mouseleave',schedHoverClose);
     popEl.addEventListener('mouseenter',cancelClose);
+    /* Marks real typing in the search field. input bubbles, so this covers the
+       field without buildGselOptions knowing about hover behaviour; the flag
+       lives on the freshly created popEl, so it resets on every open. */
+    popEl.addEventListener('input',()=>{ popEl.__typing=true; });
     placeGsel(popEl, wrap);
     scrollSelIntoView(popEl);
+    try{ const si=popEl.querySelector(".gsel-search input"); if(si) si.focus({preventScroll:true}); }catch(e){}
     if(newInRail) _revealFromRail(popEl);
     document.addEventListener('pointerdown',onDocDown,true);
     document.addEventListener('keydown',onKeyDown,true);
@@ -4902,41 +6239,60 @@ function _railBridge(popEl){
     /* Pop tags its source select (user order): lets CSS pin one
        dropdown's overlay without touching the shared pop. */
     try{ if(sel&&sel.id) popEl.dataset.for=sel.id; }catch(e){}
-    /* Schedule grid (user order): the context dropdown renders its
-       optgroups as category columns under a full-width Global row —
-       generic selects keep the flat list. */
+    /* Grouped single column (popups spec): every optgroup renders its
+       header row followed by plain option rows — generic and schedule
+       selects alike. */
     const sched = sel && sel.id==="calClassSelect";
     if(sched) popEl.classList.add("gsel-sched");
-    Array.from(sel.children).forEach(ch=>{
-      if(ch.tagName==='OPTGROUP'){
-        if(sched){
-          const col=document.createElement('div'); col.className='gsel-col';
-          const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; col.appendChild(g);
-          Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(col,o,sel,btn); });
-          popEl.appendChild(col);
-        }else{
-          const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; popEl.appendChild(g);
-          Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(popEl,o,sel,btn); });
-        }
-      }else if(ch.tagName==='OPTION'){
-        const r=addGselOpt(popEl,ch,sel,btn);
-        if(sched && sel.children[0]===ch && r) r.classList.add("gsel-wide");
-      }
-    });
-    /* Row divider (user order): a full-width hairline between the top
-       pair and the bottom pair whenever three or more categories
-       render — generic selects never grow one. */
-    if(sched){
-      const cols=Array.from(popEl.querySelectorAll(':scope > .gsel-col'));
-      if(cols.length>2){
-        const hd=document.createElement('div'); hd.className='gsel-hdiv'; hd.setAttribute('aria-hidden','true');
-        cols[1].after(hd);
+    const attPop = sel&&(sel.id==="attClassFilter"||sel.id==="attBatchFilter");
+    /* Attendance filter dropdowns (user order): student count on every row.
+       The filter line past 8 options is shared with the schedule scope
+       popup, which also hides emptied group headers while filtering. */
+    let attCount=null;
+    if(attPop){
+      attCount=(v)=>{
+        if(!v) return (Students||[]).length;
+        if(sel.id==="attClassFilter") return Students.filter(s=>s.class===v).length;
+        return Students.filter(s=>(s.batch||"")===v).length;
+      };
+    }
+    if(attPop||sched){
+      const nOpts=Array.from(sel.querySelectorAll("option")).length;
+      if(nOpts>8){
+        const box=document.createElement("div"); box.className="gsel-search";
+        const inp=document.createElement("input"); inp.type="text"; inp.placeholder=sched?"Search schedule…":"Search"; inp.setAttribute("aria-label",sched?"Search schedule":"Search options");
+        inp.addEventListener("input",()=>{
+          const q=inp.value.trim().toLowerCase();
+          popEl.querySelectorAll(".gsel-opt").forEach(r=>{
+            const hit=!q||(r.textContent||"").toLowerCase().includes(q);
+            r.style.display=hit?"":"none";
+            if(hit) r.removeAttribute("aria-disabled"); else r.setAttribute("aria-disabled","true");
+          });
+          popEl.querySelectorAll(".gsel-grp").forEach(g=>{
+            let n=g.nextElementSibling, any=false;
+            while(n&&!n.classList.contains("gsel-grp")){
+              if(n.classList.contains("gsel-opt")&&n.style.display!=="none"){ any=true; break; }
+              n=n.nextElementSibling;
+            }
+            g.style.display=any?"":"none";
+          });
+        });
+        box.appendChild(inp); popEl.appendChild(box);
       }
     }
+    Array.from(sel.children).forEach(ch=>{
+      if(ch.tagName==='OPTGROUP'){
+        const g=document.createElement('div'); g.className='gsel-grp'; g.textContent=ch.label||''; popEl.appendChild(g);
+        Array.from(ch.children).forEach(o=>{ if(o.tagName==='OPTION') addGselOpt(popEl,o,sel,btn,attCount); });
+      }else if(ch.tagName==='OPTION'){
+        addGselOpt(popEl,ch,sel,btn,attCount);
+      }
+    });
   }
-  function addGselOpt(popEl, o, sel, btn){
+  function addGselOpt(popEl, o, sel, btn, attCount){
     const r=document.createElement('div'); r.className='gsel-opt'; r.setAttribute('role','option');
-    r.textContent=o.textContent; r.dataset.v=o.value;
+    const t=document.createElement('span'); t.className='opt-t'; t.textContent=o.textContent; r.appendChild(t); r.dataset.v=o.value;
+    if(typeof attCount==="function"){ const sm=document.createElement("small"); sm.textContent=attCount(o.value); r.appendChild(sm); }
     if(o.disabled){ r.setAttribute('aria-disabled','true'); return; }
     if(o.value===sel.value){ r.classList.add('sel'); r.setAttribute('aria-selected','true'); }
     r.addEventListener('click',()=>pick(sel,btn,o.value));
@@ -4945,9 +6301,10 @@ function _railBridge(popEl){
   }
   function placeGsel(popEl, wrap){
     const rc=wrap.getBoundingClientRect();
-    popEl.style.minWidth=Math.max(rc.width,140)+'px';
+    const _attPop=popEl.dataset&&popEl.dataset.for&&(popEl.dataset.for==="attClassFilter"||popEl.dataset.for==="attBatchFilter");
+    popEl.style.minWidth=Math.max(_attPop?260:rc.width,140)+'px';
     popEl.style.maxWidth=Math.max(140,window.innerWidth-16)+'px';
-    const h=Math.min(popEl.classList.contains('gsel-sched')?400:260,popEl.offsetHeight||260);
+    const h=Math.min(popEl.classList.contains('gsel-sched')?400:(_attPop?320:260),popEl.offsetHeight||260);
     const railEl=(wrap.closest&&wrap.closest('#adminSide'))||null;
     let left=rc.left;
     let inRail=false;
@@ -4960,23 +6317,39 @@ function _railBridge(popEl){
       if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,window.innerWidth-popEl.offsetWidth-8);
       popEl._triggerY=rc.top+rc.height/2;
     }else{
+      /* Scope popover (popups spec): fixed 340px, right-aligned under
+         the control, then the same viewport clamp. */
+      if(popEl.classList.contains("gsel-sched")){
+        const w=popEl.offsetWidth||340;
+        left=rc.right-w;
+        if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,window.innerWidth-8-popEl.offsetWidth);
+        if(left<8) left=8;
+      }
       if(left+popEl.offsetWidth>window.innerWidth-8) left=Math.max(8,rc.right-popEl.offsetWidth);
       try{ delete popEl._triggerY; }catch(e){ try{ popEl._triggerY=null; }catch(_){} }
     }
-    let top=rc.bottom+4;
+    let top=rc.bottom+8;
     if(inRail){
       const desired=Math.round(rc.top+(rc.height-h)/2);
       top=Math.max(8,Math.min(desired,window.innerHeight-h-8));
     }else if(top+h>window.innerHeight-8){
-      top=Math.max(8,rc.top-4-h);
+      top=Math.max(8,rc.top-8-h);
     }
     /* Modal-footer awareness (user order): a dropdown opening downward
        over the modal's ✕/✓ row flips up when the card has room above —
        same rule for every modal select. Viewport logic above keeps
        final say when neither fits. */
     if(!inRail){ try{
-      const card=wrap.closest&&wrap.closest('.modal-card');
+      const card=wrap.closest&&wrap.closest('.mod');
       if(card){ const cr=card.getBoundingClientRect(); if(top+h>cr.bottom-8){ const up=Math.round(rc.top-4-h); if(up>=Math.max(8,cr.top)) top=up; } }
+    }catch(_){} }
+    /* Backup-card awareness (vault): inside #backupManagerCard the
+       Frequency sheet prefers UP whenever it fits above the field,
+       so it never covers the commit bar — viewport logic above keeps
+       final say when neither side fits. */
+    if(!inRail){ try{
+      const bc=wrap.closest&&wrap.closest('#backupManagerCard');
+      if(bc){ const br=bc.getBoundingClientRect(); const up=Math.round(rc.top-4-h); if(up>=br.top-8) top=up; }
     }catch(_){} }
     popEl.style.top=top+'px'; popEl.style.left=Math.max(8,left)+'px';
   }
@@ -4998,7 +6371,7 @@ function _railBridge(popEl){
       if(sel.style.maxWidth) wrap.style.maxWidth=sel.style.maxWidth;
       ['height','minHeight','padding','border','background','fontSize','borderRadius','outline'].forEach(k=>{ sel.style[k]=''; });
     }catch(e){}
-    if(sel.closest && sel.closest('.form-field')) wrap.classList.add('gsel-form');
+    if(sel.closest && sel.closest('.fld')) wrap.classList.add('gsel-form');
     sel.parentNode.insertBefore(wrap,sel); wrap.appendChild(sel);
     try{ sel.tabIndex=-1; sel.setAttribute('aria-hidden','true'); }catch(e){}
     const btn=document.createElement('button'); btn.type='button'; btn.className='gsel-btn';
@@ -5011,10 +6384,13 @@ function _railBridge(popEl){
     /* Hover owns open/close outside modals (click toggle retired —
        it fought the hover); modal dropdowns are click-to-toggle
        instead (user order — hover fired while reaching across small
-       modals like holiday Type). Keyboard Enter/Space/Arrows still
+       modals like holiday Type). The Setup scope control is also
+       click-to-toggle (user order): it must stay shut on hover and
+       open only when clicked. Keyboard Enter/Space/Arrows still
        open for accessibility everywhere. */
-    const modalClick=sel.closest&&sel.closest('.modal-card');
-    if(modalClick){
+    const modalClick=sel.closest&&sel.closest('.mod');
+    const clickOpen=modalClick||(sel&&sel.id==="calClassSelect");
+    if(clickOpen){
       btn.addEventListener('click',(e)=>{ if(sel.disabled) return; e.stopPropagation(); if(openWrap===wrap) closePop(false); else openPop(wrap,sel,btn); });
     }else{
       wrap.addEventListener('mouseenter',()=>{ if(sel.disabled) return; cancelClose(); if(openWrap!==wrap) openPop(wrap,sel,btn); });
@@ -5040,6 +6416,9 @@ function _railBridge(popEl){
       try{ delete sel.dataset.gsel; }catch(e){ try{sel.removeAttribute('data-gsel');}catch(_){} }
       enhance(sel);
     };
+    /* Escape hatch for modal open: drop any stuck popover (and its
+       document key/pointer handlers) so typing in a form always wins. */
+    window.__closeGselPop=function(){ try{ closePop(false); }catch(e){} };
   }catch(e){}
   enhanceAll(document);
   try{
@@ -5100,8 +6479,6 @@ function _railBridge(popEl){
    Year spans anchor to Settings.startDate month/day (no invented
    cutoffs); range Apply auto-orders. Both write through the existing
    custom_range machinery (attFromDate/attToDate + renderAttendance). */
-const MONTHS_S=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const MONTHS_L=["January","February","March","April","May","June","July","August","September","October","November","December"];
 function _pad2(n){ return (n<10?"0":"")+n; }
 function _iso(y,m,d){ return y+"-"+_pad2(m)+"-"+_pad2(d); }
 function _fmtShort(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return iso||"—"; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; }
@@ -5157,14 +6534,38 @@ function closeDtPops(){
   document.removeEventListener("pointerdown",_dtDocDown,true);
   document.removeEventListener("keydown",_dtKey,true);
   window.removeEventListener("scroll",_dtScroll,true);
-  window.removeEventListener("resize",closeDtPops);
-  document.removeEventListener("pointermove",_dtDocMove,true);
+  window.removeEventListener("resize",_dtFollowOrClose);
+  if(typeof _dtCloseOpts==="function"){ const f=_dtCloseOpts; _dtCloseOpts=null; try{f();}catch(e){} }
 }
+let _dtCloseOpts=null;
 function _dtDocDown(e){ const box=document.getElementById("dtRangeAcadPop"); if(box&&!box.contains(e.target)&&!(box._dtAnchor&&box._dtAnchor.contains&&box._dtAnchor.contains(e.target))) closeDtPops(); }
-function _dtKey(e){ if(e.key==="Escape"){ e.preventDefault(); closeDtPops(); } }
-function _dtScroll(e){ const box=document.getElementById("dtRangeAcadPop"); if(box&&e.target&&!box.contains(e.target)) closeDtPops(); }
+function _dtKey(e){ if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); closeDtPops(); } }
+/* Stay-open parity with the gsel dropdowns: a scroll/resize re-anchors
+   the popup to its (possibly re-rendered) trigger instead of killing it.
+   Only a detached-or-hidden anchor still closes. */
+function _dtLiveAnchor(box){
+  const a=box&&box._dtAnchor;
+  if(a&&a.isConnected) return a;
+  try{ const sel=document.getElementById("sdDatePreset"); const wrap=sel&&sel.closest&&sel.closest(".gsel"); const btn=wrap&&wrap.querySelector(".gsel-btn"); if(btn&&btn.isConnected) return btn; if(sel&&sel.isConnected){ try{ const r=sel.getBoundingClientRect(); if(r.width>0||r.height>0) return sel; }catch(_){} } }catch(e){}
+  return null;
+}
+function _dtFollowOrClose(){
+  const box=document.getElementById("dtRangeAcadPop"); if(!box) return;
+  const a=_dtLiveAnchor(box);
+  if(a){ try{ const r=a.getBoundingClientRect(); if(r.width>0||r.height>0){ box._dtAnchor=a; _dtPlace(box,a); return; } }catch(e){} }
+  closeDtPops();
+}
+function _dtScroll(e){ const box=document.getElementById("dtRangeAcadPop"); if(box&&box.contains(e.target)) return; _dtFollowOrClose(); }
 function _dtPlace(box,anchor){
-  const r=anchor.getBoundingClientRect();
+  let _anchor=anchor;
+  if(!_anchor || !_anchor.isConnected){ try{ const sel=document.getElementById("sdDatePreset"); const wrap=sel&&sel.closest&&sel.closest(".gsel"); const btn=wrap&&wrap.querySelector(".gsel-btn"); if(btn) _anchor=btn; }catch(e){} }
+  if(box) box._dtAnchor=_anchor;
+  /* Prefer a live measurement: if the detail panel re-rendered between
+     open and place, the anchor is detached (measures 0,0 and drops the
+     calendar at the top-left) — use the rect captured at open instead. */
+  let r=null;
+  try{ r=(_anchor&&_anchor.isConnected&&_anchor.getBoundingClientRect)?_anchor.getBoundingClientRect():null; }catch(e){ r=null; }
+  if(!r||(r.width===0&&r.height===0)) r=(box&&box._rect)||{left:8,top:8,right:8,bottom:8,width:0,height:0};
   box.style.visibility="hidden"; box.style.left="0px"; box.style.top="0px";
   const w=box.offsetWidth,h=box.offsetHeight,vw=window.innerWidth,vh=window.innerHeight;
   /* Sidebar-anchored Academic Year / Custom Range: dock the popup's
@@ -5173,7 +6574,7 @@ function _dtPlace(box,anchor){
      picker feels anchored to its control, not dropped from above. */
   let railLeft=0;
   try{ const rail=document.getElementById("adminSide"); if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0) railLeft=Math.max(0,rr.left); } }catch(e){}
-  const inRail=(r&&r.width>0&&r.left>=railLeft-1&&r.right<=railLeft+260);
+  const inRail=(r&&r.width>0&&!!(_anchor && _anchor.closest && _anchor.closest('#adminSide'))&&r.right<=railLeft+260);
   let left;
   if(inRail){
     /* Modestly larger surface so the calendar reads easier; restrained
@@ -5201,7 +6602,7 @@ function _dtPlace(box,anchor){
      horizontal center, pointing up when the popup sits below the cube
      and down when flipped above. Rail-docked popups keep no tail. */
   try{
-    if(!inRail && anchor && anchor.getBoundingClientRect){
+    if(!inRail && _anchor && _anchor.getBoundingClientRect){
       let tail=null;
       try{ tail=box.querySelector(":scope > .dt-tail"); }catch(_){ tail=null; }
       if(!tail){ tail=document.createElement("div"); tail.className="dt-tail"; tail.setAttribute("aria-hidden","true"); box.appendChild(tail); }
@@ -5219,20 +6620,14 @@ function _dtWire(box,anchor){
   _dtPlace(box,anchor);
   document.addEventListener("pointerdown",_dtDocDown,true);
   document.addEventListener("keydown",_dtKey,true);
-  document.addEventListener("pointermove",_dtDocMove,true);
   window.addEventListener("scroll",_dtScroll,true);
-  window.addEventListener("resize",closeDtPops);
-  /* Cursor is the answer: if it leaves both the trigger and the
-     popup, close (after a small grace window so the calendar survives
-     slow cross-overs). The "no auto-close" comment is the prior
-     policy; replaced with a single tracked-pointer close to kill the
-     stuck-popup residue. */
+  window.addEventListener("resize",_dtFollowOrClose);
+  /* No hover dismissal (parity with the class/batch popups, which close
+     only on outside click): moving the cursor across the calendar must
+     never close it. Dismissal is outside-pointerdown, Escape, scroll/
+     resize follow, or explicit Apply/Cancel/Clear. */
   try{
-    box.addEventListener("mouseleave",_dtMaybeCloseSoon);
-    box.addEventListener("mouseenter",_dtCancelClose);
     if(anchor && anchor.addEventListener){
-      anchor.addEventListener("mouseleave",_dtMaybeCloseSoon);
-      anchor.addEventListener("mouseenter",_dtCancelClose);
       /* Reveal marker: the owning row borrows the strip's existing
          .active treatment (opposite-pole 500) so trigger and popup
          read as one unit. Siblings release theirs, so exactly one
@@ -5294,56 +6689,97 @@ function openAcadPop(anchor){
     box.appendChild(b);
   });
   const foot=document.createElement("div"); foot.className="dt-foot";
-  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.textContent="Clear";
   clear.addEventListener("click",()=>{ attAcadFrom=attAcadTo=null; try{renderAttendance();}catch(e){ console.error(e); } closeDtPops(); });
-  const done=document.createElement("button"); done.type="button"; done.className="dt-glyph"; done.setAttribute("aria-label","Done"); done.innerHTML=TICK_ICON;
+  const done=document.createElement("button"); done.type="button"; done.className="dt-glyph go"; done.setAttribute("aria-label","Done"); done.textContent="Done";
   done.addEventListener("click",closeDtPops);
   foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
   _dtWire(box,anchor);
 }
-function _monthGrid(box,label,view,onPick,isSel){
+/* Dot logic (user order): a day earns a dot only for real scan activity —
+   Present / Late / Duplicate (flag or status). Auto-marked Absent,
+   Not Scheduled, and Unknown-only days stay dotless. */
+function _scanDays(src){
+  const s=new Set();
+  try{ (src||[]).forEach(a=>{ if(!a||!a.date) return;
+    if(a.status==="Present"||a.status==="Late"||a.status==="Duplicate"||a.isDuplicate) s.add(a.date); }); }catch(e){}
+  return s;
+}
+function _monthGrid(box,label,view,onPick,isSel,isMid){
   if(label){ const sec=document.createElement("div"); sec.className="dt-sec"; sec.textContent=label; box.appendChild(sec); }
   const head=document.createElement("div"); head.className="dt-head";
-  const title=document.createElement("div"); title.className="dt-title"; title.style.fontSize="10px";
+  const title=document.createElement("div"); title.className="dt-title";
   const nav=document.createElement("div"); nav.className="dt-nav";
-  const prev=document.createElement("button"); prev.type="button"; prev.textContent="‹";
-  const next=document.createElement("button"); next.type="button"; next.textContent="›";
+  const prev=document.createElement("button"); prev.type="button"; prev.textContent="Prev"; prev.setAttribute("aria-label","Previous month");
+  const next=document.createElement("button"); next.type="button"; next.textContent="Next"; next.setAttribute("aria-label","Next month");
   nav.appendChild(prev); nav.appendChild(next); head.appendChild(title); head.appendChild(nav); box.appendChild(head);
   const grid=document.createElement("div"); grid.className="dt-grid"; box.appendChild(grid);
+  let _recDays=new Set();
   function draw(){
     title.textContent=MONTHS_L[view.m]+" "+view.y;
     grid.innerHTML="";
-    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d=>{ const s=document.createElement("div"); s.className="dt-dow"; s.textContent=d; grid.appendChild(s); });
-    const first=new Date(view.y,view.m,1).getDay(), dim=new Date(view.y,view.m+1,0).getDate(), dpm=new Date(view.y,view.m,0).getDate();
-    for(let i=first-1;i>=0;i--) addDay(dpm-i,true);
-    for(let d=1;d<=dim;d++) addDay(d,false);
+    try{ const src=(typeof AllEvents!=="undefined"&&AllEvents&&AllEvents.length)?AllEvents:((typeof Attendance!=="undefined")?Attendance:[]); _recDays=_scanDays(src); }catch(e){ _recDays=new Set(); }
+    ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{ const s=document.createElement("div"); s.className="dt-dow"; s.textContent=d; grid.appendChild(s); });
+    const first=new Date(view.y,view.m,1).getDay(), dim=new Date(view.y,view.m+1,0).getDate();
+    for(let i=0;i<first;i++){ const g=document.createElement("span"); g.className="dt-day hide"; g.setAttribute("aria-hidden","true"); grid.appendChild(g); }
+    for(let d=1;d<=dim;d++) addDay(d);
     const tail=(7-((first+dim)%7))%7;
-    for(let d=1;d<=tail;d++) addDay(d,true);
+    for(let d=1;d<=tail;d++){ const g=document.createElement("span"); g.className="dt-day hide"; g.setAttribute("aria-hidden","true"); grid.appendChild(g); }
   }
-  function addDay(d,out){
-    const b=document.createElement("button"); b.type="button"; b.className="dt-day"+(out?" out":""); b.textContent=d;
-    const dt=new Date(view.y,view.m+(out?(d>15?-1:1):0),d);
+  function addDay(d){
+    const b=document.createElement("button"); b.type="button"; b.className="dt-day";
+    const lb=document.createElement("span"); lb.textContent=d; b.appendChild(lb);
+    const dt=new Date(view.y,view.m,d);
     const iso=_iso(dt.getFullYear(),dt.getMonth()+1,dt.getDate());
     if(isSel(iso)) b.classList.add("sel");
+    else if(isMid&&isMid(iso)){
+      b.classList.add("in");
+      const _plus=n=>{ const x=new Date(dt); x.setDate(x.getDate()+n); return _iso(x.getFullYear(),x.getMonth()+1,x.getDate()); };
+      const _isW=s=>{ try{ return !!(isMid&&isMid(s)); }catch(e){ return false; } };
+      const _col=dt.getDay();
+      if(_col>0&&_isW(_plus(-1)))b.classList.add("bl");
+      if(_col<6&&_isW(_plus(1)))b.classList.add("br");
+      if(_isW(_plus(-7)))b.classList.add("bt");
+      if(_isW(_plus(7)))b.classList.add("bb");
+    }
+    const dot=document.createElement("i"); dot.className="dt-dot"; dot.setAttribute("aria-hidden","true");
+    try{ dot.classList.toggle("off",!(_recDays&&_recDays.has(iso))); }catch(e){ dot.classList.add("off"); }
+    b.appendChild(dot);
     b.addEventListener("click",()=>{ onPick(iso); });
     grid.appendChild(b);
   }
-  prev.addEventListener("click",()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} draw(); });
-  next.addEventListener("click",()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} draw(); });
+  grid.addEventListener("keydown",(e)=>{
+    if(e.key!=="ArrowRight"&&e.key!=="ArrowLeft"&&e.key!=="ArrowDown"&&e.key!=="ArrowUp") return;
+    const btns=Array.from(grid.querySelectorAll("button"));
+    const cur=btns.indexOf(document.activeElement);
+    if(cur<0) return;
+    e.preventDefault();
+    const d=(e.key==="ArrowRight")?1:(e.key==="ArrowLeft")?-1:(e.key==="ArrowDown")?7:-7;
+    const nx=btns[(cur+d+btns.length)%btns.length];
+    if(nx) nx.focus();
+  });
+  /* Month nav holds to repeat (user order): tap steps one month, holding
+     runs through the years. Created once, outside draw(), so pointer
+     capture survives each grid repaint. */
+  holdRepeat(prev,()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} draw(); });
+  holdRepeat(next,()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} draw(); });
   draw();
   return draw;
 }
-function openRangePop(anchor){
-  const key="R:"+((anchor&&anchor.dataset&&anchor.dataset.v)||"");
+function openRangePop(anchor, opts){
+  const key="R:"+((opts&&opts.key)||((anchor&&anchor.dataset&&anchor.dataset.v)||""));
   if(_dtOpenFor===key) return; _dtOpenFor=key;
   const t=new Date();
-  let from=(typeof attFromDate!=="undefined"&&attFromDate&&attFromDate.value)||"", to=(typeof attToDate!=="undefined"&&attToDate&&attToDate.value)||"";
+  let from=(opts&&opts.from)||(typeof attFromDate!=="undefined"&&attFromDate&&attFromDate.value)||"", to=(opts&&opts.to)||(typeof attToDate!=="undefined"&&attToDate&&attToDate.value)||"";
   let pickingTo=!!(from&&!to);
-  const box=_dtShell(); box._dtAnchor=anchor;
+  let _applied=false;
+  _dtCloseOpts=(typeof opts==="object"&&opts&&typeof opts.onCancel==="function")?function(){ if(!_applied){ try{opts.onCancel();}catch(e){} } }:null;
+  const box=_dtShell(); box._dtAnchor=anchor; box.classList.add("cal");
+  if(opts&&opts._rect) box._rect=opts._rect;
   const head=document.createElement("div"); head.className="dt-head";
   const title=document.createElement("div"); title.className="dt-title"; title.textContent="Custom range";
   head.appendChild(title); box.appendChild(head);
-  const hint=document.createElement("div"); hint.className="dt-sec"; hint.style.marginTop="0";
+  const hint=document.createElement("div"); hint.className="dt-sec dt-hint"; hint.style.marginTop="0";
   box.appendChild(hint);
   const base=from||_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
   const bm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(base)||[0,t.getFullYear(),t.getMonth()+1,t.getDate()];
@@ -5351,26 +6787,27 @@ function openRangePop(anchor){
   function paintHint(){
     hint.textContent=!from?"Tap the start day":(!to?"Tap the end day":_fmtShort(from)+" → "+_fmtShort(to));
   }
-  const inSel=iso=>((from&&to&&iso>=from&&iso<=to)||(from&&!to&&iso===from)||(!from&&to&&iso===to));
+  const inSel=iso=>((from&&iso===from)||(to&&iso===to));
+  const inMid=iso=>{ if(!from||!to||from===to) return false; const lo=from<to?from:to, hi=from<to?to:from; return iso>lo&&iso<hi; };
   const redraw=_monthGrid(box,"",view,iso=>{
     if(!pickingTo){ from=iso; to=""; pickingTo=true; }
     else { to=iso; if(from>to){ const x=from; from=to; to=x; } pickingTo=false; }
     paintHint(); redraw();
-  },inSel);
+  },inSel,inMid);
   paintHint();
   const foot=document.createElement("div"); foot.className="dt-foot";
-  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.textContent="Clear";
   clear.addEventListener("click",()=>{
     from=""; to=""; pickingTo=false;
-    try{ if(attFromDate)attFromDate.value=""; if(attToDate)attToDate.value=""; renderAttendance(); }catch(e){ console.error(e); }
+    try{ if(opts&&typeof opts.onClear==="function") opts.onClear(); else { if(attFromDate)attFromDate.value=""; if(attToDate)attToDate.value=""; renderAttendance(); } }catch(e){ console.error(e); }
     paintHint(); redraw();
   });
-  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph"; apply.setAttribute("aria-label","Apply"); apply.innerHTML=TICK_ICON;
+  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph go"; apply.setAttribute("aria-label","Apply"); apply.textContent="Apply";
   apply.addEventListener("click",()=>{
     if(!from) from=_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
     if(!to) to=from;
     if(from>to){ const x=from; from=to; to=x; }
-    try{ if(attFromDate)attFromDate.value=from; if(attToDate)attToDate.value=to; _dtCommitPreset("custom_range"); try{renderAttendance();}catch(e){ console.error(e); } }catch(e){ console.error(e); }
+    try{ if(opts&&typeof opts.onApply==="function"){ _applied=true; opts.onApply(from,to); } else { if(attFromDate)attFromDate.value=from; if(attToDate)attToDate.value=to; _dtCommitPreset("custom_range"); try{renderAttendance();}catch(e){ console.error(e); } } }catch(e){ console.error(e); }
     closeDtPops();
   });
   foot.appendChild(clear); foot.appendChild(apply); box.appendChild(foot);
@@ -5384,11 +6821,11 @@ function openDayPop(anchor){
   if(_dtOpenFor===key) return; _dtOpenFor=key;
   const t=new Date();
   let sel=(typeof attSingleDate!=="undefined"&&attSingleDate&&attSingleDate.value)||"";
-  const box=_dtShell(); box._dtAnchor=anchor;
+  const box=_dtShell(); box._dtAnchor=anchor; box.classList.add("cal");
   const head=document.createElement("div"); head.className="dt-head";
   const title=document.createElement("div"); title.className="dt-title"; title.textContent="Custom date";
   head.appendChild(title); box.appendChild(head);
-  const hint=document.createElement("div"); hint.className="dt-sec"; hint.style.marginTop="0";
+  const hint=document.createElement("div"); hint.className="dt-sec dt-hint"; hint.style.marginTop="0";
   box.appendChild(hint);
   const base=sel||_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
   const bm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(base)||[0,t.getFullYear(),t.getMonth()+1,t.getDate()];
@@ -5402,13 +6839,13 @@ function openDayPop(anchor){
   },iso=>(sel&&iso===sel));
   paintHint();
   const foot=document.createElement("div"); foot.className="dt-foot";
-  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
+  const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph"; clear.setAttribute("aria-label","Clear"); clear.textContent="Clear";
   clear.addEventListener("click",()=>{
     sel="";
     try{ if(attSingleDate)attSingleDate.value=""; renderAttendance(); }catch(e){ console.error(e); }
     paintHint(); redraw();
   });
-  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph"; apply.setAttribute("aria-label","Apply"); apply.innerHTML=TICK_ICON;
+  const apply=document.createElement("button"); apply.type="button"; apply.className="dt-glyph go"; apply.setAttribute("aria-label","Apply"); apply.textContent="Apply";
   apply.addEventListener("click",()=>{
     if(!sel) sel=_iso(t.getFullYear(),t.getMonth()+1,t.getDate());
     try{ if(attSingleDate)attSingleDate.value=sel; _dtCommitPreset("custom_day"); try{renderAttendance();}catch(e){ console.error(e); } }catch(e){ console.error(e); }
@@ -5426,23 +6863,41 @@ function openDayPop(anchor){
    and fires input+change so all existing save flows keep working. */
 (function(){
   if(window.__frostDtInit) return; window.__frostDtInit=true;
-  let popEl=null, popInput=null, popType=null;
+  let popEl=null, popInput=null, popType=null, popFace=null;
   const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
   const pad=n=>(n<10?"0":"")+n;
   const viewKey={};
   function closePop(){
     _dtCancelClose();
-    if(popEl){ try{ popEl.remove(); }catch(e){} popEl=null; popInput=null; popType=null; }
+    if(popFace){ try{ popFace.classList.remove("open"); }catch(e){} }
+    if(popEl){ try{ popEl.remove(); }catch(e){} popEl=null; popInput=null; popType=null; popFace=null; }
     document.removeEventListener("pointerdown",onDocDown,true);
     document.removeEventListener("keydown",onKey,true);
     window.removeEventListener("scroll",onScroll,true);
     window.removeEventListener("resize",closePop);
     document.removeEventListener("pointermove",_dtDocMove,true);
   }
-  function onDocDown(e){ if(popEl && !popEl.contains(e.target) && e.target!==popInput && !(popInput&&popInput._dtTrig&&popInput._dtTrig.contains(e.target))) closePop(); }
+  function onDocDown(e){ if(e.target===popFace) return; if(popEl && !popEl.contains(e.target) && e.target!==popInput) closePop(); }
   /* Column scrolls bubble to window: only a scroll OUTSIDE the popup closes */
   function onScroll(e){ if(popEl && e.target && !popEl.contains(e.target)) closePop(); }
-  function onKey(e){ if(e.key==="Escape"){ e.preventDefault(); closePop(); if(popInput){ try{ popInput.focus(); }catch(_){} } } }
+  function onKey(e){
+    if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); closePop(); if(popFace){ try{ popFace.focus(); }catch(_){} } return; }
+    if(!popEl) return;
+    const tag=(e.target&&e.target.tagName)||"";
+    if(tag==="TEXTAREA"||tag==="INPUT"||tag==="SELECT") return;
+    const btns=Array.from(popEl.querySelectorAll("button")).filter(b=>!b.disabled&&b.offsetParent!==null);
+    if(!btns.length) return;
+    const cur=btns.indexOf(document.activeElement);
+    if(e.key==="ArrowRight"||e.key==="ArrowLeft"||e.key==="ArrowDown"||e.key==="ArrowUp"){
+      e.preventDefault();
+      const cols=popEl.classList.contains("tm")?1:7;
+      const d=(e.key==="ArrowRight")?1:(e.key==="ArrowLeft")?-1:(e.key==="ArrowDown")?cols:-cols;
+      const nx=btns[(cur<0?(d>0?0:btns.length-1):cur+d+btns.length)%btns.length];
+      if(nx) nx.focus();
+    }else if(e.key==="Enter"&&cur>=0&&popType==="date"){
+      e.preventDefault(); btns[cur].click();
+    }
+  }
   function commit(input,val){
     input.value=val;
     try{ input.dispatchEvent(new Event("input",{bubbles:true})); }catch(e){}
@@ -5450,7 +6905,8 @@ function openDayPop(anchor){
   }
   function place(input){
     if(!popEl) return;
-    const r=input.getBoundingClientRect();
+    const anchor=popFace||input;
+    const r=anchor.getBoundingClientRect();
     popEl.style.visibility="hidden"; popEl.style.left="0px"; popEl.style.top="0px";
     const w=popEl.offsetWidth, h=popEl.offsetHeight, vw=window.innerWidth, vh=window.innerHeight;
     /* Rail-dock only for sidebar-anchored fields: dock right edge of
@@ -5459,7 +6915,7 @@ function openDayPop(anchor){
     let inRail=false, railLeft=0;
     try{
       const rail=document.getElementById("adminSide");
-      if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0){ railLeft=Math.max(0,rr.left); inRail=(r&&r.width>0&&r.left>=railLeft-1&&r.right<=railLeft+260); } }
+      if(rail){ const rr=rail.getBoundingClientRect(); if(rr&&rr.width>0){ railLeft=Math.max(0,rr.left); inRail=!!(r&&r.width>0&&anchor && anchor.closest && anchor.closest('#adminSide')&&r.left>=railLeft-1&&r.right<=railLeft+260); } }
     }catch(e){}
     let left;
     if(inRail){
@@ -5479,19 +6935,23 @@ function openDayPop(anchor){
       top=r.bottom+6; if(top+h>vh-8) top=Math.max(8,r.top-h-6);
     }
     /* Same modal-footer flip as the dropdowns (user order): time/date
-       pickers never bury the modal's own action row when room above. */
+       pickers never bury the modal's own action row when room above.
+       A flipped-above popover must never cover the modal title: clamp
+       it below the title block. */
     try{
-      const card=input.closest&&input.closest('.modal-card');
-      if(card){ const cr=card.getBoundingClientRect(); if(top+h>cr.bottom-8){ const up=Math.round(r.top-4-h); if(up>=Math.max(8,cr.top)) top=up; } }
+      const card=input.closest&&input.closest('.mod');
+      if(card){ const cr=card.getBoundingClientRect(); if(top+h>cr.bottom-8){ const up=Math.round(r.top-4-h); if(up>=Math.max(8,cr.top)) top=up; } if(top<cr.top+96) top=Math.min(cr.top+96,Math.max(8,vh-h-8)); }
     }catch(_){}
     popEl.style.left=left+"px"; popEl.style.top=top+"px"; popEl.style.visibility="";
     if(inRail) _revealFromRail(popEl);
   }
-  function openPop(input,type){
+  function openPop(input,type,face){
     if(popEl && popInput===input && popType===type){ closePop(); return; }
     closePop();
-    popInput=input; popType=type;
+    popInput=input; popType=type; popFace=face||null;
+    if(popFace) popFace.classList.add("open");
     popEl=document.createElement("div"); popEl.className="dt-pop"; popEl.setAttribute("role","dialog");
+    if(type==="date") popEl.classList.add("cal");
     if(type==="date") buildDate(popEl,input); else buildTime(popEl,input);
     document.body.appendChild(popEl); place(input);
     document.addEventListener("pointerdown",onDocDown,true);
@@ -5502,29 +6962,33 @@ function openDayPop(anchor){
        trigger for a moment, close. Prevents the stuck-popup residue
        when the user moves from the input to a sibling control. */
     try{
-      const wrap=input.closest&&input.closest(".dt-wrap");
-      const trig=input._dtTrig;
       popEl.addEventListener("mouseenter",_dtCancelClose);
       popEl.addEventListener("mouseleave",_dtMaybeCloseSoon);
-      if(wrap){ wrap.addEventListener("mouseenter",_dtCancelClose); wrap.addEventListener("mouseleave",_dtMaybeCloseSoon); }
-      if(trig){ trig.addEventListener("mouseenter",_dtCancelClose); trig.addEventListener("mouseleave",_dtMaybeCloseSoon); }
+      if(popFace){ popFace.addEventListener("mouseenter",_dtCancelClose); popFace.addEventListener("mouseleave",_dtMaybeCloseSoon); }
       document.addEventListener("pointermove",_dtDocMove,true);
     }catch(e){}
   }
   function parseDate(v){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||""); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(d)?null:d; }
   function buildDate(box,input){
     const today=new Date(); today.setHours(0,0,0,0);
+    let _recDays=new Set();
     let sel=parseDate(input.value);
     let vk=input.id||input.name||"dt";
     let view=viewKey[vk];
     if(!view){ const base=sel||today; view={y:base.getFullYear(),m:base.getMonth()}; }
+    const id0=input.id||"";
+    const pairId=/Start$/.test(id0)?id0.replace(/Start$/,"End"):(/End$/.test(id0)?id0.replace(/End$/,"Start"):null);
+    const pairVal=()=>{ try{ const p=pairId&&document.getElementById(pairId); return p?p.value:""; }catch(e){ return ""; } };
     const head=document.createElement("div"); head.className="dt-head";
     const title=document.createElement("div"); title.className="dt-title";
     const nav=document.createElement("div"); nav.className="dt-nav";
-    const prev=document.createElement("button"); prev.type="button"; prev.textContent="‹ Prev";
-    const next=document.createElement("button"); next.type="button"; next.textContent="Next ›";
-    prev.addEventListener("click",()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} draw(); });
-    next.addEventListener("click",()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} draw(); });
+    const prev=document.createElement("button"); prev.type="button"; prev.textContent="Prev"; prev.setAttribute("aria-label","Previous month");
+    const next=document.createElement("button"); next.type="button"; next.textContent="Next"; next.setAttribute("aria-label","Next month");
+    /* Month nav holds to repeat (user order): a tap steps one month, holding
+       runs through the years. These buttons are created once and live
+       outside draw(), so pointer capture survives each grid repaint. */
+    holdRepeat(prev,()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} draw(); });
+    holdRepeat(next,()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} draw(); });
     nav.appendChild(prev); nav.appendChild(next); head.appendChild(title); head.appendChild(nav); box.appendChild(head);
     const grid=document.createElement("div"); grid.className="dt-grid"; box.appendChild(grid);
     const foot=document.createElement("div"); foot.className="dt-foot";
@@ -5533,94 +6997,153 @@ function openDayPop(anchor){
     clear.addEventListener("click",()=>{ viewKey[vk]=view; commit(input,""); closePop(); });
     tBtn.addEventListener("click",()=>{ const t=new Date(); view={y:t.getFullYear(),m:t.getMonth()}; viewKey[vk]=view; commit(input,t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate())); closePop(); });
     foot.appendChild(clear); foot.appendChild(tBtn); box.appendChild(foot);
+    function isoOf(d){ return view.y+"-"+pad(view.m+1)+"-"+pad(d); }
+    function inWash(iso){
+      const a=input.value, b=pairVal();
+      if(!a||!b||a===b) return false;
+      const lo=a<b?a:b, hi=a<b?b:a;
+      return iso>lo&&iso<hi;
+    }
     function draw(){
       viewKey[vk]=view;
       title.textContent=MONTHS[view.m]+" "+view.y;
       grid.innerHTML="";
-      ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d=>{ const s=document.createElement("div"); s.className="dt-dow"; s.textContent=d; grid.appendChild(s); });
-      const first=new Date(view.y,view.m,1).getDay(), dim=new Date(view.y,view.m+1,0).getDate(), dpm=new Date(view.y,view.m,0).getDate();
-      for(let i=first-1;i>=0;i--) addDay(dpm-i,true);
-      for(let d=1;d<=dim;d++) addDay(d,false);
+      try{ const src=(typeof AllEvents!=="undefined"&&AllEvents&&AllEvents.length)?AllEvents:((typeof Attendance!=="undefined")?Attendance:[]); _recDays=_scanDays(src); }catch(e){ _recDays=new Set(); }
+      const cells=[];
+      ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{ const s=document.createElement("div"); s.className="dt-dow"; s.textContent=d; grid.appendChild(s); });
+      const first=new Date(view.y,view.m,1).getDay(), dim=new Date(view.y,view.m+1,0).getDate();
+      for(let i=0;i<first;i++){ const g=document.createElement("span"); g.className="dt-day hide"; g.setAttribute("aria-hidden","true"); grid.appendChild(g); }
+      for(let d=1;d<=dim;d++) addDay(d,cells);
       const tail=(7-((first+dim)%7))%7;
-      for(let d=1;d<=tail;d++) addDay(d,true);
+      for(let i=0;i<tail;i++){ const g=document.createElement("span"); g.className="dt-day hide"; g.setAttribute("aria-hidden","true"); grid.appendChild(g); }
+      paintStatic(cells);
+      const endPick=/End$/.test(id0)&&pairVal()&&!input.value;
+      if(endPick){
+        cells.forEach(c=>c.el.addEventListener("mouseenter",()=>{
+          const hov=c.iso, a=pairVal();
+          const lo=a<hov?a:hov, hi=a<hov?hov:a;
+          paintWashMesh(cells,s=>s>lo&&s<hi);
+        }));
+        grid.addEventListener("mouseleave",()=>paintStatic(cells));
+      }
     }
-    function addDay(d,out){
-      const b=document.createElement("button"); b.type="button"; b.className="dt-day"+(out?" out":""); b.textContent=d;
-      const dt=new Date(view.y,view.m+(out?(d>15?-1:1):0),d);
+    function paintWashMesh(list,test){
+      list.forEach(c=>{
+        const iso=c.iso; let mid=false; try{ mid=!!(test&&test(iso)); }catch(e){}
+        c.el.classList.toggle("in",mid);
+        ["bl","br","bt","bb"].forEach(k=>c.el.classList.remove(k));
+        if(!mid) return;
+        const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)||[];
+        const _d=new Date(+m[1],+m[2]-1,+m[3]); if(isNaN(_d)) return;
+        const _s=n=>{ const x=new Date(_d); x.setDate(x.getDate()+n); return x.getFullYear()+"-"+pad(x.getMonth()+1)+"-"+pad(x.getDate()); };
+        const _w=s=>{ try{ return !!(test&&test(s)); }catch(e){ return false; } };
+        const _c=_d.getDay();
+        const L=_c>0&&_w(_s(-1)),R=_c<6&&_w(_s(1)),T=_w(_s(-7)),B=_w(_s(7));
+        if(L)c.el.classList.add("bl"); if(R)c.el.classList.add("br"); if(T)c.el.classList.add("bt"); if(B)c.el.classList.add("bb");
+      });
+    }
+    function paintStatic(cells){ paintWashMesh(cells,inWash); }
+    function addDay(d,cells){
+      const b=document.createElement("button"); b.type="button"; b.className="dt-day";
+      const lb=document.createElement("span"); lb.textContent=d; b.appendChild(lb);
+      const dt=new Date(view.y,view.m,d);
+      const iso=isoOf(d);
       if(dt.getTime()===today.getTime()) b.classList.add("today");
       if(sel&&dt.getFullYear()===sel.getFullYear()&&dt.getMonth()===sel.getMonth()&&dt.getDate()===sel.getDate()) b.classList.add("sel");
-      b.addEventListener("click",()=>{ viewKey[vk]={y:dt.getFullYear(),m:dt.getMonth()}; commit(input,dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())); closePop(); });
+      /* Pair endpoint (Start/End range): mark the other end black too, so
+         both popups show the full range. inWash stays exclusive. */
+      try{ const _pi=pairVal(); if(_pi&&/^\d{4}-\d{2}-\d{2}$/.test(_pi)&&_pi===iso) b.classList.add("sel"); }catch(_){}
+      if(inWash(iso)) b.classList.add("in");
+      b.addEventListener("click",()=>{ viewKey[vk]={y:dt.getFullYear(),m:dt.getMonth()}; commit(input,iso); closePop(); });
+      const dot=document.createElement("i"); dot.className="dt-dot"; dot.setAttribute("aria-hidden","true");
+      try{ dot.classList.toggle("off",!(_recDays&&_recDays.has(iso))); }catch(e){ dot.classList.add("off"); }
+      b.appendChild(dot);
       grid.appendChild(b);
+      cells.push({el:b,iso:iso});
     }
     draw();
   }
   function parseTime(v){ const m=/^(\d{1,2}):(\d{2})/.exec(v||""); if(!m) return null; const h=+m[1],mi=+m[2]; if(h>23||mi>59) return null; return {h:h,mi:mi}; }
   function buildTime(box,input){
     let cur=parseTime(input.value)||{h:8,mi:0};
-    let dirty=false;
-    const head=document.createElement("div"); head.className="dt-head";
-    const title=document.createElement("div"); title.className="dt-title"; title.textContent="Time";
-    head.appendChild(title); box.appendChild(head);
-    const cols=document.createElement("div"); cols.className="dt-cols"; box.appendChild(cols);
-    const hCol=document.createElement("div"); hCol.className="dt-col";
-    const mCol=document.createElement("div"); mCol.className="dt-col";
-    const aCol=document.createElement("div"); aCol.className="dt-col";
-    cols.appendChild(hCol); cols.appendChild(mCol); cols.appendChild(aCol);
-    const foot=document.createElement("div"); foot.className="dt-foot";
-    const clear=document.createElement("button"); clear.type="button"; clear.className="dt-glyph dt-clear"; clear.setAttribute("aria-label","Clear"); clear.innerHTML=TRASH_ICON;
-    const done=document.createElement("button"); done.type="button"; done.className="dt-glyph"; done.setAttribute("aria-label","Done"); done.innerHTML=TICK_ICON;
-    clear.addEventListener("click",()=>{ commit(input,""); closePop(); });
-    done.addEventListener("click",()=>{ if(dirty) apply(); closePop(); });
-    foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
     function h12(){ const h=cur.h%12; return h===0?12:h; }
     function isPM(){ return cur.h>=12; }
     function apply(){ commit(input,pad(cur.h)+":"+pad(cur.mi)); }
-    function fill(col,items,selVal,onPick){
-      col.innerHTML="";
-      items.forEach(v=>{
-        const b=document.createElement("button"); b.type="button"; b.textContent=v.label; if(v.val===selVal) b.classList.add("sel");
-        /* Taps stage only (user order): hour, minute, and AM/PM picks
-           highlight in place — nothing commits until the tick (dirty
-           guard stops an untouched open from stamping the default). */
-        b.addEventListener("click",()=>{ onPick(v.val); dirty=true; refresh(); });
-        col.appendChild(b);
+    function cap(t){ const c=document.createElement("div"); c.className="tp-cap"; c.textContent=t; box.appendChild(c); }
+    let hG,mG,aG,nVal;
+    function paint(){
+      const hh=h12(), pm=isPM()?1:0;
+      [[hG,hh],[mG,cur.mi],[aG,pm]].forEach(([g,v])=>{
+        if(!g) return;
+        Array.from(g.querySelectorAll("button")).forEach(b=>{
+          const on=b.dataset.on===String(v);
+          b.classList.toggle("on",on);
+        });
       });
+      if(nVal) nVal.textContent=pad(cur.mi);
     }
-    function refresh(){
-      fill(hCol,[1,2,3,4,5,6,7,8,9,10,11,12].map(h=>({label:pad(h),val:h})),h12(),v=>{ cur.h=(isPM()?12:0)+(v%12); });
-      const mins=[]; for(let m=0;m<60;m+=5) mins.push({label:pad(m),val:m});
-      if(cur.mi%5!==0) mins.push({label:pad(cur.mi),val:cur.mi});
-      mins.sort((a,b)=>a.val-b.val);
-      fill(mCol,mins,cur.mi,v=>{ cur.mi=v; });
-      fill(aCol,[{label:"AM",val:0},{label:"PM",val:1}],isPM()?1:0,v=>{ const h=cur.h%12; cur.h=v?h+12:h; });
-      [hCol,mCol,aCol].forEach(c=>{ const s=c.querySelector(".sel"); if(s){ try{ c.scrollTop=s.offsetTop-c.clientHeight/2+s.clientHeight/2; }catch(e){} } });
+    cap("Hour");
+    hG=document.createElement("div"); hG.className="tp-grid";
+    [1,2,3,4,5,6,7,8,9,10,11,12].forEach(h=>{
+      const b=document.createElement("button"); b.type="button"; b.textContent=pad(h); b.dataset.on=h;
+      b.addEventListener("click",()=>{ cur.h=(isPM()?12:0)+(h%12); apply(); paint(); });
+      hG.appendChild(b);
+    });
+    box.appendChild(hG);
+    { const mh=document.createElement("div"); mh.className="tp-minhead";
+      const mc=document.createElement("div"); mc.className="tp-cap"; mc.textContent="Minute"; mh.appendChild(mc);
+      const md=document.createElement("button"); md.type="button"; md.className="tp-nudge"; md.textContent="−"; md.setAttribute("aria-label","One minute less");
+      holdRepeat(md,()=>{ cur.mi=(cur.mi+59)%60; apply(); paint(); });
+      nVal=document.createElement("span"); nVal.className="tp-nudge-val";
+      const mu=document.createElement("button"); mu.type="button"; mu.className="tp-nudge"; mu.textContent="+"; mu.setAttribute("aria-label","One minute more");
+      holdRepeat(mu,()=>{ cur.mi=(cur.mi+1)%60; apply(); paint(); });
+      mh.appendChild(md); mh.appendChild(nVal); mh.appendChild(mu); box.appendChild(mh); }
+    mG=document.createElement("div"); mG.className="tp-grid";
+    for(let m=0;m<60;m+=5){
+      const b=document.createElement("button"); b.type="button"; b.textContent=pad(m); b.dataset.on=m;
+      b.addEventListener("click",()=>{ cur.mi=m; apply(); paint(); });
+      mG.appendChild(b);
     }
-    refresh();
+    box.appendChild(mG);
+    cap("AM / PM");
+    aG=document.createElement("div"); aG.className="tp-grid ampm";
+    [["AM",0],["PM",1]].forEach(([label,v])=>{
+      const b=document.createElement("button"); b.type="button"; b.textContent=label; b.dataset.on=v;
+      b.addEventListener("click",()=>{ cur.h=(cur.h%12)+(v?12:0); apply(); paint(); });
+      aG.appendChild(b);
+    });
+    box.appendChild(aG);
+    const foot=document.createElement("div"); foot.className="dt-foot";
+    const clear=document.createElement("button"); clear.type="button"; clear.setAttribute("aria-label","Clear"); clear.textContent="Clear";
+    const done=document.createElement("button"); done.type="button"; done.className="go"; done.setAttribute("aria-label","Done"); done.textContent="Done";
+    clear.addEventListener("click",()=>{ commit(input,""); closePop(); });
+    done.addEventListener("click",()=>{ closePop(); });
+    foot.appendChild(clear); foot.appendChild(done); box.appendChild(foot);
+    paint();
+  }
+  function fmtDate(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); if(!m) return ""; return (+m[3])+" "+MONTHS_S[+m[2]-1]+" "+m[1]; }
+  function fmtTime(hhmm){ const m=/^(\d{1,2}):(\d{2})/.exec(hhmm||""); if(!m) return ""; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12; return h+":"+m[2]+" "+ap; }
+  function syncFace(input){
+    const face=input._dtFace; if(!face) return;
+    const t=(input.type||"").toLowerCase();
+    const v=input.value||"";
+    face.textContent=t==="date"?(v?fmtDate(v):"Select date"):(v?fmtTime(v):"Select time");
+    face.classList.toggle("dim",!v);
   }
   function enhance(input){
     if(!input||(input.tagName!=="INPUT")||input.dataset.dt) return;
     const t=(input.type||"").toLowerCase(); if(t!=="time"&&t!=="date") return;
+    if(input.closest&&input.closest("#attDateStaging")) return;
     input.dataset.dt="1";
-    const wrap=document.createElement("span"); wrap.className="dt-wrap";
-    try{ input.parentNode.insertBefore(wrap,input); wrap.appendChild(input); }catch(e){ return; }
-    const trig=document.createElement("button"); trig.type="button"; trig.className="dt-trig";
-    trig.textContent=(t==="date"?"\u25A6":"\u25F7");
-    trig.setAttribute("aria-label",t==="date"?"Choose date":"Choose time");
-    trig.setAttribute("tabindex","-1");
-    trig.addEventListener("click",(e)=>{ e.preventDefault(); e.stopPropagation(); try{ input.focus(); }catch(_){} openPop(input,t); });
-    wrap.appendChild(trig); input._dtTrig=trig;
-    /* Click-anywhere: the field body opens the same popup as the
-       trigger (same focus + openPop lines, trigger untouched).
-       Drags keep text selection: only a true click (no movement,
-       nothing selected) opens. Keyboard/typing never fire click. */
-    let _dtX=0, _dtY=0;
-    input.addEventListener("mousedown",(e)=>{ _dtX=e.clientX; _dtY=e.clientY; });
-    input.addEventListener("click",(e)=>{
-      if(Math.abs(e.clientX-_dtX)>4||Math.abs(e.clientY-_dtY)>4) return;
-      try{ const s=window.getSelection(); if(s&&!s.isCollapsed) return; }catch(_){}
-      try{ input.focus(); }catch(_){}
-      openPop(input,t);
-    });
+    try{ input.style.display="none"; }catch(e){}
+    const face=document.createElement("button"); face.type="button"; face.className="dt-face";
+    face.setAttribute("aria-label",t==="date"?"Choose date":"Choose time");
+    try{ input.parentNode.insertBefore(face,input.nextSibling); }catch(e){ return; }
+    input._dtFace=face;
+    face.addEventListener("click",(e)=>{ e.preventDefault(); e.stopPropagation(); openPop(input,t,face); });
+    input.addEventListener("input",()=>syncFace(input));
+    input.addEventListener("change",()=>syncFace(input));
+    syncFace(input);
   }
   function enhanceAll(root){ try{ (root||document).querySelectorAll('input[type="time"],input[type="date"]').forEach(enhance); }catch(e){} }
   enhanceAll(document);
