@@ -464,7 +464,7 @@ let currentTab="students", selectedStudentId=null, calendarMonth=new Date();
 /* Refresh persistence (testing convenience): remember the last admin
    tab; after the normal PIN unlock the admin reopens there instead of
    the default. The PIN gate itself is untouched. */
-try{ const _t=localStorage.getItem("atl_admin_tab"); if(["students","attendance","setup","setup2","backup","today","reports","calendar","settings"].indexOf(_t)>=0) currentTab=_t; }catch(e){}
+try{ const _t=localStorage.getItem("atl_admin_tab"); const _t2=_t==="setup2"?"setup":_t; if(["students","attendance","setup","backup","today","reports","calendar","settings"].indexOf(_t2)>=0) currentTab=_t2; }catch(e){}
 /* Academic-year override span (null = follow Settings); set by the year popup */
 let attAcadFrom=null, attAcadTo=null;
 
@@ -495,6 +495,18 @@ function wireModalFade(body){
    overflow:visible. A stale mask is cleared, not just skipped. */
 function paintFadeBottom(el){
   if(!el||el.scrollHeight==null) return;
+  /* Setup 2 lists must cut cleanly at their bottom edge (user order): no
+     gradient is ever written to them. Guarded HERE rather than in
+     repaintFades(), because the document scroll listener and the
+     MutationObserver below also call this — skipping only the repaint pass
+     would re-stamp the mask on the next scroll. A mask already stamped on
+     such a list is cleared, not just skipped. */
+  if(el.closest&&el.closest("#setupLists")){
+    if(el.style.maskImage||el.style.webkitMaskImage){
+      el.style.webkitMaskImage=""; el.style.maskImage="";
+    }
+    return;
+  }
   const scrolls=/(auto|scroll)/.test(getComputedStyle(el).overflowY)
     && el.scrollHeight-el.clientHeight>4;
   if(!scrolls){
@@ -1782,7 +1794,7 @@ function renderCbTables(){
   const cr=$("cbClassRows"), br=$("cbBatchRows");
   if(!cr||!br) return;
   const isActive=s=>s&&(s.active!==false&&s.active!==0);
-  if($("cbClassCount")) $("cbClassCount").textContent=Classes.length+(Classes.length===1?" class":" classes");
+  if($("cbClassCount")) $("cbClassCount").textContent=Classes.length;
   const tileTxt=s=>{ const m=/\d+/.exec(s||""); return m?m[0]:((s||"").trim().charAt(0).toUpperCase()||"–"); };
   const row=(kind,key,label,n)=>{
     const sel=(selKind===kind&&selName===key)?" active":"";
@@ -1792,10 +1804,10 @@ function renderCbTables(){
   cr.innerHTML=Classes.length?Classes.map(c=>{ const _n=Students.filter(s=>isActive(s)&&s.class===c).length; return row("class",c,c,_n+(_n===1?" student":" students")); }).join(""):`<p class="empty-l">No classes yet — use + Add class below.</p>`;
   if(cbBatchScope&&!Classes.includes(cbBatchScope)) cbBatchScope=null;
   const bEntries=batchBoardEntries(cbBatchScope);
-  if($("cbBatchCount")) $("cbBatchCount").textContent=bEntries.length+(bEntries.length===1?" batch":" batches");
+  if($("cbBatchCount")) $("cbBatchCount").textContent=bEntries.length;
   const scopeBtn=$("cbBatchScope");
   if(scopeBtn){
-    if(cbBatchScope){ scopeBtn.hidden=false; scopeBtn.textContent="· "+cbBatchScope+" ×"; scopeBtn.title="Show all batches"; }
+    if(cbBatchScope){ scopeBtn.hidden=false; scopeBtn.textContent=cbBatchScope+" ×"; scopeBtn.title="Show all batches"; }
     else scopeBtn.hidden=true;
   }
   br.innerHTML=bEntries.length?bEntries.map(e=>{ const _n=batchRowCount(e.key,cbBatchScope); return row("batch",e.key,e.label,_n+(_n===1?" student":" students")); }).join(""):(cbBatchScope?`<p class="empty-l">No batches for ${esc(cbBatchScope)} yet — use + to add one.</p>`:`<p class="empty-l">No batches yet — use + Add batch below.</p>`);
@@ -1820,8 +1832,8 @@ function renderCbTables(){
       return `<div class="row${sel}${past?" dim":""}" data-ho-kind="${kind}" data-ho-key="${esc(key)}" role="button" tabindex="0" title="${esc(title||"")}"><span class="tile" aria-hidden="true">${tile}</span><span class="cell"><span class="t">${esc(label)}</span><small>${esc(meta)}</small></span><button type="button" data-ho-edit="${kind}" data-ho-key="${esc(key)}" aria-label="Edit" title="Edit">Edit</button></div>`;
     };
     const _nh=Holidays.filter(h=>h.end>=t).length, _no=Overrides.filter(o=>o.date>=t).length;
-    if($("cbHolidayCount")) $("cbHolidayCount").textContent=_nh===0?"None active":_nh+(_nh===1?" holiday":" holidays");
-    if($("cbOverrideCount")) $("cbOverrideCount").textContent=_no===0?"None active":_no+(_no===1?" override":" overrides");
+    if($("cbHolidayCount")) $("cbHolidayCount").textContent=_nh;
+    if($("cbOverrideCount")) $("cbOverrideCount").textContent=_no;
     hr.innerHTML=Holidays.length?Holidays.map(h=>hoRow("holiday",h.start,h.name||"Holiday",rangeShort(h.start,h.end)+fmtTimes(h),h.end<t,(h.name||"Holiday")+" "+(h.start===h.end?h.start:(h.start+".."+h.end))+fmtTimes(h)+" ("+(h.type||"holiday")+")")).join(""):`<p class="empty-l">No holidays yet — use + Add holiday below.</p>`;
     or_.innerHTML=Overrides.length?Overrides.map(o=>hoRow("override",o.date,o.note?dShort(o.date)+" — "+o.note:dShort(o.date),dShort(o.date)+" · "+(o.isWorking?"Working":"Holiday")+fmtTimes(o),o.date<t,o.date+fmtTimes(o)+" → "+(o.isWorking?"working":"non-working")+(o.note?": "+o.note:""))).join(""):`<p class="empty-l">No overrides yet — use + Add override below.</p>`;
   }
@@ -1875,15 +1887,13 @@ function onCbStripClick(e){
   }
   const ho=e.target.closest("[data-ho-kind]");
   if(ho){
-    /* Row tap opens the record's editor (user order — same as
-       the pencil). */
-    if(ho.dataset.hoKind==="holiday"){
-      selHolidayKey=ho.dataset.hoKey;
-      renderCbTables(); openHolidayEdit(selHolidayKey);
-    }else{
-      selOverrideKey=ho.dataset.hoKey;
-      renderCbTables(); openOverrideEdit(selOverrideKey);
-    }
+    /* Row tap SELECTS only — the brown tile marks where you are, exactly as
+       Classes and Batches now do. The edit window is opened by the pencil
+       button alone ([data-ho-edit] below), so tapping a row can no longer
+       throw a form over the list the user is trying to read. */
+    if(ho.dataset.hoKind==="holiday") selHolidayKey=ho.dataset.hoKey;
+    else selOverrideKey=ho.dataset.hoKey;
+    renderCbTables();
     return;
   }
   /* Class/batch row tap: preview only (no popup — the pencil opens
@@ -1968,8 +1978,19 @@ if($("cbAddHoliday")) $("cbAddHoliday").onclick=()=>openHolidayCreate();
 if($("cbAddOverride")) $("cbAddOverride").onclick=()=>openOverrideCreate();
 if($("cbEditHoliday")) $("cbEditHoliday").onclick=()=>{ if(!selHolidayKey){ glassAlert("Select a holiday in the table first."); return; } openHolidayEdit(selHolidayKey); };
 if($("cbEditOverride")) $("cbEditOverride").onclick=()=>{ if(!selOverrideKey){ glassAlert("Select an override in the table first."); return; } openOverrideEdit(selOverrideKey); };
-if($("cbStrip")){
-  $("cbStrip").addEventListener("click",(e)=>{
+/* Delegation hosts. The Setup 2 cards were moved OUT of #cbStrip into their own
+   pane when Setup 2 was created, but this handler was left bound to #cbStrip
+   alone — so inside those cards nothing worked: Edit Class/Batch/Holiday/
+   Override opened no window (verified: the modal stayed display:none even for
+   a programmatic button.click(), so it was never the pointer path), row taps
+   changed nothing, the scope/page buttons were dead, and Enter/Space did
+   nothing. Both hosts are subtrees of .app and disjoint, so binding both runs
+   the handler exactly once per click. Handler bodies are unchanged, and the
+   host is the PANE, not a list, so it survives renderCbTables() re-rendering
+   the cards. */
+const cbDelegHosts=[$("cbStrip"), $("setupLists")].filter(Boolean);
+for(const cbHost of cbDelegHosts){
+  cbHost.addEventListener("click",(e)=>{
     if(e.target.closest("#cbBatchScope")){ cbBatchScope=null; renderCbTables(); return; }
     if(e.target.closest("#cbPrev")){ paintCbPage(cbPage-1); return; }
     if(e.target.closest("#cbNext")){ paintCbPage(cbPage+1); return; }
@@ -1977,7 +1998,7 @@ if($("cbStrip")){
   });
   /* Row Enter/Space previews like a tap (user order): pencil and
      trash are native buttons with their own keyboard keys. */
-  $("cbStrip").addEventListener("keydown",(e)=>{
+  cbHost.addEventListener("keydown",(e)=>{
     if(e.target.closest("button")) return;
     if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-cb-kind],[data-ho-kind]")){ e.preventDefault(); onCbStripClick(e); }
   });
@@ -2845,7 +2866,6 @@ async function openAdmin(){
     setup: "Setup",
     calendar: "Setup",
     settings: "Setup",
-    setup2: "Setup 2",
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent=titles[currentTab]||"Admin";
@@ -2874,7 +2894,7 @@ function scrollToPane(tab){
      positioned ancestor), which is also the scroller. */
   let t=tab;
   if(t==="calendar"||t==="settings") t="setup";
-  if(["students","attendance","setup","setup2","backup"].indexOf(t)<0) return;
+  if(["students","attendance","setup","backup"].indexOf(t)<0) return;
   const sc=adminScroller();
   const pane=document.getElementById("pane-"+t);
   if(!sc||!pane) return;
@@ -2905,7 +2925,6 @@ function updateTabs(){
     setup: "Setup",
     calendar: "Setup",
     settings: "Setup",
-    setup2: "Setup 2",
     backup: "Backup — Audit"
   };
   if(adminTitle) adminTitle.textContent = titles[currentTab] || "Admin";
@@ -2950,6 +2969,60 @@ adminNav.onclick=(e)=>{
   updateTabs();
   scrollToPane(currentTab);
 };
+/* Section-entry micro-animation (user order): a 150ms fade + 4px settle as a
+   section enters the viewport. Deliberately small and self-contained:
+     - opacity/transform only (see the CSS) → no reflow, so row heights, the
+       sticky column headers and the tables never move.
+     - one-shot per entry: the class is removed on animationend so no
+       transform lingers. That is not cosmetic — a pane holding any transform,
+       even translateY(0), becomes the containing block for the fixed
+       dropdowns inside it (.gsel-pop, .dt-pop), which would jump.
+     - re-armed only when the section leaves the viewport, so a fast scroll
+       cannot stack repeats, and a re-entry inside 600ms is ignored to avoid
+       flicker on a flick-scroll that re-crosses the same section.
+     - sidebar clicks need no special case: the jump lands, the observer
+       fires on its own. No existing handler or ID is touched.
+   Skipped entirely under prefers-reduced-motion (the CSS drops the
+   animation, and the observer stops adding the class at all). */
+(function(){
+  const sc=adminScroller();
+  if(!sc || !("IntersectionObserver" in window)) return;
+  const reduce=window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  if(reduce && reduce.matches) return;
+  const COOLDOWN=600, seen=new WeakMap();
+  function play(pane){
+    if(!pane || pane.classList.contains("is-entering")) return;
+    const now=Date.now();
+    if(now-(seen.get(pane)||0) < COOLDOWN) return;
+    seen.set(pane, now);
+    /* Dismiss any open popover BEFORE the transform goes on. A pane carrying a
+       transform becomes the containing block for its position:fixed children
+       (.gsel-pop, .dt-pop), so a dropdown left open across an entry snaps to
+       the pane instead of the viewport and flies across the screen (measured:
+       a fixed child 1562px out of place). Same dismissal openModal() already
+       performs before it shows a dialog. */
+    try{ if(window.__closeGselPop) window.__closeGselPop(); }catch(_){}
+    try{ if(typeof closeDtPops==="function") closeDtPops(); }catch(_){}
+    pane.classList.add("is-entering");
+    /* Belt and braces: if the animation never fires (background tab, reduced
+       motion turned on mid-session) the class must still not survive. */
+    const clear=()=>{ pane.classList.remove("is-entering"); pane.removeEventListener("animationend", clear); };
+    pane.addEventListener("animationend", clear, {once:true});
+    setTimeout(clear, 600);
+  }
+  try{
+    const io=new IntersectionObserver((entries)=>{
+      for(const en of entries){
+        if(en.isIntersecting && en.intersectionRatio>=0.25) play(en.target);
+      }
+    }, {root:sc, threshold:[0, 0.25, 0.6]});
+    const scan=()=>{ document.querySelectorAll("#adminLayer .admin-pane").forEach(p=>{ if(!p.__io){ p.__io=true; io.observe(p); } }); };
+    scan();
+    /* Sections are rebuilt by renders, so re-scan as the app works. */
+    if(window.MutationObserver){ new MutationObserver(scan).observe(sc, {childList:true, subtree:true}); }
+    window.addEventListener("resize", scan, {passive:true});
+  }catch(_){}
+})();
 /* Scroll-spy: mark the section that actually occupies the window.
    Deterministic probe line just below the sticky bar — the last section
    whose top has passed the line is the one on screen. Chosen over
@@ -2962,7 +3035,7 @@ function spyFromScroll(){
   let rh=0; try{ const r=sc.querySelector(".rail"); rh=r?r.offsetHeight:0; }catch(_){}
   const line=sc.scrollTop + rh + 8;
   let cur=null;
-  ["students","attendance","setup","setup2","backup"].forEach(t=>{
+  ["students","attendance","setup","backup"].forEach(t=>{
     const p=document.getElementById("pane-"+t);
     if(p && p.offsetTop<=line) cur=t;
   });
@@ -2993,14 +3066,46 @@ try{
   /* Page-only (user order): the far-right strip is the PAGE's bar. Bounded
      inner windows now carry their own mini bar, so this one no longer has to
      stand in for them. */
-  const metrics=()=>{ const ch=sc.clientHeight, sh=sc.scrollHeight; return {ch:ch, sh:sh, on:sh>ch+1}; };
+  /* The strip belongs to the CONTENT column, not the window: anchored at the top
+   of the window it ran beside whatever right-aligned control sat at that
+   height (CLOSE in the nav, Export CSV in the Attendance toolbar) and read as
+   part of that control. The nav is not a fixed height — it measures 109px once
+   the search box and Close stack — so fit the strip to the real rail instead of
+   hardcoding a number that is wrong half the time. getBoundingClientRect is in
+   the same rendered units that `top`/`height` resolve against here, and zoom
+   does not scale a fixed element's offsets, so no ratio correction is needed. */
+  const rail=document.getElementById("adminNav");
+  const navEl=rail?rail.closest(".rail"):null;
+  let fitted=-1;
+  function fitTrack(){
+    let h=0;
+    try{ if(navEl && navEl.offsetParent!==null) h=navEl.offsetHeight; }catch(_){}
+    /* Runs on every paint, so it must be cheap AND must self-correct: at init
+       the admin layer is still closed, the rail has no box, and the strip would
+       otherwise stay window-height until a resize happened to arrive. Bail when
+       the value has not changed so a scroll does not force layout each frame. */
+    if(h===fitted) return;
+    fitted=h;
+    track.style.top=h+"px";
+    track.style.height="calc(100% - "+h+"px)";
+  }
+  fitTrack();
+
+  /* th = the TRACK's own height (it stops below the nav, so it is shorter than
+     the scroller); ch = the SCROLLER's client height, which is what the scroll
+     range is measured against. Visual travel uses th, scroll arithmetic uses ch
+     — mixing them up puts the thumb outside the track. */
+  const metrics=()=>{ const ch=sc.clientHeight, sh=sc.scrollHeight;
+    return {ch:ch, sh:sh, th:track.clientHeight||ch, on:sh>ch+1}; };
   function paint(){
+    fitTrack();
     const ch=sc.clientHeight, sh=sc.scrollHeight, st=sc.scrollTop;
+    const th=track.clientHeight||ch;
     /* Dead strip must not intercept clicks on a page that cannot scroll. */
     track.classList.toggle("dead", !(sh>ch+1));
     if(!(sh>ch+1)){ ind.style.height="0px"; return; }
-    const h=Math.min(MAX_THUMB, Math.max(MIN_THUMB, Math.round(ch*ch/sh)));
-    const room=ch-h;
+    const h=Math.min(MAX_THUMB, Math.max(MIN_THUMB, Math.round(th*th/sh)));
+    const room=th-h;
     const top=room>0 ? Math.round((st/(sh-ch))*room) : 0;
     ind.style.height=h+"px";
     ind.style.top=top+"px";
@@ -3013,25 +3118,41 @@ try{
     hideT=setTimeout(()=>{ if(!dragging) track.classList.remove("on"); hideT=null; }, IDLE);
   }
   /* Map a pointer y on the strip to scrollTop (1:1 across the full range).
-     grabDelta is where inside the thumb the drag started: without it the
-     first move re-centers the thumb on the cursor, which reads as an
-     inverted drag. Keeping it makes the thumb track the cursor exactly. */
-  function jumpTo(clientY, grabDelta){
+     EVERYTHING here is client space (rects + clientY). The admin layer is
+     scaled (zoom:.9), so style px and client px are NOT the same units:
+     mixing a scaled rect difference with style/offset values made the thumb
+     lag the cursor by ~50px and even travel backwards on a small drag.
+     grabY = clientY at grab, minus the thumb's own client top, so the thumb
+     keeps the exact spot under the pointer (no re-centring on first move). */
+  function jumpTo(clientY, grabY){
     const m=metrics();
     if(!m.on) return;
-    const r=track.getBoundingClientRect();
-    const raw=(clientY - r.top) - (grabDelta||0);
-    const y=Math.min(Math.max(0, raw), m.ch);
-    const h=parseFloat(ind.style.height)||MIN_THUMB;
-    const room=m.ch-h;
-    const frac=room>0 ? (y-h/2)/room : 0;
-    sc.scrollTop=Math.round(Math.min(1, Math.max(0, frac))*(m.sh-m.ch));
+    const tr=track.getBoundingClientRect();
+    const ir=ind.getBoundingClientRect();
+    const thumbH=ir.height || parseFloat(ind.style.height) || MIN_THUMB;
+    const room=Math.max(0, tr.height-thumbH);
+    /* Bare click: centre the thumb under the pointer. Drag: keep the grab. */
+    const anchor=(grabY!=null) ? (clientY-grabY) : (clientY-thumbH/2);
+    const topWanted=anchor-tr.top;
+    const frac=room>0 ? Math.max(0, Math.min(1, topWanted/room)) : 0;
+    sc.scrollTop=Math.round(frac*(m.sh-m.ch));
   }
 
   sc.addEventListener("scroll", ()=>{ show(); idle(); }, {passive:true});
-  window.addEventListener("resize", ()=>{ paint(); });
+  window.addEventListener("resize", ()=>{ fitTrack(); paint(); });
   track.addEventListener("mouseenter", show);
   track.addEventListener("mouseleave", ()=>{ idle(); });
+  /* The strip is only fitted inside paint(), and paint() only runs once the
+     strip is shown (scroll / hover). So when the nav height changes and Admin
+     opens, the strip could sit at top:0 — its 14px hit zone under the bar —
+     until the first scroll. Re-fit whenever the layer opens or closes, and on
+     any rail resize, so the strip always starts below the bar. */
+  try{
+    const layer=document.getElementById("adminLayer");
+    if(layer && window.MutationObserver) new MutationObserver(()=>{ fitTrack(); paint(); }).observe(layer, {attributes:true, attributeFilter:["class"]});
+    const bar=navEl;
+    if(bar && "ResizeObserver" in window) new ResizeObserver(()=>{ fitTrack(); paint(); }).observe(bar);
+  }catch(_){}
 
   /* Wheel on the strip drives the page (it sits outside every scroll region, so
      the page would not move on its own). */
@@ -3045,17 +3166,17 @@ try{
   track.addEventListener("pointerdown",(e)=>{
     show();
     if(e.target===ind){
-      /* Remember where inside the thumb the drag began (0 = dead centre). */
-      const h=parseFloat(ind.style.height)||MIN_THUMB;
-      const topPx=parseFloat(ind.style.top)||0;
-      grabDelta=e.clientY - (topPx + h/2);
+      /* Where inside the thumb the grab started, in CLIENT space (the thumb's
+         own client rect, not style.top — style px and client px differ under
+         the admin layer's zoom, which is what made the drag drift). */
+      grabDelta = e.clientY - ind.getBoundingClientRect().top;
       dragging=true; dragId=e.pointerId;
       track.classList.add("drag");
       try{ track.setPointerCapture(e.pointerId); }catch(_){}
       e.preventDefault();
       return;
     }
-    jumpTo(e.clientY, 0);   /* bare strip click = centre thumb here */
+    jumpTo(e.clientY, null);   /* bare strip click = centre thumb here */
     idle();
   });
   track.addEventListener("pointermove",(e)=>{
@@ -3093,20 +3214,16 @@ try{
   paint();   /* sized but hidden until first scroll or hover */
 })();
 
-/* Chained wheel (user order): the wheel drives the innermost box under the
-   cursor that still has room — a list scrolls itself instead of sitting dead
-   while the page moves. Two things this must get right:
-     1. Only a container that actually overflows AND has room left in the
-        wheel's direction takes the wheel — never a test for "is it a scroll
-        container".
-     2. Those regions use overscroll-behavior:contain, which blocks the
-        browser's own chaining. So chaining is done manually: when the inner
-        box is spent, the next box out (ultimately the page) takes the wheel —
-        the page never gets stuck behind a list. That was the "stuck" report;
-        unconditional page-driving was its first fix, and it made lists
-        wheel-dead — this keeps the page free AND the lists alive.
-   Overlays are excluded: a dialog must keep scrolling itself. Touch is
-   untouched (no wheel events), so mobile still scrolls with a finger. */
+/* Page-only wheel (user order): the wheel belongs to the main UI, never to
+   the bounded lists. Classes, Batches, Holidays, Overrides, the student
+   records and the audit history are competing windows: while they also took
+   the wheel, one gesture scrolled a list AND the page, and the UI felt stuck
+   between them. Now the wheel scrolls the page only, and those lists are
+   driven by their own thin bar (drag, wheel-over-the-strip, or keyboard when
+   focused) — plus touch, which is untouched and still swipes a list natively.
+   The page is moved by hand because overscroll-behavior:contain on the lists
+   blocks the browser's own chaining, which is what made the page feel stuck.
+   Overlays are excluded: a dialog must keep scrolling itself. */
 (function(){
   const sc=adminScroller();
   if(!sc) return;
@@ -3116,34 +3233,11 @@ try{
     if(Math.abs(e.deltaX)>Math.abs(e.deltaY)) return;  /* horizontal pan stays native */
     if(e.target && e.target.closest && e.target.closest(OVERLAY)) return;
     if(!e.target || !sc.contains(e.target)) return;  /* kiosk side keeps its own wheel */
-    /* Chained scrolling (user order): the wheel drives the innermost box
-       under the cursor that still has room in the wheel's direction, so a
-       list scrolls itself instead of sitting dead while the page moves.
-       Unused remainder chains outward (a 240px flick at a list's end spends
-       what the list has left, then moves the page) — ultimately the page,
-       so it never gets stuck behind a list. Chained manually, not natively:
-       native chaining stops at overscroll-behavior:contain instead of
-       handing outward. Touch is untouched (no wheel events). */
-    let remaining=e.deltaY, node=e.target;
-    while(node && node!==document.body && remaining){
-      if(node.nodeType===1){
-        try{ if(node.closest && node.closest(OVERLAY)) return; }catch(_){ return; }
-        try{
-          if(/(auto|scroll)/.test(getComputedStyle(node).overflowY) && node.scrollHeight>node.clientHeight+1){
-            const max=node.scrollHeight-node.clientHeight;
-            if(remaining>0){
-              const take=Math.min(remaining, Math.max(0, max-node.scrollTop));
-              node.scrollTop+=take; remaining-=take;
-            }else if(remaining<0){
-              const take=Math.max(remaining, -node.scrollTop);
-              node.scrollTop+=take; remaining-=take;
-            }
-          }
-        }catch(_){}
-      }
-      node=node.parentNode;
-    }
-    if(remaining!==e.deltaY){ e.preventDefault(); }
+    /* The page takes every wheel inside Admin, wherever the cursor is. Inner
+       lists are never consulted, so one gesture moves exactly one thing. */
+    e.preventDefault();
+    const max=sc.scrollHeight-sc.clientHeight;
+    sc.scrollTop=Math.max(0, Math.min(max, sc.scrollTop + e.deltaY));
   }, {passive:false});
 })();
 
@@ -3159,7 +3253,7 @@ try{
   /* .main-col is deliberately NOT a region. It holds the month calendar;
      a bar pinned to its edge would double the page strip a few px away.
      The data lists live in Setup 2 and carry their own bars. */
-  const REGIONS=".ros,.sd-recs,.rows,.bk,#auditBody";
+  const REGIONS=".ros,.sd-recs,.rows,.bk,#auditBody,#gdriveFilesBody";
   /* MIN_THUMB is a usability floor: with 500 audit rows the honest ratio is
    493x493/39000 = 6px, which is invisible and undraggable. The floor keeps the
    control grabbable for a mouse; it is clamped to the visible track height so
@@ -3193,6 +3287,27 @@ try{
     region.appendChild(bar);
 
     let grabDelta=0, dragging=false, pid=null;
+    /* Resolved once: the ancestors that can CLIP this region. geom() used to walk
+       the tree and read getComputedStyle on each node on every scroll event; the
+       ancestor chain does not change while the bar exists (a data render replaces
+       the region's CHILDREN, never its ancestors), so this is safe to cache. */
+    const clipAncestors=[];
+    (function(){
+      let n=region.parentElement;
+      while(n && n!==document.body){
+        if(n===sc) break;
+        try{ if(/(auto|scroll|hidden|clip)/.test(getComputedStyle(n).overflowY)) clipAncestors.push(n); }catch(_){}
+        n=n.parentElement;
+      }
+    })();
+    /* Last values written, so paint() stops re-assigning identical style
+       properties. Assigning bar.style.top/height and thumb.style.top/height on
+       every scroll event re-invalidated style for the whole subtree each time;
+       skipping the no-op writes is most of the per-frame cost. */
+    const lastBar={h:null,t:null}, lastThumb={h:null,t:null};
+    /* Audit-list-only switch. The bar geometry and hover branch below are shared
+       by every list, so anything audit-specific has to be gated on this. */
+    const isAudit=(region.id==="auditBody");
 
     const metrics=()=>({
       ch:region.clientHeight,
@@ -3211,16 +3326,15 @@ try{
     const m=metrics();
     const r=region.getBoundingClientRect();
     let top=r.top, bot=r.bottom;
-    let n=region.parentElement;
-    while(n && n!==document.body){
-      if(n===sc) break;
-      const cs=getComputedStyle(n);
-      if(/(auto|scroll|hidden|clip)/.test(cs.overflowY)){
-        const nr=n.getBoundingClientRect();
-        top=Math.max(top, nr.top);
-        bot=Math.min(bot, nr.bottom);
-      }
-      n=n.parentElement;
+    /* clipAncestors is resolved ONCE at build time (see above). Walking the
+       tree and calling getComputedStyle on every ancestor inside geom() forced a
+       style recalc on EVERY scroll event, and paint() runs on every scroll event
+       for every bar in the document. Measuring rects is cheap by comparison —
+       getBoundingClientRect does not invalidate style. */
+    for(let i=0;i<clipAncestors.length;i++){
+      const nr=clipAncestors[i].getBoundingClientRect();
+      if(nr.top>top) top=nr.top;
+      if(nr.bottom<bot) bot=nr.bottom;
     }
     top=Math.max(0, top);
     bot=Math.min(window.innerHeight, bot);
@@ -3236,26 +3350,60 @@ try{
        is noise). */
     bar.hidden = !(g.vH>=MIN_REGION_H && m.on);
     if(bar.hidden) return;
-    bar.style.height=g.vH+"px";
+    /* Only write a style property when the value actually changed (see the
+       lastBar/lastThumb note at build time). Re-assigning an identical value
+       still re-invalidates style for the bar's subtree, and paint() runs on
+       every scroll event of every bar. */
+    const barH=g.vH+"px";
+    if(lastBar.h!==barH){ bar.style.height=barH; lastBar.h=barH; }
     /* Region-local top (the bar is inside the scroller, so add scrollTop). */
-    bar.style.top=Math.round(g.vTop - g.rTop + m.st)+"px";
+    /* The audit bar is NOT rounded (user order). Because the bar is a CHILD of
+       the scroller, its top is (constant viewport offset + scrollTop), and the
+       audit scrub writes FRACTIONAL scrollTop — so rounding that sum left up to
+       half a pixel of error that changed every frame the list moved, and the
+       strip visibly jittered. Fractional costs nothing here: the bar is pinned
+       to the scrollport, not to a cursor, and device-pixel snapping happens on
+       paint anyway. Every other list keeps its Math.round. */
+    const barTop=g.vTop - g.rTop + m.st;
+    const barT=(isAudit ? barTop : Math.round(barTop))+"px";
+    if(lastBar.t!==barT){ bar.style.top=barT; lastBar.t=barT; }
     const h=Math.max(MIN_THUMB, Math.min(MAX_THUMB, g.vH, Math.round(g.vH*g.vH/m.sh)));
     const room=g.vH-h;
-    const top=room>0 ? Math.round((m.st/(m.sh-m.ch))*room) : 0;
-    thumb.style.height=h+"px";
-    thumb.style.top=top+"px";
+    /* Sub-pixel on purpose: scrollTop is fractional here, so rounding the
+       thumb to whole px quantised its travel to 1/RANGE of the scroll — 2.2px
+       per step on a short list — and a 1:1 drag visibly stepped. The thumb now
+       follows the pointer continuously. (The BAR above stays rounded: it is
+       pinned to the viewport, not to the cursor, so a fraction there only
+       buys shimmer.) */
+    const top=room>0 ? (m.st/(m.sh-m.ch))*room : 0;
+    const thH=h+"px", thT=top+"px";
+    if(lastThumb.h!==thH){ thumb.style.height=thH; lastThumb.h=thH; }
+    if(lastThumb.t!==thT){ thumb.style.top=thT; lastThumb.t=thT; }
     bar.setAttribute("aria-valuenow", String(Math.round(m.st)));
     bar.setAttribute("aria-valuemax", String(Math.max(0, m.sh-m.ch)));
   }
-  function jumpTo(clientY, gd){
+  /* Client space only (see the page strip): the admin layer is scaled, so
+     style px and client px are different units. Mixing them drifted the thumb
+     a few px behind the pointer.
+     scrollFor() is that mapping, UNCHANGED, returning the scroll position
+     instead of assigning it. jumpTo() writes it (click and drag — untouched,
+     still one write per event, still 1:1), and the eased hover below uses it
+     as a target it approaches without jumping. One mapping, two consumers, so
+     they can never disagree about where a given y points. */
+  function scrollFor(clientY, grabOff){
     const g=geom(), m=g.m;
-    if(!(m.on && g.vH>=MIN_REGION_H)) return;
+    if(!(m.on && g.vH>=MIN_REGION_H)) return null;
     const br=bar.getBoundingClientRect();
-    const y=Math.min(Math.max(0, (clientY-br.top)-(gd||0)), g.vH);
-    const h=parseFloat(thumb.style.height)||MIN_THUMB;
-    const room=g.vH-h;
-    const frac=room>0 ? (y-h/2)/room : 0;
-    region.scrollTop=Math.round(Math.min(1, Math.max(0, frac))*(m.sh-m.ch));
+    const tr=thumb.getBoundingClientRect();
+    const thumbH=tr.height || parseFloat(thumb.style.height) || MIN_THUMB;
+    const room=Math.max(0, br.height-thumbH);
+    const anchor=(grabOff!=null) ? (clientY-grabOff) : (clientY-thumbH/2);
+    const frac=room>0 ? Math.max(0, Math.min(1, (anchor-br.top)/room)) : 0;
+    return frac*(m.sh-m.ch);
+  }
+  function jumpTo(clientY, grabOff){
+    const v=scrollFor(clientY, grabOff);
+    if(v!=null) region.scrollTop=v;
   }
 
     region.addEventListener("scroll", paint, {passive:true});
@@ -3284,24 +3432,126 @@ try{
     bar.addEventListener("pointerdown",(e)=>{
       const m=metrics();
       if(!(m.on && m.ch>=MIN_REGION_H)) return;
+      /* A running ease would keep writing under the press, so the click or the
+         grab starts from a still list. */
+      stopHover();
       if(e.target===thumb){
-        const h=parseFloat(thumb.style.height)||MIN_THUMB;
-        const topPx=parseFloat(thumb.style.top)||0;
-        grabDelta=(e.clientY - bar.getBoundingClientRect().top) - (topPx + h/2);
+        /* Grab offset inside the thumb, measured in client space. */
+        grabDelta=e.clientY - thumb.getBoundingClientRect().top;
         dragging=true; pid=e.pointerId;
         bar.classList.add("drag");
         try{ bar.setPointerCapture(e.pointerId); }catch(_){}
         e.preventDefault();
         return;
       }
-      jumpTo(e.clientY, 0);
+      jumpTo(e.clientY, null);   /* bare lane click = centre thumb here */
       e.preventDefault();
     });
     bar.addEventListener("pointermove",(e)=>{ if(!dragging) return; jumpTo(e.clientY, grabDelta); });
+
+    /* Magnetic hover-scrub (user order): no click and no drag needed — move
+       the cursor vertically inside the lane and the list follows it.
+
+       Setup 2 EASES toward the cursor; every other pane keeps the old direct
+       write, so nothing about them changes this step (flip `eased` to apply
+       the easing everywhere — it is one flag, deliberately).
+
+       Why easing: a direct write snaps the whole distance into a single
+       frame, so a 2px hand tremor teleported the list 1-2 rows and the row you
+       were aiming at was gone before you could stop. Each frame now closes
+       18% of the remaining gap, which is smooth to the eye but still arrives.
+
+       Notes:
+         - The TARGET is computed once per pointermove from scrollFor(); the
+           loop then touches nothing but scrollTop. Running geom() every frame
+           would walk every clipping ancestor with getComputedStyle at 60Hz,
+           which is itself stutter.
+         - No overshoot is possible: cur + (target-cur)*EASE is monotonic, the
+           gap shrinks by 0.82 per frame and never changes sign.
+         - DEAD zone: sub-3px cursor jitter updates nothing at all. (Scroll
+           offsets also snap to device pixels — 1.11px under zoom .9 — so
+           without this, tremor was being amplified into visible jumps.)
+         - EASE_EPS snaps the last half pixel so the list lands exactly on the
+           target instead of crawling toward it forever.
+         - refused while a real drag owns the motion, for anything that is not
+           a mouse, and on (hover:none) screens, where there is no hover at
+           all: there, swipe and the drag handle remain how you scroll.
+         - stopHover() kills the loop on pointerleave, on a press (so a click
+           or a drag starts from a still list) and when a drag ends. */
+    const canHover=window.matchMedia ? window.matchMedia("(hover:hover)") : null;
+    /* Easing stays opt-in via #setupLists. It was TRIED for the audit strip and
+       measured a hard accuracy failure: the list landed on 18% of the target
+       (0.14/0.16/0.17/0.18 of expected at four cursor positions — exactly the
+       EASE factor), i.e. the ease ran one step and stopped. Smooth-but-lands-in
+       the-wrong-place is worse than the snap it replaced, so the direct write is
+       kept and only the DEAD filter below is applied to the audit list. */
+    const eased=!!region.closest("#setupLists");
+    const EASE=0.18, EASE_EPS=0.5, DEAD=3;
+    let scrubY=null, scrubRaf=0, hTarget=null, hLastY=null, hRaf=0, hBlocked=false;
+    function step(){
+      if(hTarget==null){ hRaf=0; return; }
+      const cur=region.scrollTop, d=hTarget-cur;
+      if(Math.abs(d)<=EASE_EPS){ region.scrollTop=hTarget; hTarget=null; hRaf=0; return; }
+      region.scrollTop=cur+d*EASE;
+      /* Scroll offsets snap to DEVICE pixels — 1.11px under zoom .9 — so once
+         the remaining gap is under ~3px the 18% step is smaller than half a
+         pixel and the write lands back on the value it already had. Without
+         this guard the ease sat there forever: a 2px correction, or a 5px
+         cursor move, never moved the list at all. If a frame cannot move it,
+         finish on the target now. Small corrections therefore land in one
+         frame and only real jumps ease. */
+      if(region.scrollTop===cur){ region.scrollTop=hTarget; hTarget=null; hRaf=0; return; }
+      hRaf=requestAnimationFrame(step);
+    }
+    function hover(e){
+      if(dragging || e.pointerType!=="mouse") return;
+      if(canHover && !canHover.matches) return;
+      if(!eased){
+        /* Other panes: one rAF write straight to the target, as before. The audit
+           list keeps a DEAD guard of its own — without it a 1px hand tremor was
+           enough (measured 11 distinct scrollTop values and an 86px jump from a
+           motionless finger), because this branch has no sub-3px filter. */
+        if(isAudit){
+          if(hLastY!=null && Math.abs(e.clientY-hLastY)<DEAD) return;
+          hLastY=e.clientY;
+        }
+        scrubY=e.clientY;
+        if(scrubRaf) return;
+        scrubRaf=requestAnimationFrame(()=>{
+          scrubRaf=0;
+          const y=scrubY; scrubY=null;
+          if(y!=null) jumpTo(y, null);
+        });
+        return;
+      }
+      /* A finished drag leaves the thumb at the grab offset, not centred, so
+         resuming hover under a still cursor would snap it. Stay off until the
+         cursor leaves the lane. */
+      if(hBlocked) return;
+      if(hLastY!=null && Math.abs(e.clientY-hLastY)<DEAD) return;
+      hLastY=e.clientY;
+      hTarget=scrollFor(e.clientY, null);
+      if(hTarget==null) return;
+      if(hRaf) return;
+      hRaf=requestAnimationFrame(step);
+    }
+    function stopHover(){
+      scrubY=null; hTarget=null; hLastY=null; hBlocked=false;
+      if(scrubRaf){ cancelAnimationFrame(scrubRaf); scrubRaf=0; }
+      if(hRaf){ cancelAnimationFrame(hRaf); hRaf=0; }
+    }
+    bar.addEventListener("pointerenter", hover);
+    bar.addEventListener("pointermove", hover);
+    bar.addEventListener("pointerleave", stopHover);
+
     function endDrag(){
       if(!dragging) return;
       dragging=false;
       bar.classList.remove("drag");
+      /* Hover stays off until the cursor leaves the lane: after a drag the
+         thumb sits at the grab offset, and "thumb centred under the cursor"
+         would yank the list to a different position. */
+      if(eased){ hBlocked=true; if(hRaf){ cancelAnimationFrame(hRaf); hRaf=0; } hTarget=null; }
       try{ bar.releasePointerCapture(pid); }catch(_){}
     }
     bar.addEventListener("pointerup", endDrag);
@@ -5852,9 +6102,24 @@ function _railBridge(popEl){
   function maybeCloseSoon(){
     cancelClose();
     if(!openWrap || !popEl) return;
+    /* Never hover-close while the user is TYPING in the popup's search field
+       (user report: "the popup disappears after two or three words").
+       inWrapOrPop() re-measures the popup's CURRENT rect, and the filter hides
+       non-matching rows, so typing SHRINKS the popup under a cursor that never
+       moved: the point falls outside the new rect, mouseleave fires, and the
+       pop closed mid-word.
+       popEl.__typing is set by the input listener below and is NOT implied by
+       focus: the search field is auto-focused the moment the popup opens, so a
+       bare focus test would disable hover-close for as long as the popup is
+       open. Only real typing suppresses it; Escape, an outside click and
+       picking a row all still close as before. */
+    try{ if(popEl.contains(document.activeElement) && popEl.__typing) return; }catch(e){}
     closeTimer=setTimeout(()=>{
       closeTimer=null;
       if(inWrapOrPop(lastPointerX,lastPointerY)) return;
+      /* Re-check after the grace period: the field can gain focus, or the user
+         can start typing, inside those CLOSE_DELAY ms. */
+      try{ if(popEl && popEl.__typing && popEl.contains(document.activeElement)) return; }catch(e){}
       closePop(false);
     },CLOSE_DELAY);
   }
@@ -5955,6 +6220,10 @@ function _railBridge(popEl){
     document.body.appendChild(popEl);
     popEl.addEventListener('mouseleave',schedHoverClose);
     popEl.addEventListener('mouseenter',cancelClose);
+    /* Marks real typing in the search field. input bubbles, so this covers the
+       field without buildGselOptions knowing about hover behaviour; the flag
+       lives on the freshly created popEl, so it resets on every open. */
+    popEl.addEventListener('input',()=>{ popEl.__typing=true; });
     placeGsel(popEl, wrap);
     scrollSelIntoView(popEl);
     try{ const si=popEl.querySelector(".gsel-search input"); if(si) si.focus({preventScroll:true}); }catch(e){}

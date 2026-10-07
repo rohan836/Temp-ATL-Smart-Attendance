@@ -7,31 +7,87 @@
   <title>ATL Smart Attendance Terminal — Complete School System</title>
   <style>@font-face{font-family:'Oxanium';font-style:normal;font-weight:300;font-display:swap;src:url(assets/fonts/Oxanium-300.ttf) format('truetype')}@font-face{font-family:'Oxanium';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fonts/Oxanium-400.ttf) format('truetype')}@font-face{font-family:'Oxanium';font-style:normal;font-weight:500;font-display:swap;src:url(assets/fonts/Oxanium-500.ttf) format('truetype')}@font-face{font-family:'Oxanium';font-style:normal;font-weight:600;font-display:swap;src:url(assets/fonts/Oxanium-600.ttf) format('truetype')}
 
-:root{--ink:#141414; --muted:rgba(20,20,20,.62); --hair:rgba(20,20,20,.26); --wash:rgba(20,20,20,.10); --red:#8A3A3A; --gold:#9a7a2e; --frost:rgba(238,238,232,.46); --on-ink:#f4f2ee; --on:#f4f2ee; --pop:rgba(238,238,232,.94); --pill:#ECE8DF; --r:0px; --f:"Oxanium","Segoe UI",system-ui,sans-serif; --bg:#FCFBF7; --danger:#8A3A3A; --ease:cubic-bezier(0.16,1,0.3,1); --glass-blur-sm:blur(12px) saturate(1.2); --ink-2:#6B6B6B; --ink-3:#A8A5A0; --line:#E9E6E0; --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; --ok:#2F5D34; --paper:#F6F4EF; --serif:Newsreader,Times New Roman,Georgia,serif; box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
+/* ── Warm natural palette (the single source of truth) ──────────────────────
+   Stalactite Brown #D5C3A7  app ground, light block, type on dark
+   York Beige       #AB977D  standard card / list block
+   Fig Branches     #7A654E  darker pane block, secondary type
+   Caramel Café     #8C542C  accent, hover, selected
+   Iroko            #402F20  nav, section headers, primary type
+   Everything below resolves to these five (plus alpha steps of Iroko), so a
+   palette change is a change HERE and nowhere else. */
+:root{
+ /* raw palette */
+ --sand:#D5C3A7; --york:#AB977D; --fig:#7A654E; --caramel:#8C542C; --iroko:#402F20;
+ /* surfaces */
+ --paper:#D5C3A7; --bg:#D5C3A7;         /* Stalactite: app ground */
+ --block:#AB977D; --block-2:#7A654E;     /* York / Fig: inner blocks */
+ --deep:#402F20;                          /* Iroko: nav + dark headers */
+ --accent:#8C542C;                        /* Caramel: hover, selected */
+ --pill:#AB977D; --pill-2:#8C542C;
+ --pop:rgba(213,195,167,.96);             /* Stalactite, nearly opaque */
+ --frost:rgba(171,151,125,.42);           /* York, translucent */
+ /* type */
+ --ink:#402F20; --ink-2:#7A654E; --ink-3:#8C542C;
+ --muted:rgba(64,47,32,.66);
+ --on:#D5C3A7; --on-ink:#D5C3A7;          /* light type over dark blocks */
+ /* lines — kept deliberately: field indicators and focus rings are the only
+    affordances left once decorative borders go (user order). */
+ --hair:rgba(64,47,32,.26); --wash:rgba(64,47,32,.10); --line:rgba(64,47,32,.26);
+ /* semantic — unchanged: destructive and success must not read as palette */
+ --red:#8A3A3A; --danger:#8A3A3A; --ok:#2F5D34; --gold:#8C542C;
+ --r:0px;
+ --f:"Oxanium","Segoe UI",system-ui,sans-serif;
+ --ease:cubic-bezier(0.16,1,0.3,1);
+ --glass-blur-sm:blur(12px) saturate(1.2);
+ --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+ --serif:Newsreader,Times New Roman,Georgia,serif;
+ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
 *{box-sizing:border-box;margin:0;padding:0}
-html{background:#F6F4EF;width:100%}
+html{background:var(--paper);width:100%}
 html,body{height:100%}
-body{font-family:var(--f);color:var(--ink);background:#F6F4EF;overflow:hidden;width:100%;margin:0;padding:0}
-.wall{position:fixed;inset:0;background:#F6F4EF}
+body{font-family:var(--f);color:var(--ink);background:var(--paper);overflow:hidden;width:100%;margin:0;padding:0}
+.wall{position:fixed;inset:0;background:var(--block-2)}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
 button:focus{outline:none;box-shadow:none}
 button:focus-visible:not(.interval-step button):not(.dt-face):not(.gsel-btn):not(.views button):not(.nav button):not(.dt-day):not(.tp-grid button):not(.seg button):not(.opts button):not(.tp-nudge):not(.edit-photo-btn):not(.photo-choose){outline:none;box-shadow:none;border:0;background:var(--wash);color:var(--ink)}
 .views button:focus-visible,.nav button:focus-visible{background:none;color:var(--ink)}
 .dt-face:focus-visible{outline:none;box-shadow:none;background:none;border-bottom-color:var(--ink);color:var(--ink)}
-.gsel-btn:focus-visible{outline:2px solid rgba(20,20,20,.45);outline-offset:2px}
-button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nudge):not(.tp-grid button):not(.gsel-btn):not(.seg button):not(.opts button):not(.photo-choose):not(.edit-photo-btn):not(#attRefreshBtn):not(#attPrintBtn):not(#attExportBtn):not(#openSchoolInfoBtn):not(.att-records .ar button):not(#pane-students .dt .acts button):not(#pane-students .sd-rec-tools button):not(#pane-students .sd-tbl td.act button){background:none}
+.gsel-btn:focus-visible{outline:2px solid rgba(64,47,32,.45);outline-offset:2px}
+button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nudge):not(.tp-grid button):not(.gsel-btn):not(.views button):not(.nav button):not(.seg button):not(.opts button):not(.photo-choose):not(.edit-photo-btn):not(#attRefreshBtn):not(#attPrintBtn):not(#attExportBtn):not(#openSchoolInfoBtn):not(.att-records .ar button):not(#pane-students .dt .acts button):not(#pane-students .sd-rec-tools button):not(#pane-students .sd-tbl td.act button){background:none}
 .band button:focus-visible{background:none;opacity:1}
 .ri:focus-visible{background:var(--wash)}
 
-.app{position:relative;height:100%;width:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;background:#F6F4EF;overflow-y:auto;scrollbar-width:none}
+/* Stacked sections: grid-auto-rows:max-content is REQUIRED. Each section is a
+   row in this one scrolling column, and a row taller than the 834px floor
+   (calc(100vh - 66px) on .admin-pane) was still sized to that floor, so the
+   next section started UNDER it and the taller section's content painted over
+   it (Setup 2's Overrides list over the Backup header). max-content sizes each
+   row to its own section, so the document flow stays honest. */
+.app{position:relative;height:100%;width:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;grid-auto-rows:max-content;background:var(--paper);overflow-y:auto;scrollbar-width:none}
 .app::-webkit-scrollbar{display:none}
 .pane{display:grid;grid-template-rows:auto minmax(0,1fr) 250px;row-gap:28px;padding:32px 40px;min-height:0;
 }
-/* Top bar (moved from side rail): one horizontal row — tabs left, search +
-   Close right. Active tab uses the same underline bar as .views. */
-.rail{grid-row:1;position:sticky;top:0;z-index:20;background:#F6F4EF;padding:14px 40px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;font-size:17px}
-.rail .admin-nav{grid-column:2;display:flex;align-items:center;gap:4px;min-width:0}
-.rail button{color:var(--muted);padding:8px 14px;white-space:nowrap;font-weight:600}.rail button:hover{color:var(--ink)}.rail .on{color:var(--ink);font-weight:600;background:none;box-shadow:inset 0 -2px 0 var(--ink)}
+/* Floating nav (user order, Oki-style): a compact pill that HUGS its content
+   instead of a full-width band — width:fit-content, centred, hairline border,
+   near-opaque surface. Thicker than it was long: 56px tall with 12px item
+   padding. No backdrop-filter: the kiosk's blanket
+   `html .terminal *{backdrop-filter:none !important}` covers #adminLayer, so a
+   blur here would silently do nothing. Radius 0, hairline borders only.
+
+   --railh is the ONE source of truth for the bar's height. Three rules anchor
+   to it (the .admin-pane / #pane-attendance floors and the attendance sticky
+   header); hardcoding a second copy of the number is how they drift apart and
+   park a sticky header underneath the bar. fitTrack() in ui_app.js reads the
+   rail's real offsetHeight, so the page scroll strip follows automatically. */
+:root{--railh:60px}
+/* Nav is an Iroko colour block, not a bordered pill: the warm scheme separates
+   surfaces with flat fills and margins, so the 1px border and the 12px radius
+   both go (radius 0 — only day-cell cubes and scrollbar thumbs keep theirs).
+   Type inverts to Stalactite; the active marker stays a hairline, now light. */
+.rail{grid-row:1;position:sticky;top:0;z-index:20;width:fit-content;max-width:calc(100% - 48px);margin:0 auto;height:var(--railh);display:flex;align-items:center;gap:22px;padding:0 18px;background:var(--deep);border:0;border-radius:0;font-size:17px}
+.rail .admin-nav{display:flex;align-items:center;gap:8px;min-width:0}
+/* Hover and active are colour + a hairline marker only — no fill. */
+.rail button{color:rgba(213,195,167,.72);padding:14px 15px;white-space:nowrap;font-weight:500;background:none}.rail button:hover{color:var(--on)}.rail .on{color:var(--on);font-weight:500;background:none;box-shadow:inset 0 -2px 0 var(--on)}
 /* Search box retired from the rail (user order): hidden via display:none on
    the later .rail .cmdbox rule below (same specificity wins) — NOT deleted.
    #searchInput still feeds renderStudentList (rosterSearch syncs its value)
@@ -42,9 +98,14 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
    Setup header/events dividers. Each section is at least one window tall
    (bar is ~66px) so a landed section still reads as a full screen instead
    of a fragment — this is what the first stacked attempt was missing. */
-#adminLayer .admin-pane{min-height:calc(100vh - 66px)}
-#adminLayer .admin-pane + .admin-pane{border-top:1px solid var(--hair)}
-.rail .gap{grid-column:3;justify-self:end;font-size:14px;letter-spacing:.08em;text-transform:uppercase;flex:none}
+/* Sections are flat Stalactite blocks floating on the Fig ground. The old 1px
+   rule between panes is gone (user order: no structural borders); a flat margin
+   does the separating instead, which is what the colour-block scheme is for.
+   Inner padding is unchanged, so only the GAP between blocks is new. */
+#adminLayer .app{background:var(--block-2)}
+#adminLayer .admin-pane{background:var(--paper);margin:0 0 28px;min-height:calc(100vh - var(--railh))}
+#adminLayer .admin-pane + .admin-pane{border-top:0}
+.rail .gap{font-size:14px;letter-spacing:.08em;text-transform:uppercase;flex:none;padding:14px 4px}
 /* Page scroll indicator — the only scroll affordance (every native
    scrollbar in this file is hidden). One 6px ink thumb in a 20px invisible
    grip strip on the right edge: the thumb stays thin, but the whole strip
@@ -57,42 +118,179 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
    thumb to scroll, wheel over it to scroll the page. Length is capped so it
    stays a compact marker, never a long bar. Rounded ends are a deliberate
    exception for this functional thumb (zero-motion: no transition, it cuts
-   in and out instantly). */
-.scroll-track{position:fixed;top:0;right:0;width:20px;height:100%;z-index:15;padding:0;border:0;background:none;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+   in and out instantly).
+
+   Anchored to the CONTENT column, not the whole window (user order: at
+   top:0/height:100% it ran the full viewport, so it sat beside whatever
+   right-aligned control happened to be at that height — beside CLOSE in the
+   nav, beside Export CSV in the Attendance toolbar — and read as part of that
+   control rather than as the page's scroll marker). The nav's height is NOT a
+   constant (it measures 109px once the search box and Close stack), so the
+   track's top/height are fitted to the real rail by ui_app.js on load and on
+   resize; the values below are only the pre-script fallback. Slimmer and
+   fainter too (12px lane, 5px thumb) so it hugs the edge quietly. ui_app.js
+   maps the thumb against the TRACK's own height for the visual position and
+   keeps the SCROLLER's clientHeight for the scroll range, so this geometry
+   stays exact. */
+.scroll-track{position:fixed;top:0;right:0;width:12px;height:100%;z-index:15;padding:0;border:0;background:none;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .scroll-track.dead{pointer-events:none}
 .scroll-track:focus{outline:none}
 /* While dragging, the hand closes — set from the pointer handlers. */
 .scroll-track.drag{cursor:grabbing}
-.scroll-ind{position:absolute;top:0;right:5px;width:6px;height:0;border-radius:3px;background:rgba(20,20,20,.30);opacity:0}
-/* Invisible 14px grab zone around the 6px thumb: easy to take hold of
-   without widening what you actually see. */
-.scroll-ind::before{content:"";position:absolute;top:0;bottom:0;left:-4px;right:-4px}
+.scroll-ind{position:absolute;top:0;right:2px;width:5px;height:0;border-radius:3px;background:rgba(64,47,32,.24);opacity:0}
+/* Invisible grab zone around the 5px thumb: easy to take hold of without
+   widening what you actually see. */
+.scroll-ind::before{content:"";position:absolute;top:0;bottom:0;left:-3px;right:-3px}
 .scroll-track.on .scroll-ind{opacity:1}
-.scroll-track.on:hover .scroll-ind{background:rgba(20,20,20,.45)}
+.scroll-track.on:hover .scroll-ind{background:rgba(64,47,32,.42)}
 @media (hover:none){.scroll-track{display:none}}
 /* Mini scrollbar for a bounded inner window (roster, records, Setup lists,
    Backup, audit). Every native scrollbar here is hidden, so without this a
-   scrolling list gave no sign at all. Quiet by default: a 4px hairline thumb
-   centred in a 12px grab lane — no track, no border, no background. The lane
-   is the bar's own space (each scroll region carries a matching 16px right
-   gutter: 12px lane + 4px gap), so the thumb can never sit on row text or a
-   right-aligned action. Thumb length is the region's own visible/content
-   ratio, so a long list reads as a short thumb. Square corners: radius only
-   at outer corners. Hidden on touch (hover:none): swipe scrolls there, so no
-   finger-sized thumb is needed. */
+   scrolling list gave no sign at all. The lane is the bar's own space (each
+   scroll region carries a matching right gutter), so the thumb can never sit
+   on row text or a right-aligned action. A 12px thumb in a 16px lane: thick
+   enough to see and to grab with a finger on the terminal's touchscreen
+   (user order — the 4px hairline was too small to use). No track, no border,
+   no background. Thumb length is the region's own visible/content ratio, so a
+   long list reads as a short thumb. Square corners: radius only at outer
+   corners. Always shown, touch included: on a touchscreen this bar is the drag
+   handle, so hiding it under (hover:none) removed the only way to scroll. */
 .minibar{position:absolute;top:0;right:0;width:12px;height:100%;z-index:2;box-sizing:border-box;padding:0;border:0;background:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .minibar[hidden]{display:none}
 /* Keyboard focus must never draw the default black box (the bar is only ever
    a 12px lane — same precedent as .scroll-track:focus). Focus-visible
    darkens the thumb exactly like hover, so keyboard users keep their cue. */
 .minibar:focus{outline:none}
-.minibar:focus-visible .minibar-t{background:rgba(20,20,20,.46)}
-.minibar-t{position:absolute;left:4px;top:0;width:4px;height:0;border-radius:0;background:rgba(20,20,20,.30);cursor:grab}
+.minibar:focus-visible .minibar-t{background:rgba(64,47,32,.46)}
+.minibar-t{position:absolute;left:4px;top:0;width:4px;height:0;border-radius:0;background:rgba(64,47,32,.30);cursor:grab}
 /* While dragging, the hand closes — set from the pointer handlers. */
 .minibar.drag,.minibar.drag .minibar-t{cursor:grabbing}
-.minibar:hover .minibar-t{background:rgba(20,20,20,.46)}
-/* No bar on touch, so the gutter it lived in is dead space there. */
-@media (hover:none){.minibar{display:none}}
+.minibar:hover .minibar-t{background:rgba(64,47,32,.46)}
+/* Touch: the bar stays. It is a pointer-driven drag handle, and swipe already
+   works, so showing it costs nothing and hiding it removed the only visible
+   scroll affordance on the terminal's own screen. */
+@media (hover:none){.minibar .minibar-t{background:rgba(64,47,32,.34)}}
+/* Setup 2 ghost floating thumb + magnetic hover lane (user order, scoped).
+   The lane is a 24px hit area, so the cursor never has to land on a 7px
+   thumb, and merely HOVERING it scrubs the list — no click, no drag (the
+   pointerenter/pointermove wiring lives in build(), ui_app.js).
+   The list gutter grows to the same 24px so the entire hit area sits in
+   padding and can never cover a row's [EDIT] button: at the old 16px
+   gutter a 24px lane would have swallowed 8px of that button.
+   Soft idle (.2), deeper on hover, focus and drag (.5). Every other pane
+   keeps the 12px lane and the 4px hairline. Square corners per the
+   radius-0 wall rule, and no transition — movement only follows the cursor. */
+#setupLists .rows{padding-right:24px}
+#setupLists .minibar{width:24px;cursor:ns-resize}
+#setupLists .minibar-t{left:8px;width:7px;border-radius:0;background:rgba(64,47,32,.2)}
+#setupLists .minibar:hover .minibar-t,
+#setupLists .minibar:focus-visible .minibar-t,
+#setupLists .minibar.drag .minibar-t{background:rgba(64,47,32,.5)}
+/* A real drag must still close the hand: an ID-specificity rule outranks
+   the plain .minibar.drag{cursor:grabbing}, so restate it here. */
+#setupLists .minibar.drag{cursor:grabbing}
+@media (hover:none){#setupLists .minibar .minibar-t{background:rgba(64,47,32,.22)}}
+/* Setup 2 cards, minimal and solid (user order): no horizontal dividers —
+   rows are separated by 14px of padding alone. The cards carry no outline to
+   begin with (measured 0px on all four sides), so there is nothing to strip
+   there. The EDIT action keeps its own fixed 48px right column and a NEW empty
+   10px column after it, so the label sits exactly 24px further left than it
+   did (10px spacer + the 14px column gap) and ends up 24px clear of the
+   scrollbar lane, which still owns the last 24px of every list. The spacer is
+   a column rather than row padding on purpose: padding-right would have
+   dragged the tile and name out of alignment with the card title too.
+   A wider last column would NOT have worked — a grid column keeps its right
+   edge, so the label would not have moved at all, and an over-wide min-width
+   overflowed into the lane and made the button unclickable at its centre.
+   Explicit heights + box-sizing, never content sizing, so action boxes in a
+   column are identical row to row. Palette tokens only. Radius 0, no
+   transition, no animation: nothing here moves. */
+#setupLists .row{grid-template-columns:44px minmax(0,1fr) 48px 10px;gap:14px;padding:14px 0;border-top:0}
+#setupLists .row button{font-size:13px;height:32px;min-width:48px;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-end;padding:0}
+/* Past rows render fully opaque here: the global .row.dim{opacity:.5} turned
+   the bottom rows of Holidays/Overrides half-transparent, which read as a
+   blur. Rows now cut cleanly at the card's bottom edge instead of fading. */
+#setupLists .row.dim{opacity:1}
+/* Add actions are plain text again (user order): dark brown type, no fill, no
+   border, no radius, 14px, with a 32px tap area. Absolutely positioned into
+   .col-titles so each sits in its section's TITLE row, right-aligned and
+   level with the h2, instead of on the sub-line under it or below a list.
+   Right:0 is .col-titles' own right edge, which is already 64px inside the
+   lane column — so the 40px lane clearance is unchanged. */
+#setupLists .col-titles{position:static}
+
+/* Printed on the notch (user order): no fill, ink type sitting directly on the
+   exposed --paper canvas, with a 1px ink hairline under the label. Sized to
+   the notch (132x56) and centred, so it reads as part of the cut-out rather
+   than a button resting on the card. Radius 0, no transition. */
+#setupLists .col .add{position:absolute;right:0;top:0;width:182px;height:48px;padding:0;background:none;color:var(--ink);border:0;border-radius:0;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;text-transform:uppercase;white-space:nowrap}
+/* Option (a): equal windows stay, and the list reaches the card's bottom edge
+   — the 28px card bottom padding was the empty band below every list. The
+   24px scroll lane and 24px gutter are untouched. */
+/* Bottom bleed: the lists in Cards 01/02 run flush to the 0px bottom edge of
+   the card (user order). Cards 03/04 hold a VIEW ALL link, which supplies its
+   own 16px instead — otherwise it would sit on the colour boundary. */
+/* Bottom bleed lives in the padding rule BELOW (padding:24px 24px 0), not in
+   a separate override — an equal-specificity rule placed earlier loses to it. */
+/* VIEW ALL moves OUTSIDE the card fill (user order): absolutely positioned
+   below the card box, so ::before (inset:0) stops at the card edge and the
+   buttons sit on the page background instead of inside the colour block. Left
+   edge kept at the card padding, so they stay where they were. Out of flow
+   they no longer occupy a row, which is what makes all four cards the same
+   height — their lists are all capped at the same window. */
+#setupLists .col .viewall{position:absolute;left:0;top:100%;margin:12px 0 0 0}
+/* Room below the bottom card row for the two buttons now hanging off it. */
+#setupLists .cb-events+.cb-events{padding-bottom:56px}
+/* No panels: the four sections sit directly on the page background. Card
+   background was --block (measured rgb(171,151,125)); borders were already
+   0px and stay that way. The fixed card heights came from the .cb-events row
+   floor minmax(calc(var(--cbwin) + 84px),auto) plus its min-height; both go. */
+/* Card gaps are 28px in BOTH directions. #setupLists is itself a grid with
+   gap:28px, so the two .cb-events rows are ALREADY 28px apart — a
+   padding-top on the second grid compounded with that to 56px card-to-card,
+   which is what made the centre crossroads read uneven. Both grids therefore
+   keep padding-top:0 and the single source of the row gap is the pane grid. */
+#setupLists .cb-events{grid-template-rows:auto;min-height:0;padding-top:0}
+/* 24px on top/left/right; bottom is 0 so the lists in Cards 01/02 bleed
+   flush to the card's bottom edge. */
+/* The card fill is painted by ::before, NOT by .col itself, because clip-path
+   clips hit-testing as well as paint: notching .col directly would remove the
+   Add button along with the corner, leaving it invisible AND unclickable.
+   ::before carries the clip; the button stays a real, unclipped descendant.
+   The polygon is a true 90-degree step (no diagonal chamfer), and what shows
+   through is the pane's own --paper canvas.
+   z-index:0 on .col + z-index:-1 on ::before is load-bearing: a positioned
+   pseudo paints in the positioned layer, ABOVE static in-flow content, so
+   without this the opaque fill hid the card titles and counts entirely. The
+   stacking context on .col also keeps the Add button's containing block at
+   the card corner (see .col-titles{position:static} below). */
+#setupLists .cb-events>.col{position:relative;z-index:0;background:none;border:0;padding:24px 24px 0}
+#setupLists .cb-events>.col::before{content:"";position:absolute;inset:0;background:var(--block);z-index:-1;
+  clip-path:polygon(0 0,calc(100% - 182px) 0,calc(100% - 182px) 48px,100% 48px,100% 100%,0 100%)}
+/* Each list is now its content height, capped at the old fixed window, so a
+   long list still scrolls (and its bar still attaches — build() requires
+   overflow auto|scroll, which is unchanged) while a short one ends flush
+   instead of leaving a window of empty space. */
+#setupLists #cbClassRows,#setupLists #cbBatchRows,#setupLists #cbHolidayRows,#setupLists #cbOverrideRows{height:auto;max-height:var(--cbwin);min-height:0}
+/* 12px between a section header and its first row (measured 0 before). The
+   64px right inset keeps the Add action 40px clear of the scrollbar lane,
+   which owns the last 24px of the list — measured as an overlap (-21.6px)
+   before, because both sat flush on the list's right edge. */
+#setupLists .col-top{margin-bottom:24px;padding-right:64px}
+/* 26px spacer column + the 14px gap = 40px between EDIT and the lane. */
+#setupLists .row{grid-template-columns:44px minmax(0,1fr) 48px 26px}
+/* Selected row: its little tile square turns brown (--ink) with cream type, so
+   the tap is answered in place — "you clicked here, you are here". One at a
+   time, because the row template only marks selKind/selName, and clicking a
+   row sets those. This is the marker that was briefly neutralised as a "stray
+   dark mark"; it is the selection, so it stays. */
+   bottom edge. paintFadeBottom() in ui_app.js stamps a 16px gradient mask as
+   an INLINE style on every .rows (ui_app.js:508, driven by repaintFades() at
+   :511), and an inline style outranks a plain rule — hence !important, the
+   same device the kiosk blanket rule already uses. The cleaner fix is one line
+   in repaintFades() (skip #setupLists .rows); that needs a JS change, so it
+   was left alone. */
+#setupLists .rows{mask-image:none !important;-webkit-mask-image:none !important}
 
 /* toolbar */
 .bar{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
@@ -101,28 +299,42 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 /* Year reads as metadata (same vocabulary as .scope small); the school link
    is a quiet hairline action beside it, not part of the same sentence. */
 .title .yr{display:flex;align-items:baseline;gap:14px;margin-top:10px}
-.title .yr #myr{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-/* margin-left cancels the first button's 12px padding so the view labels
-   sit flush with the month number, name, and year line above them. */
-.views{display:flex;gap:6px;margin-top:18px;margin-left:-12px;font-size:15px}
-.views button{padding:6px 12px;color:var(--muted);font-weight:600}
-.views button:hover{color:var(--ink)}
-.views button[aria-pressed=true]{color:var(--ink);background:none;box-shadow:inset 0 -2px 0 var(--ink)}
+.title .yr #myr{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+/* View filters are flat wash tiles at the same scale as the other toolbar
+   controls, not text links with an underline. The old margin-left:-12px
+   cancelled the first tab's own padding so the underline sat flush with the
+   title; with real tiles that trick inverts and left the first tile hanging
+   12px into the margin, so it is gone and the tile edge lines up with the
+   month number, name and year instead.
+   height:31px is explicit because the tiles are now uppercase 11px type —
+   content height would land at ~25px. :focus-visible is in the hover rule on
+   purpose: the earlier `.views button:focus-visible{background:none}` sits
+   higher up this file, so a bare `.views button` here would out-specify it on
+   equal specificity and quietly delete the keyboard focus state. The file's
+   convention is that focus reads through the background, so a wash tile needs
+   opacity:1 to show it. */
+.views{display:flex;gap:6px;margin-top:14px;font-size:11px}
+.views button{height:31px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:6px 12px;border:0;border-radius:0;background:var(--wash);color:var(--ink);opacity:.65;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.views button:hover,.views button:focus-visible{background:var(--wash);opacity:1}
+.views button[aria-pressed=true]{background:var(--ink);color:var(--on-ink);opacity:1;box-shadow:none}
 .ctl{display:flex;flex-direction:column;align-items:flex-end;gap:14px}
-.scope{text-align:right}.scope small{display:block;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.scope{text-align:right}.scope small{display:block;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .scope button{font-size:20px;text-align:right}
 .nav{display:flex;gap:10px;font-size:14px;letter-spacing:.08em;text-transform:uppercase;align-items:center}
-/* Boxed month steppers: hairline boxes, Today filled black while the viewed
-   month is the current one (.here, toggled by renderCalendarMonth). */
-.nav button{min-width:38px;height:38px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border:1px solid var(--hair);border-radius:8px;background:none;color:var(--ink);font-size:18px;letter-spacing:0}
-.nav button:hover{background:#141414;border-color:#141414;color:#f4f2ee}
+/* Month steppers: flat wash tiles, no wireframe. The old rule drew a 1.11111px
+   hairline box at radius 8px around all three, so the chevrons read as
+   mismatched default buttons next to the filled TODAY. box-sizing:border-box
+   with an explicit 38px height means dropping the border does NOT resize them —
+   measured 37.99x37.99 before and after, so the nav row does not shift. */
+.nav button{min-width:38px;height:38px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border:0;border-radius:0;background:var(--wash);color:var(--ink);font-size:18px;letter-spacing:0}
+.nav button:hover{background:var(--ink);border-color:var(--ink);color:var(--on)}
 .nav .today{font-size:14px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
-.nav .today.here{background:#141414;border-color:#141414;color:#f4f2ee}
-/* School information sits beside Global as a sibling pill, sharing the scope
-   select's geometry (38px tall, radius 8, --pill fill) and its black hover. */
+.nav .today.here{background:var(--ink);border-color:var(--ink);color:var(--on)}
+/* School information sits beside Global as a sibling control, sharing the scope
+   select's geometry (38px tall, flat --wash, square) and its black hover. */
 .scope-row{display:flex;align-items:flex-end;gap:10px}
-.scope-row #openSchoolInfoBtn{height:38px;box-sizing:border-box;display:inline-flex;align-items:center;padding:0 16px;border:0;border-radius:8px;background:var(--pill);color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;white-space:nowrap;flex:none}
-.scope-row #openSchoolInfoBtn:hover{background:#141414;color:#f4f2ee}
+.scope-row #openSchoolInfoBtn{height:38px;box-sizing:border-box;display:inline-flex;align-items:center;padding:6px 12px;border:0;border-radius:0;background:var(--wash);color:var(--ink);font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;white-space:nowrap;flex:none}
+.scope-row #openSchoolInfoBtn:hover{background:var(--ink);color:var(--on)}
 
 /* month — uniform cell geometry that survives browser zoom: cells stretch
    to equal 1fr tracks (never a fixed px height fighting fractional-pixel
@@ -133,21 +345,46 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
    .today changes only color, never box metrics. */
 .month{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0}
 .wk,.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
-.wk{font-size:13px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:0 0 10px}
-.wk>span{display:block;padding:0 13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Weekday bar. It already shares .days' grid template from the shared
+   `.wk,.days` rule above, so the 7 tracks and the 8px gap are the SAME numbers
+   by construction, not by eye — measured 223.281px x 7 on both. Each label
+   carries padding:0 13px, the same inset as .d, so every label's glyph starts on
+   exactly its column's numeral (both are 13px in).
+   Contrast: --ink at .65 rather than --muted's .66 alpha, so the labels gain
+   weight (600) instead of just a hair more darkness. .dim stays at .35 — it is a
+   sibling rule on the SAME span, and opacity does not multiply down a single
+   element, so a non-working weekday reads .35 and not .65*.35. */
+.wk{font-size:11px;font-weight:600;color:var(--ink);letter-spacing:.08em;text-transform:uppercase;padding:12px 0 8px}
+.wk>span{display:block;padding:0 13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.65}
 .days{min-height:0;grid-auto-rows:1fr}
-.d{position:relative;border:1px solid var(--hair);border-radius:6px;padding:10px 12px;min-height:66px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;gap:6px;overflow:hidden}
-.d.empty{border-color:transparent}
+/* Day cubes: borderless floating tiles. Everything that drew a line is gone —
+   the 1px .d border, the box shadow, and all five ::before accent bars (the
+   18x3px tick that sat top-left in every state, plus the 18x4px gold one on
+   overrides). The 8px grid gap does the separating, which is why it was kept:
+   the seven columns share one width, so 8 -> 6 would hand 14px back across the
+   row and widen every cell by 2px.
+   padding is 11px 13px, not the old 10px 12px: with box-sizing:border-box the
+   outer box is unchanged either way (223.3 x 67.2), but dropping the 1px border
+   gives the content box 1px back on each side, and 11/13 puts the numeral on
+   exactly the pixel it was on (measured 13.11/11.11 before and after). 13px also
+   keeps it aligned with .wk>span, which pads 0 13px for exactly this reason. */
+.d{position:relative;border:0;box-shadow:none;border-radius:0;padding:11px 13px;min-height:66px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;gap:6px;overflow:hidden;background:var(--wash)}
+.d.empty{background:none}
 .d b{font-size:24px;font-weight:400;line-height:1;flex:none}
-.d i{font-style:normal;font-size:12px;letter-spacing:.04em;line-height:1.25;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;min-height:15px}
+/* Tag sits straight under the numeral, muted, with no rule slicing the cell. */
+.d i{font-style:normal;font-size:12px;letter-spacing:.04em;line-height:1.25;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;min-height:15px;color:var(--muted)}
+/* Inactive/non-working: muted to half, no fill, no border. Declared BEFORE the
+   --data-v view filters below so those still win on specificity and keep dimming
+   a whole view to .28. */
+.d.off{opacity:.5;background:var(--wash)}
 .d.off b{color:var(--muted)}
-.d.hol{border-color:var(--red);background:rgba(138,58,58,.08)}.d.hol b,.d.hol i{color:var(--red)}
-.d.ovr{border-color:var(--ink);background:rgba(154,122,46,.08)}.d.ovr::before,.d.hol::before{content:"";position:absolute;left:12px;top:0;width:18px;height:3px;background:currentColor}
-.d.hol::before{background:var(--red)}.d.ovr::before{background:var(--gold);height:4px}
-.d:not(.empty):not(.hol):not(.ovr):not(.off)::before,.d.off::before{content:"";position:absolute;left:12px;top:0;width:18px;height:3px}
-.d:not(.empty):not(.hol):not(.ovr):not(.off)::before{background:rgba(20,20,20,.28)}
-.d.off::before{background:rgba(20,20,20,.5)}
-.d.today{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}.d.today b{font-weight:600;color:var(--on-ink)}.d.today i{color:var(--on-ink)}
+/* Exceptions read as flat tinted tiles, never as outlines: holidays Caramel
+   Cafe 20%, overrides Fig Branches 20%. Overrides used to be solid Iroko —
+   identical to .d.today — so an override looked selected; today is now the only
+   solid dark cell. */
+.d.hol{background:rgba(140,84,44,.20)}.d.hol b,.d.hol i{color:var(--ink)}
+.d.ovr{background:rgba(122,101,78,.20)}.d.ovr b,.d.ovr i{color:var(--ink)}
+.d.today{background:var(--ink);color:var(--on-ink)}.d.today b{font-weight:600;color:var(--on-ink)}.d.today i{color:var(--on-ink)}
 .days[data-v=working] .d.off,.days[data-v=nonworking] .d:not(.off):not(.empty),.days[data-v=overrides] .d:not(.ovr):not(.empty){opacity:.28}
 .days[data-v=holidays] .d:not(.hol):not(.empty){opacity:.28}
 
@@ -171,15 +408,67 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 /* Setup divider system (one surface, not boxes): a single hairline under
    the header, a single hairline above the events region, and one vertical
    hairline between Holidays | Overrides. No rules above section headings. */
-#setupToolbar{border-bottom:1px solid var(--hair);padding-bottom:22px}
-.cb-events{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-height:0;border-top:1px solid var(--hair);padding-top:22px}
-.cb-events>.col:first-child{padding-right:40px;min-width:0}
-.cb-events>.col:last-child{border-left:1px solid var(--hair);padding-left:40px;min-width:0}
+#setupToolbar{border-bottom:0;padding-bottom:29.1px}
+/* The rule above used to be border-bottom:1px solid var(--hair) with 22px of
+   padding under it. The rule is gone, so the padding carries the whole gap: at
+   zoom .9 a 1px border measured 1.11111px, so 22 + 1.111 = 23.111 of space
+   below the controls.
+   23px -> 29.1px: the view-filter tiles then took 6.098px off the title block
+   (year 15.56 -> 13.33 at 11px, .views margin-top 18 -> 14, tiles 30.87 -> 31
+   explicit), which lifted the whole calendar 6.1px. This padding absorbs it, so
+   the weekday row and every day tile stay on the pixel they held before.
+   Measured: toolbar height 173.385px and weekday-row top 292.8px, unchanged. */
+/* The band row needs a real floor: .rows is a scroll container, so it
+   contributes ~0px to its band's auto row — the band then sized to the
+   headings alone (318px) and the list overflowed it into the band below
+   (the "Holidays printed over Classes" overlap). The floor is the list
+   window (--cbwin) plus the heading block (84px). */
+/* Setup 2's 01-04 are flat York blocks. The band's hairline rules are gone
+   (user order: no structural borders) — a grid gap and the block fill do the
+   separating. Row floors stay: they are what stops a scroll-container list from
+   overflowing its band into the next one. */
+.cb-events{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:minmax(calc(var(--cbwin,calc(50vh - 120px)) + 84px),auto);min-height:calc(var(--cbwin,calc(50vh - 120px)) + 113px);border-top:0;padding-top:28px;gap:28px}
+.cb-events>.col{background:var(--block);padding:24px 28px 28px;border-radius:0;min-width:0}
+.cb-events>.col:first-child{padding-right:28px}
+.cb-events>.col:last-child{border-left:0;padding-left:28px}
 /* Setup 2 (user order): the four lists (Classes, Batches, Holidays,
    Overrides) live in their own section below Setup, in two .cb-events bands
    that reuse the band's own divider voice. The Setup pane keeps the month
-   calendar only. */
-#pane-setup{grid-template-rows:auto minmax(0,1fr)}
+   calendar only. Rows are all-auto (never 1fr): the bands hold unscrolled
+   content that must wrap fully — a 1fr row inside the definite-height page
+   squeezed the first band to 175px and its lists painted over the second. */
+#setupLists{display:grid;grid-template-rows:auto auto;row-gap:28px;margin-top:20px}
+/* The card block sits in the same pane as the calendar (Setup is one section
+   now), so it must carry its own grid: it used to inherit .pane's display:grid
+   and row-gap and no longer does — a plain div is static. 28px restores the
+   band-to-band gap it had inside .pane. margin-top:20px completes the 48px
+   month-grid-to-cards gap: .pane's row-gap 28 + this 20, with the first band's
+   own padding-top:28px zeroed below (see .cb-events:first-child) so the total
+   lands on 48 and not 76. */
+#setupLists>.cb-events:first-child{padding-top:0}
+/* min-content, not 0: the cards are now a THIRD row in this pane, so the strip
+   row can no longer count on leftover slack (it was stretched to 574.5px while
+   the calendar only needs 393.5px — that slack is now where the cards live).
+   With a 0 minimum a short window could squeeze the month grid; min-content
+   lets it still stretch when there IS slack but never compress below itself.
+   Measured: day cells stay 223.3x67.2 at strip heights 574.5, 393.5 and 300. */
+#pane-setup{grid-template-rows:auto minmax(min-content,1fr) auto}
+/* Attendance records are a bounded window (user order: they grew to their own
+   content height instead of scrolling). The row template was already correct —
+   three rows, the third an fr — so the missing piece was only a HEIGHT. The
+   pane carried min-height but no height, and .app sizes each pane row to
+   CONTENT, so the pane grew to fit its table (80 rows measured 4394px) and the
+   fr row simply divided that already-too-large space (4609px for the records
+   area). Capping the pane to one window — the same expression as the existing
+   #adminLayer .admin-pane min-height, and box-sizing is border-box so the
+   padding sits inside it — gives the fr row a bounded remainder: filters keep
+   their natural height, .att-records takes the rest, and .rows (flex:1 +
+   min-height:0) becomes the scrollport, so its mini bar finally has something
+   to scroll. The 180px floor on that fr row lives on the winning declaration
+   further down this file, not here. The sticky .ar-head is a SIBLING of .rows,
+   not a child, so it keeps its top:66px page stick and stays put while the list
+   scrolls inside. No markup, no IDs, no handlers. */
+#pane-attendance{height:calc(100vh - var(--railh))}
 /* Dead-row guard (user order): the retired pager nodes are unhidden by
    paintCbPage for wiring truth but stay empty — never let them eat grid rows */
 /* Dead-row guard (user order): the retired pager nodes are unhidden by
@@ -192,24 +481,46 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 .col{display:flex;flex-direction:column;min-height:0}
 .col-top{display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px 14px;align-items:start}
 .colnum{font-size:34px;font-weight:300;line-height:1;color:var(--muted)}
-.col-titles{padding-top:2px;min-width:0}
-.col h2{font-size:26px;font-weight:500;line-height:1.2}
-.col-sub{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:baseline;gap:12px;margin-top:2px}
-.col-sub>.add{grid-column:3}
-#cbBatchScope{grid-column:2}
-.col .n{font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Title line: the count rides the h2 baseline, so the header reads
+   "Classes · 6" as one line instead of a stacked caption. Baseline flex with
+   nowrap + min-width:0 so the count can never be pushed out of the line. The
+   " · " separator is painted here, not written into the count text. */
+/* Title line, ONE row: title + count + the batch filter chip all sit on a
+   single baseline, so the active class reads "Batches · 6 [GRADE 9-B ×]"
+   instead of on a line of its own under the title.
+   height is PINNED (not left to content) and that is the whole point: the chip
+   appears and disappears with the filter, and if the line sized itself the
+   header would jump — the wobble this branch just removed (chip 23.5px
+   outgrowing the count line 17.8px grew .col-top 53 -> 58.7px, and because the
+   cards share one 1fr/1fr grid row, both grew 431 -> 436.7px and the lists
+   jumped). 34px covers the tallest item (colnum is 33.99) so a chip of any
+   height up to 32px cannot resize it. */
+.col-titles{display:flex;align-items:baseline;height:34px;box-sizing:border-box;padding-top:2px;min-width:0;white-space:nowrap}
+.col h2{font-size:26px;font-weight:500;line-height:1.2;flex:none}
+.col h2+.n::before{content:" · "}
+.col .n{font-size:14px;color:var(--muted);opacity:.6;line-height:1.2;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .col .add{font-size:14px;font-weight:600;padding:4px 0;color:var(--ink);white-space:nowrap}
-#cbBatchScope{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:4px 0;white-space:nowrap}
+/* Flat wash from the palette (--pill is #AB977D, i.e. the card's own --block, so
+   it would be invisible here). radius 0, no motion. margin-left spaces it off
+   the count; max-width + ellipsis keeps a long class name inside the title line
+   and clear of the 182px corner notch. */
+#cbBatchScope{flex:none;max-width:220px;margin-left:16px;height:20px;line-height:20px;padding:0 8px;box-sizing:border-box;border:0;border-radius:0;background:var(--wash);color:var(--ink);font-size:12px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #cbBatchScope:hover{color:var(--ink)}
 /* The 16px right gutter is the bar's own space (12px lane + 4px gap): the
-   mini scrollbar sits in it, so no row text or the right-aligned action
-   button can ever sit under the bar. Same treatment as .dt. */
+   mini scrollbar sits in the outer 12px as a 4px hairline thumb, so a real
+   gap separates it from row text and the right-aligned action button.
+   Same treatment as .dt. The 12px lane stays the grab target. */
 .rows{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-right:16px}
 /* Setup's four lists are bounded windows, same treatment as the audit list:
    instead of growing until the whole section has to scroll. A bar still only
    appears when the entries actually exceed the window — a bar on content
    that already fits would be a lie. */
-#cbClassRows,#cbBatchRows,#cbHolidayRows,#cbOverrideRows{max-height:calc(50vh - 120px);min-height:96px}
+/* One window size for all four lists so the cards stay balanced: every list
+   box is the same height and scrolls internally, whether it holds 1 or 60
+   entries. --cbwin is the single source of truth (also used by the band row
+   floor below), so a window change stays consistent everywhere. */
+#setupLists{--cbwin:calc(50vh - 120px)}
+#cbClassRows,#cbBatchRows,#cbHolidayRows,#cbOverrideRows{height:var(--cbwin,calc(50vh - 120px));min-height:96px;flex:none}
 .ros::-webkit-scrollbar,.dt::-webkit-scrollbar,.bk::-webkit-scrollbar,.cmd-pal::-webkit-scrollbar,.rows::-webkit-scrollbar,.gsel-pop::-webkit-scrollbar,.dt-pop::-webkit-scrollbar,.mod .bd::-webkit-scrollbar{display:none}
 .row{display:grid;grid-template-columns:44px minmax(0,1fr) 48px;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--hair)}
 .rows>.row:first-child{border-top:0}
@@ -225,9 +536,26 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 #cbStrip .empty-l{padding:12px 0}
 /* solid anchor strip */
 .sum{display:flex;gap:28px;background:var(--ink);color:var(--on-ink);padding:10px 16px;font-size:13px;margin-top:auto}
-@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.rail{display:flex;overflow-x:auto;padding:10px 20px;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}.rail .cmdbox input{width:160px}.pane{padding:20px;grid-template-rows:auto minmax(320px,1fr) auto;overflow-y:auto}.setup-main{display:flex;flex-direction:column}.main-col{overflow:visible}.cb-events{grid-template-columns:minmax(0,1fr)}.cb-events>.col:first-child{padding-right:0}.cb-events>.col:last-child{border-left:0;padding-left:0}#cbClassRows,#cbBatchRows,#cbHolidayRows,#cbOverrideRows{min-height:210px}body{overflow:auto}}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.rail{display:flex;overflow-x:auto;padding:10px 20px;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}.rail .cmdbox input{width:160px}.pane{padding:20px;grid-template-rows:auto minmax(320px,1fr) auto;overflow-y:auto}.setup-main{display:flex;flex-direction:column}.main-col{overflow:visible}.cb-events{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(calc(var(--cbwin,calc(50vh - 120px)) + 84px),auto) minmax(calc(var(--cbwin,calc(50vh - 120px)) + 84px),auto);min-height:calc(var(--cbwin,calc(50vh - 120px)) * 2 + 191px)}.cb-events>.col:first-child{padding-right:0}.cb-events>.col:last-child{border-left:0;padding-left:0}#cbClassRows,#cbBatchRows,#cbHolidayRows,#cbOverrideRows{min-height:210px}body{overflow:auto}}
 
 .pane[hidden]{display:none}.pane.p2{grid-template-rows:auto minmax(0,1fr)}
+/* Section entry (user order): a 150ms micro-fade + 4px settle as a section
+   comes into view. opacity/transform only, so nothing reflows — row heights,
+   the sticky column headers and every table stay exactly where they were.
+   The class is removed on animationend (see ui_app.js) and MUST NOT linger:
+   a pane carrying any transform, even translateY(0), becomes the containing
+   block for the fixed dropdowns inside it (.gsel-pop, .dt-pop) and they jump
+   out of position. `both` fill mode so the start state applies before the
+   first frame; reduced motion disables the whole thing. */
+.pane.is-entering{animation:paneIn 150ms cubic-bezier(0.16,1,0.3,1) both}
+/* The kiosk carries a blanket `html .terminal *{animation:none !important}`
+   (it kills the idle scan-glow). #adminLayer sits INSIDE #terminal, so that
+   rule silently killed this animation too — an inline style was overridden by
+   it as well. This scoped rule out-specifies it and keeps the kiosk's own
+   motion off. Do not drop the !important. */
+html .admin-layer .pane.is-entering{animation:paneIn 150ms cubic-bezier(0.16,1,0.3,1) both !important}
+@keyframes paneIn{from{opacity:.85;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){html .admin-layer .pane.is-entering{animation:none !important}}
 /* Backup rows are content-sized, NOT 1fr, and the pane itself is NOT stretched
    to its .app row. .app hands each pane a definite height, and inside a
    definite-height grid an `auto` track collapses toward min-content — so .bk
@@ -236,8 +564,19 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
    pane's height content-based, so .bk measures its full content and nothing
    depends on spilled overflow. Each section is still at least one window tall
    via #adminLayer .admin-pane{min-height}. */
-#pane-backup{grid-template-rows:auto auto;align-self:start}
-.split{display:grid;grid-template-columns:300px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:40px;min-height:0;height:100%}
+/* --auditshare is a FLOOR for the list, not its size. The list itself is sized
+   from the browser window (see #auditBody height below), and the card is only
+   min-height bounded so it grows with the window instead of being pinned to one.
+   Two dead ends were measured on the way here, both worth not repeating:
+     card height pinned to 100vh-railh -> list 58px  (destinations eat 856px)
+     card height auto, no list height   -> list 21188px (runs away)
+   A definite height on #auditBody is what actually stops the runaway, which is
+   why it is set there and not here. */
+#pane-backup{--auditshare:320px;grid-template-rows:auto auto;height:auto;min-height:calc(100vh - var(--railh))}
+/* 340px, not 300: the sidebar is now a York block with 20px padding, and the
+   content box has to stay 300px or the filter row clips ("Active only" became
+   "Active on" when the block padding came out of the content width). */
+.split{display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:40px;min-height:0;height:100%}
 #pane-students{grid-template-rows:minmax(0,1fr);padding-left:20px}
 #pane-students .ro .title{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 #pane-students .title .num{display:block;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
@@ -247,9 +586,9 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 .ri-arrow svg{width:12px;height:12px;flex:none}
 .ri.on .ri-arrow{opacity:1;color:var(--on-ink)}
 #pane-students .split{height:100%;position:relative}
-#pane-students .split::before{content:"";position:absolute;left:320px;top:0;bottom:0;width:1px;background:rgba(20,20,20,.14);pointer-events:none}
+#pane-students .split::before{content:"";position:absolute;left:320px;top:0;bottom:0;width:1px;background:rgba(64,47,32,.14);pointer-events:none}
 @media (max-width:900px){#pane-students .split::before{display:none}}
-.ro{display:flex;flex-direction:column;min-height:0;position:relative}.ro input,.fld input,.fld textarea{font:inherit;font-size:16px;color:var(--ink);background:none;border:0;border-bottom:1px solid var(--hair);padding:10px 0;width:100%;outline:0;border-radius:0}
+.ro{display:flex;flex-direction:column;min-height:0;position:relative;background:var(--block);padding:20px;border-radius:0}.ro input,.fld input,.fld textarea{font:inherit;font-size:16px;color:var(--ink);background:none;border:0;border-bottom:1px solid var(--hair);padding:10px 0;width:100%;outline:0;border-radius:0}
 .ro input:focus,.fld input:focus,.fld textarea:focus{border-bottom-color:var(--ink)}
 .ros{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-top:16px;scrollbar-width:none;padding-right:16px}
 .ri{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 12px;width:100%;border-bottom:1px solid var(--hair)}.ri.on{background:var(--ink);color:var(--on-ink);border-bottom-color:var(--ink)}.ri-num{font-size:28px;font-weight:400;line-height:1;color:var(--muted);flex:none;min-width:44px}.ri.on .ri-num{color:var(--on-ink)}.ri>div{min-width:0}.ri>div>span{font-size:18px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ri>div>small:not(.ri-status){font-size:13px;opacity:.65;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -282,13 +621,38 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
    ever be reached by scrolling THIS box — and the wheel now belongs to the
    page, making that content unreachable. Letting it grow means the page scroll
    reaches the true end of Backup; the audit list keeps its own capped window. */
-.bk{display:flex;flex-direction:column;overflow-y:visible;min-height:0;scrollbar-width:none}
-.br{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:0 24px;align-items:start;padding:28px 0;border-top:1px solid var(--hair)}
+/* Backup body is a York block inside the Stalactite section; the destination
+   rows keep their hairline (that is inner row structure, not an outer card
+   border — removing it would merge the rows into one unreadable slab). */
+/* padding-bottom:20px -> 0 (user order): the audit list is the card's last
+   child, so that 20px WAS the entire gap between the last row and the card's
+   bottom edge — measured 18px at both scroll positions (20 x the 0.9 admin
+   zoom). Top/side padding is untouched, so Backup spacing above the list and the
+   36px .br/.sched rhythm are unaffected. */
+.bk{display:flex;flex-direction:column;overflow-y:visible;min-height:0;scrollbar-width:none;background:var(--block);padding:4px 24px 0}
+/* Editorial paper rows (user order): no hairline above each destination. The
+   space has to do the separating now that the rule is gone, so the vertical
+   padding grows 28px -> 36px rather than shrinking. */
+/* Rows are compact: 13px vertical padding (user order), no dividers. The space
+   does the separating. */
+.br{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:0 24px;align-items:start;padding:36px 0;border-top:0}
 .br h3{font-size:24px;font-weight:500}.br p{font-size:14px;color:var(--muted);margin-top:2px}
 .bic{width:44px;height:44px;box-sizing:border-box;color:var(--ink);display:flex;align-items:center;justify-content:center;margin-top:2px;flex:none}
+/* Audit history's left-hand sidebar icon is ROUNDED (user order) — it is the one
+   place in this section that reads as a panel rather than a hairline. Scoped to
+   the audit block so the three destination rows above keep their sharp square
+   icons. No border: it was tried and removed again (user order) — the tinted
+   ground alone carries the rounded shape, and a hairline around it read as a box. */
+#backupManagerCard>.audit>.bic{border-radius:14px;background:var(--block);color:var(--ink)}
+/* The audit glyph was shrunk to 24px while the rounded chip was added, which made
+   it the only small icon in the section (measured 21.6px rendered against 27px
+   for every other .bic). Deleted: it now inherits .bic svg{width:30px;height:30px}
+   like Schedule, All destinations, USB and Drive, so all five match. */
 .bic svg{width:30px;height:30px;flex:none}
 .bic img{width:30px;height:30px;flex:none;object-fit:contain}
-.br .bacts{display:flex;gap:28px;align-items:center;border-left:1px solid var(--hair);padding-left:28px;margin-top:6px;flex-wrap:wrap}
+/* Actions stay right-aligned; the vertical rule goes and padding-left keeps the
+   optical gap identical, so the buttons do not shift. */
+.br .bacts{display:flex;gap:28px;align-items:center;border-left:0;padding-left:28px;margin-top:6px;flex-wrap:wrap}
 @media (max-width:1100px){.br{grid-template-columns:48px minmax(0,1fr);grid-template-areas:"icon main" "icon acts"}.br .bic{grid-area:icon}.br>div:nth-child(2){grid-area:main;min-width:0}.br .bacts{grid-area:acts;border-left:0;padding-left:0;margin-top:14px}}
 .br button{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);height:32px;box-sizing:border-box;white-space:nowrap}.br button:hover,.br button.on{color:var(--ink)}
 /* FRAGILE ORDER (user order): .scrim{display:grid} below relies on the later
@@ -299,7 +663,7 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 .mod{position:relative}
 .mod-close{position:absolute;top:24px;right:24px;font-size:24px;line-height:1;color:var(--muted);background:none;border:0;cursor:pointer;padding:4px}
 .mod-close:hover{color:var(--ink)}
-.mod{width:560px;max-width:92vw;max-height:90vh;display:flex;flex-direction:column;background:#F6F4EF;padding:32px;border-radius:12px}
+.mod{width:560px;max-width:92vw;max-height:90vh;display:flex;flex-direction:column;background:var(--paper);padding:32px;border-radius:12px}
 .mod .ft{border-radius:0 0 12px 12px}
 #enrollModal .mod{padding:32px 0 0}
 #enrollModal .mod .eye,#enrollModal .mod h2,#enrollModal .mod .sub{padding-left:32px;padding-right:32px}
@@ -322,7 +686,7 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
 #holidayModalBody,#overrideModalBody,#schedModalBody{padding:0 32px}
 #holidayModal .ft,#overrideModal .ft,#schedModal .ft{background:var(--pill);margin:24px -32px 0;padding:20px 32px}
 #holidayModal .err,#overrideModal .err,#schedModal .err{padding-bottom:20px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px}.fld.w{grid-column:1/-1}.opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.opts button{padding:10px 12px;min-width:52px;border-radius:8px;text-align:center;color:var(--muted);font-size:15px;font-weight:600}.opts button.on,.opts button.on:hover{background:#141414;color:#f4f2ee;font-weight:600}.opts button.on *{color:#f4f2ee}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px}.fld.w{grid-column:1/-1}.opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.opts button{padding:10px 12px;min-width:52px;border-radius:8px;text-align:center;color:var(--muted);font-size:15px;font-weight:600}.opts button.on,.opts button.on:hover{background:var(--ink);color:var(--on);font-weight:600}.opts button.on *{color:var(--on)}
 .toast{position:fixed;left:40px;bottom:28px;background:var(--ink);color:var(--on-ink);padding:10px 16px;font-size:14px;z-index:10}
 @media (max-width:900px){.split{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);height:auto}.facts{grid-template-columns:1fr 1fr}.ar{grid-template-columns:100px 1fr auto}.ar>:nth-child(3),.ar>:nth-child(4){display:none}.att-records .ar{grid-template-columns:140px 100px minmax(0,1fr) 100px 130px 130px 130px minmax(0,1fr)}.att-records .ar>span:nth-child(3),.att-records .ar>span:nth-child(4){display:block}}
 
@@ -628,11 +992,11 @@ button:focus:not(:focus-visible):not(.on):not(.interval-step button):not(.tp-nud
     }
 .admin-trigger:hover {
       border-color: transparent;
-      color: #181A20;
+      color: var(--deep);
       text-decoration: underline
     }
 html[data-ink="dark"] .prompt {
-      color: #181A20 !important;
+      color: var(--deep) !important;
     }
 html[data-ink="dark"] .admin-trigger {
       color: rgba(24, 26, 32, 0.75) !important;
@@ -664,7 +1028,7 @@ html .admin-trigger {
       color: rgba(24, 26, 32, 0.75) !important;
     }
 html .admin-trigger:hover {
-      color: #181A20 !important;
+      color: var(--deep) !important;
     }
 html .identity-layer .result-msg {
       color: var(--ok) !important;
@@ -713,7 +1077,7 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .flt button.set{font-weight:400}
 .flt button:focus-visible{background:none;color:var(--ink)}
 .flt-count{font-size:12px;color:var(--muted);margin:0 0 8px}
-.ro-new{align-self:stretch;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#F4EEE1;background:#141414;border:0;border-radius:0;padding:12px 16px;margin-bottom:12px;text-align:left;cursor:pointer}
+.ro-new{align-self:stretch;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#F4EEE1;background:var(--ink);border:0;border-radius:0;padding:12px 16px;margin-bottom:12px;text-align:left;cursor:pointer}
 .ro-search{position:relative;margin-bottom:12px;border:0;border-bottom:1px solid transparent;background:var(--pill);border-radius:8px;height:38px;box-sizing:border-box}
 .ro-search:focus-within{border-bottom-color:var(--ink)}
 .ro-search input{border:0;background:none;box-sizing:border-box;height:100%;padding:0 12px 0 38px;font-size:13px;outline:0}
@@ -756,10 +1120,10 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .pv .o{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;border-bottom:0;font-size:15px;color:var(--ink);height:auto;min-height:44px}
 .pv .o span:first-child{flex:1}
 .pv .o small{font-size:12px;color:var(--muted)}
-.pv .o:hover{background:rgba(20,20,20,.04)}
-.pv .o.on{background:#141414;color:#f4f2ee;font-weight:600;padding:12px 16px;border-bottom-color:#141414}
-.pv .o.on small{color:#f4f2ee;opacity:.7}
-.pv .o.on *{color:#f4f2ee}
+.pv .o:hover{background:rgba(64,47,32,.04)}
+.pv .o.on{background:var(--ink);color:var(--on);font-weight:600;padding:12px 16px;border-bottom-color:var(--ink)}
+.pv .o.on small{color:var(--on);opacity:.7}
+.pv .o.on *{color:var(--on)}
 .pv .o[hidden],.pv .cap[hidden]{display:none!important}
 #fltPop{min-width:0;width:min(260px,calc(100% - 24px));max-height:min(340px,calc(100vh - 120px));padding:14px}
 #fltPop .pv-head h4{font-size:18px}
@@ -785,15 +1149,15 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .dt .acts button[data-action="delete"]:hover{color:var(--red)}
 
 /* Student detail: recent attendance timeline + records table (reference redesign) */
-.dt .facts{border-bottom:1px solid rgba(20,20,20,.18);gap:0}
+.dt .facts{border-bottom:1px solid rgba(64,47,32,.18);gap:0}
 .dt .facts>div{padding:16px 20px 16px 0;position:relative}
 .dt .facts>div:not(:nth-child(4n+1)){padding-left:20px}
-.dt .facts>div:not(:nth-child(4n+1))::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:1px;background:rgba(20,20,20,.14)}
-.dt .facts>div:nth-child(n+5){border-top:1px solid rgba(20,20,20,.14)}
+.dt .facts>div:not(:nth-child(4n+1))::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:1px;background:rgba(64,47,32,.14)}
+.dt .facts>div:nth-child(n+5){border-top:1px solid rgba(64,47,32,.14)}
 /* padding-right matches .sd-recs: the timeline block is a SIBLING of the
    scroller, so without the same inset its right edge sits 16px past the
    records table below it. */
-.sd-top{flex:none;background:#F6F4EF;padding-bottom:12px;padding-right:16px}
+.sd-top{flex:none;background:var(--paper);padding-bottom:12px;padding-right:16px}
 .sd-recs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-right:16px}
 .sd-recs::-webkit-scrollbar{display:none}
 .sd-head{display:grid;grid-template-columns:minmax(0,1fr) 240px 140px 120px;align-items:center;column-gap:20px;margin:40px 0 16px}
@@ -814,8 +1178,8 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 /* Grey-pill triggers keep the pill on keyboard focus; hover, press, and the
    open state anchor in solid black — the All status behavior (user order) */
 #pane-attendance .filters .gsel-btn:focus-visible,#pane-setup .scope .gsel-btn:focus-visible,.sd-head .gsel>.gsel-btn:focus-visible,.sd-rec-head .gsel>.gsel-btn:focus-visible{background:var(--pill);color:var(--ink);border-color:var(--hair)}
-.sd-head .gsel>.gsel-btn:hover,.sd-head .gsel>.gsel-btn:active,.sd-head .gsel>.gsel-btn[aria-expanded="true"],.sd-rec-head .gsel>.gsel-btn:hover,.sd-rec-head .gsel>.gsel-btn:active,.sd-rec-head .gsel>.gsel-btn[aria-expanded="true"]{background:#141414;color:#f4f2ee}
-.sd-head .gsel>.gsel-btn:hover .gsel-chev,.sd-head .gsel>.gsel-btn:active .gsel-chev,.sd-head .gsel>.gsel-btn[aria-expanded="true"] .gsel-chev,.sd-rec-head .gsel>.gsel-btn:hover .gsel-chev,.sd-rec-head .gsel>.gsel-btn:active .gsel-chev,.sd-rec-head .gsel>.gsel-btn[aria-expanded="true"] .gsel-chev{color:#f4f2ee}
+.sd-head .gsel>.gsel-btn:hover,.sd-head .gsel>.gsel-btn:active,.sd-head .gsel>.gsel-btn[aria-expanded="true"],.sd-rec-head .gsel>.gsel-btn:hover,.sd-rec-head .gsel>.gsel-btn:active,.sd-rec-head .gsel>.gsel-btn[aria-expanded="true"]{background:var(--ink);color:var(--on)}
+.sd-head .gsel>.gsel-btn:hover .gsel-chev,.sd-head .gsel>.gsel-btn:active .gsel-chev,.sd-head .gsel>.gsel-btn[aria-expanded="true"] .gsel-chev,.sd-rec-head .gsel>.gsel-btn:hover .gsel-chev,.sd-rec-head .gsel>.gsel-btn:active .gsel-chev,.sd-rec-head .gsel>.gsel-btn[aria-expanded="true"] .gsel-chev{color:var(--on)}
 .sd-tl{display:flex;flex-direction:column;gap:8px;padding-bottom:4px;width:100%}
 .sd-tl-row{display:grid;grid-template-columns:78px repeat(31,minmax(0,1fr));align-items:center;width:100%}
 .sd-tl-lab{font-size:13px;color:var(--muted)}
@@ -827,7 +1191,7 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .sd-legend{display:flex;gap:30px;margin:16px 0 20px;font-size:13px;color:var(--muted)}
 .sd-legend span{display:flex;align-items:center;gap:9px;line-height:1}
 .sd-legend .sd-sq{width:15px;height:15px;margin:0;position:relative;top:-1px;border-radius:50%}
-.sd-rec-head{display:flex;align-items:center;gap:16px;margin:0;padding:0;height:64px;position:sticky;top:0;z-index:3;background:#F6F4EF;min-height:64px}
+.sd-rec-head{display:flex;align-items:center;gap:16px;margin:0;padding:0;height:64px;position:sticky;top:0;z-index:3;background:var(--paper);min-height:64px}
 .sd-rec-head h3{font-size:26px;font-weight:500;color:var(--ink);margin:0}
 .sd-rec-head select{font-family:inherit;font-size:14px;padding:7px 10px;background:none;color:var(--ink);border:1px solid var(--hair);border-radius:0}
 .sd-month select{font-family:inherit;font-size:14px;padding:7px 10px;background:none;color:var(--ink);border:1px solid var(--hair);border-radius:0;margin-left:12px}
@@ -843,7 +1207,7 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .sd-tbl th:nth-child(4),.sd-tbl td:nth-child(4){width:16%}
 .sd-tbl th:nth-child(5),.sd-tbl td:nth-child(5){width:24%}
 .sd-tbl th,.sd-tbl td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sd-tbl th{text-align:left;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:400;padding:14px 0;border-bottom:1px solid var(--hair);position:sticky;top:64px;z-index:2;background:#F6F4EF}
+.sd-tbl th{text-align:left;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:400;padding:14px 0;border-bottom:1px solid var(--hair);position:sticky;top:64px;z-index:2;background:var(--paper)}
 .sd-tbl td{padding:18px 0;border-bottom:1px solid var(--hair);color:var(--ink)}
 .sd-tbl th.act,.sd-tbl td.act{text-align:right}
 .sd-tbl td.act button{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0}
@@ -870,11 +1234,11 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .gsel-opt{display:flex;align-items:center;gap:8px;width:100%;padding:0 12px;min-height:44px;font-size:15px;color:var(--ink);height:auto;cursor:pointer}
 .gsel-opt .opt-t{flex:1;text-align:left;overflow-wrap:break-word;white-space:normal}
 .gsel-opt small{font-size:12px;color:var(--muted);flex:none}
-.gsel-opt:hover{background:rgba(20,20,20,.04)}
-.gsel-opt.sel{background:#141414;color:#f4f2ee}
-.gsel-opt.sel small{color:#f4f2ee;opacity:.7}
-.gsel-opt.sel *{color:#f4f2ee}
-.gsel-opt:not(.sel).hi{background:rgba(20,20,20,.04);color:var(--ink)}
+.gsel-opt:hover{background:rgba(64,47,32,.04)}
+.gsel-opt.sel{background:var(--ink);color:var(--on)}
+.gsel-opt.sel small{color:var(--on);opacity:.7}
+.gsel-opt.sel *{color:var(--on)}
+.gsel-opt:not(.sel).hi{background:rgba(64,47,32,.04);color:var(--ink)}
 /* Status dropdown reveal: a quick pop-up as soon as it opens, no layout change */
 .gsel-pop[data-for="attStatusFilter"]{animation:gselPop .18s var(--ease);transform-origin:top left}
 @keyframes gselPop{0%{opacity:0;transform:translateY(-6px) scale(.96)}100%{opacity:1;transform:none}}
@@ -897,7 +1261,7 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .cmd-pal .cmd-opt .k{font-size:12px;opacity:.7}
 .cmd-pal .cmd-opt.hi{color:var(--ink)}
 /* ---- Shared dialogs, photo field (reference voice) ---- */
-.gconfirm-ov{position:fixed;inset:0;background:rgba(20,20,20,.26);display:grid;place-items:center;z-index:70}
+.gconfirm-ov{position:fixed;inset:0;background:rgba(64,47,32,.26);display:grid;place-items:center;z-index:70}
 .gconfirm{width:440px;max-width:92vw;max-height:90vh;overflow-y:auto;background:rgba(238,238,232,.92);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);padding:32px;border-radius:12px}
 .gconfirm h3{font-size:26px;font-weight:500}
 .gconfirm p{font-size:14px;color:var(--muted);margin:8px 0 0}
@@ -930,10 +1294,10 @@ body:has(#adminLayer.admin-layer.open) .right{display:none!important}
 .msum2{font-size:13px;color:var(--muted);margin-top:4px;background:none}
 .mod .cnt{text-align:right;font-size:12px;color:var(--muted);margin:6px 0 0}
 /* ---- Shared pickers, day popover, setup modals (reference voice) ---- */
-::selection{background:rgba(20,20,20,.18);color:inherit}
+::selection{background:rgba(64,47,32,.18);color:inherit}
 html{color-scheme:light}
 input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus,textarea:-webkit-autofill,textarea:-webkit-autofill:hover,textarea:-webkit-autofill:focus{-webkit-text-fill-color:var(--ink);caret-color:var(--ink);transition:background-color 9999s ease-in-out 0s}
-input,select,textarea,button{accent-color:#141414}
+input,select,textarea,button{accent-color:var(--ink)}
 .mod .fld label{font-size:11px;margin-bottom:2px}
 .mod .g2{gap:28px 28px}
 .mod .fld input,.mod .fld select,.mod .fld textarea{min-height:40px;font-size:18px}
@@ -949,11 +1313,11 @@ input,select,textarea,button{accent-color:#141414}
 .edit-fields .g2{display:grid;grid-template-columns:1fr 1fr;gap:28px 28px}
 .edit-photo{border-left:1px solid var(--hair);padding-left:32px}
 .edit-photo label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.edit-photo-circle{width:180px;height:180px;border-radius:50%;background:var(--pill);display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:600;color:rgba(20,20,20,.6);margin:0 auto 16px;position:relative}
-.edit-photo-badge{position:absolute;bottom:10px;right:10px;width:34px;height:34px;border-radius:50%;background:#141414;display:flex;align-items:center;justify-content:center;color:#F6F4EF}
+.edit-photo-circle{width:180px;height:180px;border-radius:50%;background:var(--pill);display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:600;color:rgba(64,47,32,.6);margin:0 auto 16px;position:relative}
+.edit-photo-badge{position:absolute;bottom:10px;right:10px;width:34px;height:34px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;color:var(--paper)}
 .edit-photo-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:8px;box-sizing:border-box;min-height:38px;padding:10px 14px;font-size:13px;color:var(--ink);background:var(--pill);width:100%}
 /* Choose-photo pills share the All status behavior: solid black on hover and press */
-.photo-choose:hover,.edit-photo-btn:hover{background:#141414;color:#f4f2ee}
+.photo-choose:hover,.edit-photo-btn:hover{background:var(--ink);color:var(--on)}
 .edit-photo small{display:block;font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
 .edit-photo-preview{margin-top:12px;text-align:center}
 .edit-photo-preview img{max-width:100%;max-height:180px;display:inline-block}
@@ -986,7 +1350,7 @@ input,select,textarea,button{accent-color:#141414}
 .dt-day:hover:not(.sel):not(.in){background:var(--wash);color:var(--ink)}
 .dt-day:hover:not(.sel)>span{color:inherit}
 .dt-day.sel:hover{background:var(--ink);color:var(--on)}
-.dt-day:focus-visible,.tp-grid button:focus-visible,.seg button:focus-visible,.opts button:focus-visible{outline:2px solid rgba(20,20,20,.45);outline-offset:2px}
+.dt-day:focus-visible,.tp-grid button:focus-visible,.seg button:focus-visible,.opts button:focus-visible{outline:2px solid rgba(64,47,32,.45);outline-offset:2px}
 .dt-day.sel{background:var(--ink);color:var(--on);font-weight:600}
 .dt-day.today>span{border-bottom:1px solid var(--ink)}
 /* The range band: one pale field, square joins, no gaps. Corner-radius
@@ -1009,7 +1373,7 @@ input,select,textarea,button{accent-color:#141414}
 /* The minute nudge owns its surface: no blanket button rule may clear the
    pill on click. Fill stays solid, with no ring or border added. */
 .tp-nudge:focus,.tp-nudge:active{background:var(--pill);color:var(--ink);outline:none;box-shadow:none}
-.tp-nudge:focus-visible{outline:2px solid rgba(20,20,20,.45);outline-offset:2px;background:var(--pill);color:var(--ink)}
+.tp-nudge:focus-visible{outline:2px solid rgba(64,47,32,.45);outline-offset:2px;background:var(--pill);color:var(--ink)}
 .tp-nudge-val{font-size:15px;font-weight:600;min-width:28px;text-align:center}
 .tp-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px}
 .tp-grid.ampm{grid-template-columns:1fr 1fr;gap:0}
@@ -1019,12 +1383,12 @@ input,select,textarea,button{accent-color:#141414}
 .tp-grid button{height:40px;padding:0;text-align:center;font-size:15px;color:var(--ink);background:var(--pill);border:0;border-radius:8px}
 .tp-grid button:hover{color:var(--ink)}
 /* Selecting a cube swaps the fill in one step: pill stays solid through
-   mousedown/focus, then .on takes over at #141414. No transition, so the
+   mousedown/focus, then .on takes over at var(--ink). No transition, so the
    fill never passes through empty on its way to black. */
 .tp-grid button:focus,.tp-grid button:active{background:var(--pill);color:var(--ink);outline:none;box-shadow:none}
-.tp-grid button:focus-visible{outline:2px solid rgba(20,20,20,.45);outline-offset:2px}
-.tp-grid button.on{background:#141414;color:#f4f2ee;font-weight:600}
-.tp-grid button.on *{color:#f4f2ee}
+.tp-grid button:focus-visible{outline:2px solid rgba(64,47,32,.45);outline-offset:2px}
+.tp-grid button.on{background:var(--ink);color:var(--on);font-weight:600}
+.tp-grid button.on *{color:var(--on)}
 .dt-sec{font-size:13px;color:var(--muted);margin:8px 0}
 .dt-hint{min-height:18px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dt-glyph{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:4px 0}
@@ -1032,15 +1396,15 @@ input,select,textarea,button{accent-color:#141414}
 .dt-acad-btn{display:block;width:100%;text-align:left;padding:10px 0}
 .dt-acad-btn .dt-acad-main{font-size:17px;display:block}
 .dt-acad-btn .dt-acad-sub{font-size:13px;color:var(--muted)}
-.dt-acad-btn.sel{background:#141414;color:#f4f2ee}
-.dt-acad-btn.sel .dt-acad-main,.dt-acad-btn.sel .dt-acad-sub{color:#f4f2ee}
+.dt-acad-btn.sel{background:var(--ink);color:var(--on)}
+.dt-acad-btn.sel .dt-acad-main,.dt-acad-btn.sel .dt-acad-sub{color:var(--on)}
 .dt-acad-btn.sel .dt-acad-main{font-weight:600}
 .mod .ft .del{color:#8A3A3A}
 .sched-days .opts{display:grid;grid-template-columns:repeat(7,1fr);gap:0}
 #schedModal .sched-days .opts button{height:44px;padding:0 4px;text-align:center;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--pill);border:0;border-radius:0}
 #schedModal .sched-days .opts button:first-child{border-radius:8px 0 0 8px}
 #schedModal .sched-days .opts button:last-child{border-radius:0 8px 8px 0}
-#schedModal .sched-days .opts button.on{background:#141414;color:#f4f2ee}
+#schedModal .sched-days .opts button.on{background:var(--ink);color:var(--on)}
 .seg{display:flex;height:44px;box-sizing:border-box}
 .seg.two,.seg.s2,.seg.s3,.seg.s1,.seg.s4{display:flex;height:44px}
 .mod .g2 .ft{grid-column:1/-1;margin-top:4px}
@@ -1049,8 +1413,8 @@ input,select,textarea,button{accent-color:#141414}
 .seg button:last-child{border-radius:0 8px 8px 0}
 .seg button:only-child{border-radius:8px}
 .seg button + button{margin-left:0}
-.seg button.on{background:#141414;color:#f4f2ee;font-weight:600}
-.seg button.on *{color:#f4f2ee}
+.seg button.on{background:var(--ink);color:var(--on);font-weight:600}
+.seg button.on *{color:var(--on)}
 .seg button:not(.on){background:var(--pill)}
 /* Correction modal pills (user order): status options + footer match the pill language */
 /* correction status shares the single .seg sizing above */
@@ -1090,7 +1454,7 @@ input,select,textarea,button{accent-color:#141414}
 #attPresetRow .att-cube{padding:10px 20px;font-size:14px;opacity:.62;height:38px}
 #attPresetRow .att-cube.on{opacity:1;font-weight:600}
 #attPresetRow .att-cube:hover{opacity:1}
-#pane-attendance{grid-template-rows:auto auto minmax(0,1fr);row-gap:0}
+#pane-attendance{grid-template-rows:auto auto minmax(180px,1fr);row-gap:0}
 #pane-attendance .bar{flex-wrap:nowrap}
 @media (max-width:1500px){#pane-attendance .bar{flex-wrap:wrap}}
 #pane-attendance .sta{display:flex;flex-wrap:nowrap;gap:0;align-items:stretch;justify-content:flex-end}
@@ -1099,8 +1463,8 @@ input,select,textarea,button{accent-color:#141414}
 .sta .stat small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;white-space:nowrap}
 .sta .stat b{font-size:32px;font-weight:500;line-height:1;display:block;white-space:nowrap}
 .sta .stat[data-f],.sta .stat[data-act]{cursor:pointer}
-.sta .stat.sel{background:#141414;color:#f4f2ee}
-.sta .stat.sel small,.sta .stat.sel b{color:#f4f2ee}
+.sta .stat.sel{background:var(--ink);color:var(--on)}
+.sta .stat.sel small,.sta .stat.sel b{color:var(--on)}
 .gsel-pop[data-for="attClassFilter"],.gsel-pop[data-for="attBatchFilter"]{min-width:260px;max-height:320px}
 .gsel-pop[data-for="attClassFilter"] .gsel-opt small,.gsel-pop[data-for="attBatchFilter"] .gsel-opt small{margin-left:auto;font-size:12px;opacity:.7;padding-left:16px}
 .gsel-search{padding:4px 12px 10px;position:sticky;top:0;background:inherit}
@@ -1124,9 +1488,11 @@ input,select,textarea,button{accent-color:#141414}
    now the page (.app) — before, an inner scroll container clipped this area —
    so top:0 parked it behind the bar. Keep in sync with .rail height. */
 /* padding-right matches .rows: the header is a SIBLING of the scroller, not a
-   child, so without the same inset its columns drift 16px off the body rows
-   and its right-hand label sits in the bar's gutter. */
-.att-records .ar-head{border-top:0;min-height:0;padding-right:16px;padding-bottom:8px;position:sticky;top:66px;background:#F6F4EF;z-index:1}
+   child, so without the same inset its columns drift off the body rows and its
+   right-hand label sits in the bar's gutter. Both sides moved 16px -> 28px
+   together, because the header/rows lockstep is the whole point (user report:
+   the track crowded the ACTION column and the table boundary). */
+.att-records .ar-head{border-top:0;min-height:0;padding-right:28px;padding-bottom:8px;position:sticky;top:var(--railh);background:var(--paper);z-index:1}
 .att-records .ar-head>span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
 .att-records .ar.unk{grid-template-columns:100px 120px minmax(0,1fr)}
 #attRecordsWrap,#attUnknownWrap{display:flex;flex-direction:column;min-height:0;flex:1}
@@ -1134,7 +1500,7 @@ input,select,textarea,button{accent-color:#141414}
 .att-records .ar button{background:var(--pill);border:0;border-radius:8px;color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;padding:8px 14px;display:inline-flex;align-items:center;white-space:nowrap;flex:none}
 /* Hover only — :active left the black fill stuck after a touch press. Matches
    the row selector so it wins cleanly against any row-level colour. */
-.att-records .ar:not(.ar-head)>button:hover{background:#141414;color:#f4f2ee}
+.att-records .ar:not(.ar-head)>button:hover{background:var(--ink);color:var(--on)}
 /* Reference target (user order): stat ticks, boxed filters, card table — CSS only, no behavior change */
 #pane-attendance .sta{flex:1 1 auto}
 #pane-attendance .sta .stat{flex:1 1 0;min-width:0;overflow:hidden;padding:6px 10px}
@@ -1143,8 +1509,8 @@ input,select,textarea,button{accent-color:#141414}
 #pane-attendance .sta .stat[data-f="Present"] b::before{display:block;background:var(--ok)}
 #pane-attendance .sta .stat[data-f="Late"] b::before{display:block;background:#C07F14}
 #pane-attendance .sta .stat[data-f="Absent"] b::before{display:block;background:var(--red)}
-#pane-attendance .sta .stat[data-f="Not Scheduled"] b::before{display:block;background:rgba(20,20,20,.28)}
-#pane-attendance .sta .stat[data-act="unknown"] b::before{display:block;background:rgba(20,20,20,.12)}
+#pane-attendance .sta .stat[data-f="Not Scheduled"] b::before{display:block;background:rgba(64,47,32,.28)}
+#pane-attendance .sta .stat[data-act="unknown"] b::before{display:block;background:rgba(64,47,32,.12)}
 #pane-attendance .filters{align-items:center}
 #pane-attendance .fgroup{align-items:center}
 #pane-attendance .fgroup.fright{align-items:center}
@@ -1155,18 +1521,18 @@ input,select,textarea,button{accent-color:#141414}
   /* Open state: the trigger anchors its popup with a solid black fill and
      a cream label. The selected row inside the popup is already black,
      so the two read as one entry. */
-  #pane-attendance .filters .gsel-btn:hover,#pane-attendance .filters .gsel-btn:active,#pane-attendance .filters .gsel-btn[aria-expanded="true"]{background:#141414;color:#f4f2ee}
-  #pane-attendance .filters .gsel-btn:hover .gsel-chev,#pane-attendance .filters .gsel-btn:active .gsel-chev,#pane-attendance .filters .gsel-btn[aria-expanded="true"] .gsel-chev{color:#f4f2ee}
+  #pane-attendance .filters .gsel-btn:hover,#pane-attendance .filters .gsel-btn:active,#pane-attendance .filters .gsel-btn[aria-expanded="true"]{background:var(--ink);color:var(--on)}
+  #pane-attendance .filters .gsel-btn:hover .gsel-chev,#pane-attendance .filters .gsel-btn:active .gsel-chev,#pane-attendance .filters .gsel-btn[aria-expanded="true"] .gsel-chev{color:var(--on)}
 #pane-attendance .filters .gsel-btn .gsel-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #pane-attendance .filters button svg,#pane-attendance .att-records .ar button svg{width:13px;height:13px;vertical-align:-2px;margin-right:8px}
 #pane-attendance .fright #attRefreshBtn,#pane-attendance .fright #attPrintBtn,#pane-attendance .fright #attExportBtn{background:var(--pill);border:0;border-radius:8px;box-sizing:border-box;height:38px;color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;padding:9px 16px;display:inline-flex;align-items:center}
-#pane-attendance .fright #attRefreshBtn:hover,#pane-attendance .fright #attPrintBtn:hover,#pane-attendance .fright #attExportBtn:hover{background:#141414;color:#f4f2ee}
+#pane-attendance .fright #attRefreshBtn:hover,#pane-attendance .fright #attPrintBtn:hover,#pane-attendance .fright #attExportBtn:hover{background:var(--ink);color:var(--on)}
 /* Filter popups in pill color (user order): same family as the pills, not white */
 /* (sort-menu inherits the .pv pill above) */
 #pane-attendance .att-records{border:1px solid var(--hair);padding:0 20px}
 /* Pills everywhere (user order): students actions share the attendance pill + symbol language */
 #pane-students .ro-new{align-self:stretch;display:flex;align-items:center;gap:10px;background:none;border:0;border-bottom:1px solid var(--hair);border-radius:0;height:auto;padding:12px 0;margin-bottom:12px;font-size:15px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink);text-align:left;cursor:pointer}
-#pane-students .ro-new:hover{background:rgba(20,20,20,.12);color:var(--ink)}
+#pane-students .ro-new:hover{background:rgba(64,47,32,.12);color:var(--ink)}
 #pane-students .ro-new svg{flex:0 0 auto}
 #pane-students .flt{align-items:center}
 #pane-students .flt button{flex:0 0 auto;background:none;border:0;border-radius:0;height:auto;color:var(--muted);font-size:14px;padding:4px 0;display:inline-flex;align-items:center;gap:6px}
@@ -1174,7 +1540,7 @@ input,select,textarea,button{accent-color:#141414}
 #pane-students #fltClass::after,#pane-students #fltBatch::after{content:"▾";font-size:11px;color:inherit}
 #pane-students .dt .acts{gap:10px;flex-wrap:wrap}
 #pane-students .dt .acts button:not([data-action="delete"]),#pane-students .sd-rec-tools button[data-action],#pane-students .sd-tbl td.act button{background:var(--pill);border:0;border-radius:8px;box-sizing:border-box;min-height:38px;color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;padding:8px 16px;display:inline-flex;align-items:center}
-#pane-students .dt .acts button:not([data-action="delete"]):hover,#pane-students .sd-rec-tools button[data-action]:hover,#pane-students .sd-tbl td.act button:hover{background:#141414;color:#f4f2ee}
+#pane-students .dt .acts button:not([data-action="delete"]):hover,#pane-students .sd-rec-tools button[data-action]:hover,#pane-students .sd-tbl td.act button:hover{background:var(--ink);color:var(--on)}
 #pane-students .dt button svg,#pane-students .sd-rec-tools button svg,#pane-students .sd-tbl td.act button svg{width:13px;height:13px;margin-right:8px}
 /* Bright pill edge (user order): white pills read on cream only with a hairline — one rule for all 9 */
 /* Bright pill edge (user order): ONLY true pills stay in this list — text-style
@@ -1182,17 +1548,34 @@ input,select,textarea,button{accent-color:#141414}
 #pane-students .ro-search,#pane-attendance .att-records .ar button,#pane-attendance .fgroup #attSearch,#pane-attendance .filters .gsel-btn,#pane-attendance .fright #attRefreshBtn,#pane-attendance .fright #attPrintBtn,#pane-attendance .fright #attExportBtn,#pane-students .dt .acts button:not([data-action="delete"]),#pane-students .sd-rec-tools button[data-action],#pane-students .sd-tbl td.act button{border:0;box-sizing:border-box}
 .s-X{color:var(--muted)}
 .att-records .rows{overflow-x:auto}
+/* Attendance records gutter (user order: 16px -> 28px). The mini bar's lane is
+   16px wide, so a 28px gutter leaves a real 6px gap between the track and the
+   ACTION column instead of the old 4px crowding. Scoped to BOTH attendance
+   tables (#attRecordsView and #attUnknownView) because they share .rows — a
+   rule on only one would leave the other with the bar sitting on its content.
+   .att-records .ar-head carries the same 28px, keeping header and rows aligned. */
+#pane-attendance .rows{padding-right:28px}
+/* Track inset (user order): the Attendance bars sit inside the table frame
+   instead of flush at right:0, so the thumb never touches the frame edge.
+   28px gutter = 6px gap + 16px lane + 6px inset. Radius 0 (inherited), no
+   transition, no background — geometry only. */
+#pane-attendance .rows .minibar{right:6px}
 .att-records .ar{min-width:640px}
 #printRoot{display:none}
 /* ---- Phase 4: Setup (reference voice) ---- */
 .wk span.dim{opacity:.35}
 .yr button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 .scope{text-align:right}
-.scope .gsel-btn{font-size:13px;color:var(--ink);background:var(--pill);border:0;border-radius:8px;box-sizing:border-box;height:38px;min-width:170px;padding:0 12px;display:inline-flex;align-items:center;justify-content:space-between;gap:12px}
+/* Scope trigger: --pill (#AB977D) read as a grey browser widget against the sand
+   pane, so it moves to the same flat --wash as the day cubes, square corners.
+   height:38px is kept deliberately: it is what keeps this row level with the
+   School information button beside it, and because box-sizing is border-box the
+   6px of padding you asked for sits inside that 38px rather than growing it. */
+.scope .gsel-btn{font-size:13px;font-weight:500;color:var(--ink);background:var(--wash);border:0;border-radius:0;box-sizing:border-box;height:38px;min-width:170px;padding:6px 12px;display:inline-flex;align-items:center;justify-content:space-between;gap:12px}
 .scope .gsel-btn .gsel-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Setup scope trigger shares the All status behavior: black on hover, press, and while open */
-.scope .gsel-btn:hover,.scope .gsel-btn:active,.scope .gsel-btn[aria-expanded="true"]{background:#141414;color:#f4f2ee}
-.scope .gsel-btn:hover .gsel-chev,.scope .gsel-btn:active .gsel-chev,.scope .gsel-btn[aria-expanded="true"] .gsel-chev{color:#f4f2ee}
+.scope .gsel-btn:hover,.scope .gsel-btn:active,.scope .gsel-btn[aria-expanded="true"]{background:var(--ink);color:var(--on)}
+.scope .gsel-btn:hover .gsel-chev,.scope .gsel-btn:active .gsel-chev,.scope .gsel-btn[aria-expanded="true"] .gsel-chev{color:var(--on)}
 .col>button:not(.add){font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:2px 0;margin-bottom:6px}
 .col>button:not(.add):hover{color:var(--ink)}
 .col .viewall{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);border:0;margin:6px 0 0;padding:10px 0}
@@ -1200,7 +1583,7 @@ input,select,textarea,button{accent-color:#141414}
    (flex:0 1 auto above) while the column fills the row, so View all drops
    to the column foot instead of floating right under a short list. */
 .cb-events .col .viewall{margin-top:auto}
-.row.active .tile{background:#141414;color:#f4f2ee}
+.row.active .tile{background:var(--ink);color:var(--on)}
 .row.dim{opacity:.5}
 .vrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;padding:10px 0;align-items:baseline}
 .vrow span{font-size:17px;display:block}
@@ -1228,6 +1611,58 @@ input,select,textarea,button{accent-color:#141414}
 .br .ok{color:var(--ink);font-weight:600}
 .br .bad{color:var(--red)}
 .dest-detail{padding:0 0 20px 72px;font-size:14px;color:var(--muted)}
+/* Backup: stop appearing content from stretching the card (user order).
+   Everything here is measured, not guessed — see the notes per rule.
+   1. The value lines are single-line by nature (a chat id, a mount path, a
+      "12.4 GB free" figure). Left to wrap, one long path added a whole line and
+      pushed every row below it down. One line, ellipsis, height fixed. */
+#telegramDetailsBox,#usbDetailLine{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:20px;line-height:20px}
+/* 2. The Drive status/error line. The status word is short and fixed
+      (Offline/Disabled/Setup needed/Not connected/Ready); lastError is an
+      arbitrary server string, so it is the part that can wrap and grow the row. */
+#destRowGdrive p,#destRowTelegram p,#destRowUsb p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:20px}
+/* 3. Weekday pills share ONE explicit track each, so a label can never size its
+      own button (the "Monday wider than Friday" symptom). The container is a
+      7-column grid and every button fills its cell with border-box, which is
+      what keeps them equal. */
+#backupSchedDays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0}
+#backupSchedDays button{width:100%;box-sizing:border-box;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:36px}
+/* The Drive detail text now lives in the EMPTY RIGHT SIDE of the Drive row
+   instead of below it (user order), and it can no longer move anything.
+   How: .gdrive-details is a real grid cell in column 3, so it claims horizontal
+   space — which is free — but it has height:0, so it contributes NOTHING to the
+   row's height. Its children are absolutely positioned inside it, so showing,
+   hiding or growing them cannot change the row height or the card height. That
+   is why there is no reserve here any more and no :has() rule: a reserve is only
+   needed when content is in flow, and this content is not.
+   Measured content heights it now has room for: pairing row 41.2px, device box
+   18px, device box with code 148.5px, connected box 145.1px (file list capped
+   below). Column 3 is 380px wide; the buttons stay in column 4 and cannot be
+   overlapped. */
+#destRowGdrive{grid-template-columns:48px minmax(0,1fr) 380px auto}
+/* Both tracks are pinned explicitly: .bacts comes BEFORE .gdrive-details in the
+   DOM, so without this the buttons auto-placed into column 3 and the details
+   landed on top of them. */
+#destRowGdrive>.bacts{grid-column:4}
+.gdrive-details{grid-column:3;position:relative;height:0;min-height:0;align-self:start}
+.gdrive-details>.dest-detail{position:absolute;top:0;right:0;width:100%;padding:0 0 8px 0;overflow-y:auto;max-height:190px;overscroll-behavior:contain}
+/* The Drive file list is unbounded (measured 362.8px with 12 files). Cap it and
+   let it scroll — it is in the minibar REGIONS list, so it gets a drag strip
+   like every other scrolling region rather than becoming a dead end. */
+#gdriveFilesBody{max-height:72px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+/* 4. The Drive detail area is RESERVED, not content-sized. Turning Drive on or
+      off used to move every row below it: measured +41.1px when the "Connect
+      Drive" row appeared, +18px for the device box, +148.5px with the device
+      code, +193.5px for the connected box with files — the "text comes and
+      stretches the UI" symptom.
+      It has to be a wrapper, because the three .dest-detail boxes are direct
+      children of .bk (flex items) and each one is display:none while unused —
+      a hidden flex item reserves nothing, so no selector aimed at the boxes or
+      at #destRowGdrive can hold the space. .gdrive-details is always present,
+      so its min-height is the reserve. 190px is the measured worst case: the
+      pairing row (41.2px) and the device box (148.5px) can show together; the
+      connected box is exclusive with both and fits inside. Cost: that much
+      empty space between the Drive and Telegram rows while Drive is off. */
 #gdrivePairRow[hidden],#gdriveAuthBox[hidden],#gdriveActionBox[hidden],#usbDetailsBox[hidden]{display:none}
 #telegramDetailsBox{padding:0;font-size:14px;color:var(--muted)}
 .dest-detail p{margin:0 0 8px}
@@ -1239,7 +1674,7 @@ input,select,textarea,button{accent-color:#141414}
 #gdriveUserCodeDisplay{font-size:20px;font-weight:600;letter-spacing:.1em;color:var(--ink);margin:4px 0}
 .vrow.small{padding:8px 0}
 .vrow.small span{font-size:15px}
-.sched{padding:28px 0;border-top:1px solid var(--hair);display:flex;flex-wrap:wrap;gap:0 24px;align-items:flex-start}
+.sched{padding:36px 0;border-top:0;display:flex;flex-wrap:wrap;gap:0 24px;align-items:flex-start}
 .sched .sched-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
 .sched h3{font-size:24px;font-weight:500}
 #backupSchedToggleBtn{min-width:36px;margin-top:8px;padding:4px 0;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:none;border:0;white-space:nowrap;text-align:left}
@@ -1250,9 +1685,9 @@ input,select,textarea,button{accent-color:#141414}
 #backupSchedDays button{height:40px;box-sizing:border-box;padding:0 4px;text-align:center;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);background:var(--pill);border:0;border-radius:0}
 #backupSchedDays button:first-child{border-radius:8px 0 0 8px}
 #backupSchedDays button:last-child{border-radius:0 8px 8px 0}
-#backupSchedDays button.on{background:#141414;color:#f4f2ee}
+#backupSchedDays button.on{background:var(--ink);color:var(--on)}
 #backupSchedDays button:focus{background:var(--pill)}
-#backupSchedDays button.on:focus{background:#141414}
+#backupSchedDays button.on:focus{background:var(--ink)}
 #backupSchedBody .fld label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
 #backupSchedBody input,#backupSchedBody select{font:inherit;font-size:16px;color:var(--ink);background:none;border:0;border-bottom:1px solid var(--hair);border-radius:0;height:40px;box-sizing:border-box;width:100%;outline:0}
 .interval-step{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;gap:6px;align-items:end}
@@ -1261,7 +1696,7 @@ input,select,textarea,button{accent-color:#141414}
    on click or keyboard focus. Fill stays solid, with no ring or border
    added on click. */
 .interval-step button:focus,.interval-step button:active{background:var(--pill);color:var(--ink);outline:none;box-shadow:none}
-.interval-step button:focus-visible{outline:2px solid rgba(20,20,20,.45);outline-offset:2px;background:var(--pill);color:var(--ink)}
+.interval-step button:focus-visible{outline:2px solid rgba(64,47,32,.45);outline-offset:2px;background:var(--pill);color:var(--ink)}
 .interval-step input{text-align:center;-moz-appearance:textfield;appearance:textfield}
 .interval-step input::-webkit-outer-spin-button,.interval-step input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 #backupSchedBody input:focus,#backupSchedBody select:focus{border-bottom-color:var(--ink)}
@@ -1274,18 +1709,51 @@ input,select,textarea,button{accent-color:#141414}
 .sched p button:hover{color:var(--ink)}
 #backupSchedStatus{font-size:13px;color:var(--muted);margin-left:12px}
 .sched-mode{font-size:13px;color:var(--muted);margin:0;min-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.audit{display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 24px;align-items:start;padding:28px 0;border-top:1px solid var(--hair)}
-.audit-main{min-width:0}
+/* SCOPED to the BLOCK, and it must stay scoped: the rows carry class="ar audit"
+   too, so a bare `.audit{}` also matched all 500 of them — it gave every row
+   min-height:260px (500 rows = 130,000px of scrollHeight) and padding, which is
+   what made the rows loose and the list collapse. Never write a bare `.audit`.
+   padding-bottom:0 puts the footer on the card's bottom edge, no band under it.
+   flex:1 1 auto + min-height bounds the list inside the now-definite .bk. */
+#backupManagerCard > .audit{display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 24px;align-items:stretch;padding:13px 0 0;border-top:0;flex:1 1 auto;min-height:0}
+/* Every horizontal rule in the list is gone (user order): .ar carries a
+   border-top from the shared table style, and the list is separated by spacing
+   alone. Scoped to the audit rows so Attendance/Setup tables keep theirs. */
+#backupManagerCard .audit .ar.audit{border-top:0}
+/* Row rhythm: 12px vertical padding (user order), spacing is the only separator.
+   :not(.audit-head) so the column header keeps its own padding. */
+#backupManagerCard .audit .ar.audit:not(.audit-head){padding:12px 0}
+#backupManagerCard > .br,#backupManagerCard > .sched{flex:none}
+/* Flex column so #auditBody is the only element that flexes: it takes every
+   pixel between .audit-head and .audit-foot, which is what removes the gap. */
+.audit-main{min-width:0;display:flex;flex-direction:column;min-height:0}
 .audit-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
 .audit h3{font-size:24px;font-weight:500}
 .audit-sub{font-size:14px;color:var(--muted);margin-top:2px}
-.audit .bacts{display:flex;gap:28px;align-items:center;border-left:1px solid var(--hair);padding-left:28px;margin-top:6px;flex-wrap:wrap}
+/* Strip caption (user order). Plain text only — no box, border, icon or
+   background. Same 11px uppercase muted treatment .audit-head>span already uses
+   for the TIME/ACTION labels, so it reads as part of the same system. It is a
+   sibling span inside the existing .audit-sub line, not a new block. */
+.audit-hint{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-left:10px}
+.audit .bacts{display:flex;gap:28px;align-items:center;border-left:0;padding-left:28px;margin-top:6px;flex-wrap:wrap}
 /* Header sits outside #auditBody's scroll window, so it stays pinned above
    the list on its own — the old position:sticky here was inert (it is a
    sibling of the scroller, not a child). */
-.audit .audit-head{border-top:0;min-height:0;padding:14px 0 6px}
+/* flex:none is load-bearing: .audit-main is a flex column, and the header was
+   being shrunk to 18px (its labels need ~40px), so TIME/ACTION/DETAILS/BY
+   collided with the first row. The header must never shrink; the list absorbs
+   the pressure instead. */
+/* Header rule removed too (user order) — it was the last horizontal line under
+   the column labels. flex:none is load-bearing: .audit-main is a flex column,
+   and the header was being shrunk to 18px (its labels need ~40px), so
+   TIME/ACTION/DETAILS/BY collided with the first row. */
+.audit .audit-head{border-top:0;min-height:0;padding:14px 0 6px;flex:none}
 .audit .audit-head>span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
-.audit .ar.audit{grid-template-columns:110px 130px minmax(0,1fr) 90px}
+/* The BY track is 130px, not 90px (user order): the lane is pinned at the far
+   right of the list, and a 90px track left the "Admin" text sitting right against
+   it. Widening the track moves BY ~40px clear of the lane without touching
+   #auditBody's padding-right, so the lane column itself does not move. */
+.audit .ar.audit{grid-template-columns:110px 130px minmax(0,1fr) 130px}
 .audit .ar.audit>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .audit .bacts button{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);height:32px;box-sizing:border-box;white-space:nowrap}
 /* Audit history is a bounded, invisible window (user order): the row list
@@ -1294,15 +1762,70 @@ input,select,textarea,button{accent-color:#141414}
    whitespace with the row hairlines it already has. The cap is vh-based, not
    flex: this pane has no definite height, so a flex bound would resolve to
    content and cap nothing. */
-#auditBody{max-height:50vh;min-height:96px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-right:16px}
+/* The list fills from directly under the column headers to the footer: it is the
+   only flexible child of .audit-main, and .bk now has a definite height, so
+   max-height is gone on desktop — nothing caps it but the card itself.
+   NO mask and NO fade of any kind (user order): the earlier 24px gradient and the
+   max-height cap are both removed, not overridden.
+   padding-right reserves the scroll lane's own narrow column, and the lane is
+   inset inside it, so row text never runs under it.
+   Small screens keep a bound, because a 500-row list would otherwise own the page. */
+/* Sized from the browser window (100vh minus the fixed chrome above and below the
+   list), with --auditshare only as the minimum. The definite `height` is what
+   stops a 500-row list from stretching the page to 21,000px — that is why the
+   bound lives here instead of as a max-height. */
+/* 696 - 40 = the 40px the hidden .audit-foot gave up, handed straight back to the
+   list (user order) so no gap opens under the last row. */
+/* padding-right:48px, not 40px. The lane is 40px wide AND inset right:8px, so
+   it starts 8px inside where a 40px gutter would end — measured, a 40px gutter
+   left the BY column overlapping the hit area by 7px. The gutter must be lane +
+   inset (40 + 8). Same rule as the Setup 2 lane above: the whole hit area has to
+   sit inside padding, or a wide strip swallows row content. */
+#auditBody{flex:1 1 auto;height:calc(100vh - 656px);min-height:var(--auditshare,320px);max-height:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-right:48px}
+/* lane sits in the reserved right column, clear of the text */
+/* Audit strip (user order): hit area 12px -> 40px, thumb 4px -> 14px solid.
+   left:13px centres the 14px bar in the 40px lane ((40-14)/2).
+   #auditBody's padding-right is 40px to match the lane, for the reason recorded
+   on the Setup 2 lane above: the hit area must sit entirely inside padding, or a
+   wide strip swallows row content instead of being easy to grab. No transition
+   and no animation — the thumb darkens instantly on hover. */
+#auditBody .minibar{right:8px;width:40px}
+/* left:13px keeps the 14px bar centred in the 40px lane ((40-14)/2). Opacity
+   .42 -> .55 so the thumb reads clearly against the paper ground (user order);
+   hover .60 -> .75. Same Iroko brown, no radius, no border, no transition. */
+#auditBody .minibar-t{left:13px;width:14px;background:rgba(64,47,32,.55)}
+#auditBody .minibar:hover .minibar-t{background:rgba(64,47,32,.75)}
+@media (max-width:900px){#auditBody{max-height:60vh}}
+/* Entrance (Step 3): rows rise a fixed 240px and fade in once, 250ms ease-out,
+   transform and opacity only. 240px is a distance, not a height — it is not tied
+   to the list size, so it stays correct at any window size. All rows run together,
+   no stagger. It fires when renderAll() rebuilds the rows on open — not on
+   scroll. The !important + `html .admin-layer` prefix is REQUIRED and follows the
+   existing precedent at .pane.is-entering: there is a blanket
+   `html .terminal *{animation:none !important}` guard over the whole terminal, and
+   without beating it this rule is silently dead. Under
+   prefers-reduced-motion:reduce the no-preference query does not match, and the
+   blanket guard also applies — so it is off either way. */
+@keyframes auditRowIn{from{opacity:0;transform:translateY(240px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:no-preference){
+ html .admin-layer #backupManagerCard .audit .ar.audit:not(.audit-head){animation:auditRowIn 250ms ease-out both !important}
+}
 #auditBody::-webkit-scrollbar{display:none}
-@media (max-width:900px){#auditBody{max-height:40vh}}
-.audit-foot{display:flex;justify-content:flex-end;padding:14px 0 0}
+@media (max-width:900px){#auditBody{max-height:60vh}}
+/* Footer TOP/BOTTOM pair hidden (user order). Markup is untouched — the header
+   pair in .audit-top is the surviving way to jump. The footer's own top padding
+   goes to 0 as well, otherwise hiding the buttons would leave a 14px dead band
+   and the space would not reach the list. */
+.audit-foot{display:none;padding:0;border-top:0}
 .audit .bacts button:hover{color:var(--ink)}
-/* No bar on touch, so the gutters it lived in are dead space there. This
-   sits AFTER every scroll-region rule on purpose: at equal specificity the
-   later rule wins, so a reset placed up top would never apply. */
-@media (hover:none){.rows,.ros,.sd-recs,#auditBody,.att-records .ar-head,.sd-top{padding-right:0}}
+/* Only .sd-top keeps the touch reset. It has no mini bar, so its right padding
+   really is dead space on a touchscreen. The regions that USED to be listed here
+   (.rows, .ros, .sd-recs, #auditBody) all carry a bar that is now shown on
+   touch, so zeroing their padding removed the very gutter that bar sits in —
+   and, at equal specificity, this rule also used to beat
+   .att-records .ar-head{padding-right:28px} and desync the Attendance header
+   from its rows. Do not re-add them. */
+@media (hover:none){.sd-top{padding-right:0}}
 </style>
 </head>
 
@@ -1358,7 +1881,6 @@ input,select,textarea,button{accent-color:#141414}
             <button data-tab="students" class="on">Students</button>
             <button data-tab="attendance">Attendance</button>
             <button data-tab="setup">Setup</button>
-            <button data-tab="setup2">Setup 2</button>
             <button data-tab="backup">Backup</button>
             <button data-tab="today" style="display:none"></button>
             <button data-tab="reports" style="display:none"></button>
@@ -1556,6 +2078,52 @@ input,select,textarea,button{accent-color:#141414}
             </div>
             </div>
           </section>
+          <!-- The four list cards live here, in the same pane as the month
+               calendar: one "Setup", no divider, cards flowing straight out of
+               the month grid. id is deliberately NOT "pane-setup2" — scrollToPane()
+               and spyFromScroll() both resolve panes as getElementById("pane-"+t),
+               so a leftover pane-* id on a nested div would still be found by the
+               scroll-spy and light no nav button. -->
+          <div id="setupLists">
+          <div class="cb-events">
+          <div class="col">
+            <div class="col-top"><span class="colnum" aria-hidden="true">01</span>
+              <div class="col-titles"><h2>Classes</h2><div class="n" id="cbClassCount"></div></div>
+                <button class="add" id="cbAddClass">Add class →</button>
+            </div>
+            <button id="cbEditClass" hidden>Edit</button>
+            <div class="rows" id="cbClassRows"></div>
+          </div>
+          <div class="col">
+            <div class="col-top"><span class="colnum" aria-hidden="true">02</span>
+              <div class="col-titles"><h2>Batches</h2><div class="n" id="cbBatchCount"></div><button id="cbBatchScope" title="Show all batches" hidden></button></div>
+                <button class="add" id="cbAddBatch">Add batch →</button>
+            </div>
+            <button id="cbEditBatch" hidden>Edit</button>
+            <div class="rows" id="cbBatchRows"></div>
+          </div>
+          </div>
+          <div class="cb-events">
+          <div class="col">
+            <div class="col-top"><span class="colnum" aria-hidden="true">03</span>
+              <div class="col-titles"><h2>Holidays</h2><div class="n" id="cbHolidayCount"></div></div>
+                <button class="add" id="cbAddHoliday">Add holiday →</button>
+            </div>
+            <button id="cbEditHoliday" hidden>Edit</button>
+            <div class="rows" id="cbHolidayRows"></div>
+            <button class="viewall" id="eyeHolidaysBtn">View all <span class="va" aria-hidden="true">→</span></button>
+          </div>
+          <div class="col">
+            <div class="col-top"><span class="colnum" aria-hidden="true">04</span>
+              <div class="col-titles"><h2>Overrides</h2><div class="n" id="cbOverrideCount"></div></div>
+                <button class="add" id="cbAddOverride">Add override →</button>
+            </div>
+            <button id="cbEditOverride" hidden>Edit</button>
+            <div class="rows" id="cbOverrideRows"></div>
+            <button class="viewall" id="eyeOverrideBtn">View all <span class="va" aria-hidden="true">→</span></button>
+          </div>
+          </div>
+          </div>
           <div id="cbPageCb" hidden></div>
           <div id="cbPageHo" hidden></div>
           <div id="cbPageLabel" hidden></div>
@@ -1569,53 +2137,6 @@ input,select,textarea,button{accent-color:#141414}
           </div>
           <div id="calWorkFrac" title="Working days in view" hidden><span id="calWorkFracNum">–/–</span><span id="calWorkFracCap">Working</span></div>
           <div id="setupUndoBar" class="toast" hidden><span id="setupUndoMsg"></span><button type="button" id="setupUndoBtn">Undo</button></div>
-        </main>
-        <main class="admin-pane pane p2 hidden" id="pane-setup2">
-          <header class="bar">
-            <div class="title"><div class="num">4 lists</div><h1>Setup 2</h1></div>
-          </header>
-            <div class="cb-events">
-            <div class="col">
-              <div class="col-top"><span class="colnum" aria-hidden="true">01</span>
-                <div class="col-titles"><h2>Classes</h2>
-                  <div class="col-sub"><div class="n" id="cbClassCount"></div><button class="add" id="cbAddClass">+ Add class</button></div>
-                </div>
-              </div>
-              <button id="cbEditClass" hidden>Edit</button>
-              <div class="rows" id="cbClassRows"></div>
-            </div>
-            <div class="col">
-              <div class="col-top"><span class="colnum" aria-hidden="true">02</span>
-                <div class="col-titles"><h2>Batches</h2>
-                  <div class="col-sub"><div class="n" id="cbBatchCount"></div><button id="cbBatchScope" title="Show all batches" hidden></button><button class="add" id="cbAddBatch">+ Add batch</button></div>
-                </div>
-              </div>
-              <button id="cbEditBatch" hidden>Edit</button>
-              <div class="rows" id="cbBatchRows"></div>
-            </div>
-            </div>
-            <div class="cb-events">
-            <div class="col">
-              <div class="col-top"><span class="colnum" aria-hidden="true">03</span>
-                <div class="col-titles"><h2>Holidays</h2>
-                  <div class="col-sub"><div class="n" id="cbHolidayCount"></div><button class="add" id="cbAddHoliday">+ Add holiday</button></div>
-                </div>
-              </div>
-              <button id="cbEditHoliday" hidden>Edit</button>
-              <div class="rows" id="cbHolidayRows"></div>
-              <button class="viewall" id="eyeHolidaysBtn">View all <span class="va" aria-hidden="true">→</span></button>
-            </div>
-            <div class="col">
-              <div class="col-top"><span class="colnum" aria-hidden="true">04</span>
-                <div class="col-titles"><h2>Overrides</h2>
-                  <div class="col-sub"><div class="n" id="cbOverrideCount"></div><button class="add" id="cbAddOverride">+ Add override</button></div>
-                </div>
-              </div>
-              <button id="cbEditOverride" hidden>Edit</button>
-              <div class="rows" id="cbOverrideRows"></div>
-              <button class="viewall" id="eyeOverrideBtn">View all <span class="va" aria-hidden="true">→</span></button>
-            </div>
-            </div>
         </main>
         <!-- Backup -->
         <main class="admin-pane pane p2 hidden" id="pane-backup">
@@ -1634,8 +2155,7 @@ input,select,textarea,button{accent-color:#141414}
               <span class="bacts"><button class="dest-toggle" data-dest="gdrive" type="button">On</button>
               <button id="gdriveRefreshListBtn" type="button">Refresh list</button>
               <button id="gdriveBackupRowBtn" type="button">Back up now</button></span>
-            </div>
-            <div class="dest-detail" id="gdrivePairRow" style="display:none"><button id="gdriveDeviceStartBtn">Connect Drive</button></div>
+            <div class="gdrive-details"><div class="dest-detail" id="gdrivePairRow" style="display:none"><button id="gdriveDeviceStartBtn">Connect Drive</button></div>
             <div class="dest-detail" id="gdriveAuthBox" style="display:none">
               <div id="gdriveDeviceCodeBox" style="display:none">
                 <p>1. Visit <a id="gdriveDeviceUrlLink" href="https://www.google.com/device" target="_blank">google.com/device</a></p>
@@ -1649,6 +2169,8 @@ input,select,textarea,button{accent-color:#141414}
               <p>Cloud Storage (ATL-Attendance-Backups)</p>
               <p><button id="gdriveDisconnectBtn">Disconnect</button></p>
               <div id="gdriveFilesBody"></div>
+            </div>
+            </div>
             </div>
             <div class="br" id="destRowTelegram">
               <span class="bic" aria-hidden="true"><img src="assets/images/admin/telegram-2020.webp" alt="" width="30" height="30"></span>
@@ -1692,7 +2214,7 @@ input,select,textarea,button{accent-color:#141414}
               <span class="bic" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M8 4h13l5 5v19H8z"/><path d="M21 4v5h5M13 15h8M13 19h8M13 23h5"/></svg></span>
               <div class="audit-main">
                 <div class="audit-top">
-                  <div><h3>Audit history</h3><p class="audit-sub"><span id="auditCount"></span></p></div>
+                  <div><h3>Audit history</h3><p class="audit-sub"><span id="auditCount"></span><span class="audit-hint">Hover the right strip to scroll.</span></p></div>
                   <span class="bacts"><button id="bkJumpTop" type="button" data-bk-jump="top">Top</button> <button id="bkJumpBottom" type="button" data-bk-jump="bottom">Bottom</button> <button id="auditExportBtn">Export CSV</button> <button id="auditClearBtn" aria-disabled="true">Clear audit</button></span>
                 </div>
                 <div class="ar audit audit-head" aria-hidden="true"><span>Time</span><span>Action</span><span>Details</span><span>By</span></div>
